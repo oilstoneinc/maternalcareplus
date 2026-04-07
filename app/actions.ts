@@ -1,11 +1,12 @@
 'use server'
 
 import { db } from '@/lib/db'
-import { users, pregnancies, appointments, labTests, partnerAccess, User, NewUser, NewPregnancy } from '@/lib/db/schema'
+import { users, pregnancies, appointments, labTests, partnerAccess, messages, User, NewUser, NewPregnancy, NewMessage } from '@/lib/db/schema'
 import { currentUser } from '@clerk/nextjs/server'
-import { HospitalDashboardData, DashboardData } from '@/types'
-import { eq, desc, and, sql } from 'drizzle-orm'
+import { HospitalDashboardData, DashboardData, Message } from '@/types'
+import { eq, desc, and, or, sql } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
+import { pusherServer } from '@/lib/pusher'
 
 /**
  * Get data for the Patient (Pregnant Woman) Dashboard
@@ -347,5 +348,68 @@ export async function linkFatherViaToken(joinCode: string) {
   } catch (error) {
     console.error('Error linking father:', error)
     return { success: false, error: 'Internal server error' }
+  }
+}
+
+/**
+ * Send a chat message
+ */
+export async function sendMessage(receiverId: string, content: string, pregnancyId?: string) {
+  const user = await currentUser()
+  if (!user) throw new Error('Unauthorized')
+
+  const dbUser = await db.query.users.findFirst({
+    where: eq(users.clerkId, user.id)
+  })
+
+  if (!dbUser) throw new Error('User not found')
+
+  try {
+    const [newMessage] = await db.insert(messages).values({
+      senderId: dbUser.id,
+      receiverId,
+      pregnancyId: pregnancyId || null,
+      content,
+      status: 'sent',
+    }).returning()
+
+    // Trigger Pusher event
+    await pusherServer.trigger(`chat-${receiverId}`, 'new-message', newMessage)
+    await pusherServer.trigger(`chat-${dbUser.id}`, 'new-message', newMessage)
+
+    return { success: true, message: newMessage }
+  } catch (error) {
+    console.error('Error sending message:', error)
+    return { success: false, error: 'Failed to send message' }
+  }
+}
+
+/**
+ * Get messages between two users
+ */
+export async function getMessages(otherUserId: string) {
+  const user = await currentUser()
+  if (!user) throw new Error('Unauthorized')
+
+  const dbUser = await db.query.users.findFirst({
+    where: eq(users.clerkId, user.id)
+  })
+
+  if (!dbUser) throw new Error('User not found')
+
+  try {
+    const allMessages = await db.query.messages.findMany({
+      where: or(
+        and(eq(messages.senderId, dbUser.id), eq(messages.receiverId, otherUserId)),
+        and(eq(messages.senderId, otherUserId), eq(messages.receiverId, dbUser.id))
+      ),
+      orderBy: [desc(messages.createdAt)],
+      limit: 50
+    })
+
+    return allMessages.reverse()
+  } catch (error) {
+    console.error('Error fetching messages:', error)
+    return []
   }
 }

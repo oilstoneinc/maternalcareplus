@@ -25,3 +25,12 @@ export interface AdminDashboardData {
   allUsers: any[]
   userCounts: any[]
 }
+
+export interface Message {
+  id: string
+  senderId: string
+  receiverId: string
+  content: string
+  status: 'sent' | 'delivered' | 'read'
+  createdAt: Date
+}
