@@ -1,0 +1,351 @@
+'use server'
+
+import { db } from '@/lib/db'
+import { users, pregnancies, appointments, labTests, partnerAccess, User, NewUser, NewPregnancy } from '@/lib/db/schema'
+import { currentUser } from '@clerk/nextjs/server'
+import { HospitalDashboardData, DashboardData } from '@/types'
+import { eq, desc, and, sql } from 'drizzle-orm'
+import { revalidatePath } from 'next/cache'
+
+/**
+ * Get data for the Patient (Pregnant Woman) Dashboard
+ */
+export async function getPatientDashboardData(): Promise<DashboardData | null> {
+  const user = await currentUser()
+  if (!user) throw new Error('Unauthorized')
+
+  // Get user from our database
+  const dbUser = await db.query.users.findFirst({
+    where: eq(users.clerkId, user.id),
+  })
+
+  if (!dbUser) return null
+
+  // Get active pregnancy
+  const pregnancy = await db.query.pregnancies.findFirst({
+    where: and(
+      eq(pregnancies.userId, dbUser.id),
+      eq(pregnancies.status, 'active')
+    ),
+    with: {
+      hospital: true,
+    }
+  })
+
+  if (!pregnancy) return { user: dbUser, pregnancy: null, appointments: [], labs: [] }
+
+  // Get upcoming appointments
+  const upcomingAppointments = await db.query.appointments.findMany({
+    where: and(
+      eq(appointments.pregnancyId, pregnancy.id),
+      sql`${appointments.scheduledDate} >= NOW()`
+    ),
+    orderBy: [desc(appointments.scheduledDate)],
+    limit: 5,
+  })
+
+  // Get recent lab results
+  const recentLabs = await db.query.labTests.findMany({
+    where: eq(labTests.pregnancyId, pregnancy.id),
+    orderBy: [desc(labTests.resultDate)],
+    limit: 3,
+  })
+
+  return {
+    user: dbUser,
+    pregnancy,
+    appointments: upcomingAppointments,
+    labs: recentLabs,
+  }
+}
+
+/**
+ * Get data for the Hospital Dashboard
+ */
+export async function getHospitalDashboardData(): Promise<HospitalDashboardData | null> {
+  const user = await currentUser()
+  if (!user) throw new Error('Unauthorized')
+
+  // Get user and verify hospital_staff role
+  const dbUser = await db.query.users.findFirst({
+    where: eq(users.clerkId, user.id),
+  })
+
+  if (!dbUser || (dbUser.role !== 'hospital_staff' && dbUser.role !== 'admin')) {
+    throw new Error('Unauthorized role')
+  }
+
+  // Get all patients (mocking for now, could be filtered by hospital if needed)
+  const allPatients = await db.query.users.findMany({
+    where: eq(users.role, 'pregnant_woman'),
+    limit: 50,
+  })
+
+  // Get active pregnancies
+  const activePregnancies = await db.query.pregnancies.findMany({
+    where: eq(pregnancies.status, 'active'),
+    limit: 50,
+  })
+
+  // Get today's appointments
+  const todayAppointments = await db.query.appointments.findMany({
+    where: sql`DATE(${appointments.scheduledDate}) = CURRENT_DATE`,
+    limit: 20,
+  })
+
+  return {
+    patients: allPatients,
+    pregnancies: activePregnancies,
+    appointments: todayAppointments,
+  }
+}
+
+/**
+ * Get data for the Midwife Dashboard
+ */
+export async function getMidwifeDashboardData() {
+  const user = await currentUser()
+  if (!user) throw new Error('Unauthorized')
+
+  // Get midwife record
+  const dbUser = await db.query.users.findFirst({
+    where: eq(users.clerkId, user.id),
+  })
+
+  if (!dbUser || dbUser.role !== 'midwife' && dbUser.role !== 'admin') {
+    throw new Error('Unauthorized role')
+  }
+
+  // Get assigned patients/pregnancies (mocking for now, could be via a 'assignedMidwifeId' field)
+  const patients = await db.query.users.findMany({
+    where: eq(users.role, 'pregnant_woman'),
+    limit: 20,
+  })
+
+  // Get recent messages
+  // const recentMessages = ...
+
+  return {
+    midwife: dbUser,
+    patients,
+  }
+}
+
+
+/**
+ * Get data for the Father Dashboard
+ */
+export async function getFatherDashboardData() {
+  const user = await currentUser()
+  if (!user) throw new Error('Unauthorized')
+
+  // Get father record
+  const dbUser = await db.query.users.findFirst({
+    where: eq(users.clerkId, user.id),
+  })
+
+  if (!dbUser || dbUser.role !== 'father' && dbUser.role !== 'admin') {
+    throw new Error('Unauthorized role')
+  }
+
+  // Get linked pregnancy via partner_access
+  const access = await db.query.partnerAccess.findFirst({
+    where: eq(partnerAccess.partnerId, dbUser.id),
+    with: {
+      pregnancy: true
+    }
+  })
+
+  const pregnancy = access?.pregnancy || null
+
+  // Get upcoming appointments
+  const upcomingAppointments = pregnancy ? await db.query.appointments.findMany({
+    where: eq(appointments.pregnancyId, pregnancy.id),
+    orderBy: [desc(appointments.scheduledDate)],
+    limit: 5,
+  }) : []
+
+  // Get lab results (User requested fathers see all)
+  const labs = pregnancy ? await db.query.labTests.findMany({
+    where: eq(labTests.pregnancyId, pregnancy.id),
+    orderBy: [desc(labTests.resultDate)],
+    limit: 10
+  }) : []
+
+  return {
+    user: dbUser,
+    pregnancy,
+    appointments: upcomingAppointments,
+    labs
+  }
+}
+
+/**
+ * Get data for the Admin Dashboard
+ */
+export async function getAdminDashboardData() {
+  const user = await currentUser()
+  if (!user) throw new Error('Unauthorized')
+
+  // Get admin record
+  const dbUser = await db.query.users.findFirst({
+    where: eq(users.clerkId, user.id),
+  })
+
+  if (!dbUser || dbUser.role !== 'admin') {
+    throw new Error('Unauthorized role')
+  }
+
+  // Get all users
+  const allUsers = await db.query.users.findMany({
+    orderBy: [desc(users.createdAt)],
+    limit: 50,
+  })
+
+  // Get total counts
+  const userCounts = await db.select({
+    role: users.role,
+    count: sql`count(*)`,
+  }).from(users).groupBy(users.role)
+
+  return {
+    user: dbUser,
+    allUsers,
+    userCounts,
+  }
+}
+
+/**
+ * Onboard a new patient
+ */
+export async function onboardPatient(formData: any) {
+  const user = await currentUser()
+  if (!user) throw new Error('Unauthorized')
+
+  // This would typically involve:
+  // 1. Creating the Clerk user (via Clerk SDK, if not already done)
+  // 2. Creating the user record in our DB
+  // 3. Creating the pregnancy record
+  
+  // NOTE: For now, we assume the user might already exist in Clerk or is being created
+  // Since we only have the clerk user ID available here, let's simplify for the demo
+  
+  try {
+    // 1. Create DB User
+    // In a real app, you'd use the Clerk SDK to create the user first
+    // and then use the clerkId here.
+    
+    // We'll simulate creating a user record
+    const [newUser] = await db.insert(users).values({
+      clerkId: `temp_${Date.now()}`, // Placeholder
+      email: formData.email,
+      firstName: formData.firstName,
+      lastName: formData.lastName,
+      phone: formData.phone,
+      role: 'pregnant_woman',
+      address: formData.address,
+    }).returning()
+
+    // 2. Create Pregnancy record
+    await db.insert(pregnancies).values({
+      userId: newUser.id,
+      hospitalId: formData.hospitalId || '00000000-0000-0000-0000-000000000000', // Default for now
+      gravidity: parseInt(formData.gravidity),
+      parity: parseInt(formData.parity),
+      lmp: new Date(formData.lmp),
+      edd: new Date(new Date(formData.lmp).setDate(new Date(formData.lmp).getDate() + 280)), // Rule of thumb
+      status: 'active',
+    })
+
+    revalidatePath('/dashboard/hospital')
+    return { success: true }
+  } catch (error) {
+    console.error('Onboarding error:', error)
+    return { success: false, error: 'Failed to onboard patient' }
+  }
+}
+
+/**
+ * Generate a join code for a father to link to a pregnancy
+ */
+export async function generateFatherJoinCode(pregnancyId: string) {
+  const user = await currentUser()
+  if (!user) throw new Error('Unauthorized')
+
+  // Verify ownership or staff role
+  // (Simplified for demo)
+
+  const joinCode = Math.random().toString(36).substring(2, 8).toUpperCase()
+  const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000) // 24 hours
+
+  try {
+    await db.update(pregnancies)
+      .set({
+        fatherJoinCode: joinCode,
+        fatherJoinCodeExpires: expiresAt
+      })
+      .where(eq(pregnancies.id, pregnancyId))
+
+    revalidatePath('/dashboard/pregnant-woman')
+    return { success: true, code: joinCode }
+  } catch (error) {
+    console.error('Error generating join code:', error)
+    return { success: false, error: 'Failed to generate code' }
+  }
+}
+
+/**
+ * Link a father to a pregnancy using a join code
+ */
+export async function linkFatherViaToken(joinCode: string) {
+  const user = await currentUser()
+  if (!user) throw new Error('Unauthorized')
+
+  // Get DB user
+  const dbUser = await db.query.users.findFirst({
+    where: eq(users.clerkId, user.id)
+  })
+
+  if (!dbUser || dbUser.role !== 'father') {
+    return { success: false, error: 'Only fathers can join pregnancies' }
+  }
+
+  try {
+    // Find valid pregnancy
+    const pregnancy = await db.query.pregnancies.findFirst({
+      where: and(
+        eq(pregnancies.fatherJoinCode, joinCode.toUpperCase()),
+        sql`${pregnancies.fatherJoinCodeExpires} > NOW()`
+      )
+    })
+
+    if (!pregnancy) {
+      return { success: false, error: 'Invalid or expired code' }
+    }
+
+    // Create partner access
+    await db.insert(partnerAccess).values({
+      pregnantWomanId: pregnancy.userId,
+      partnerId: dbUser.id,
+      pregnancyId: pregnancy.id,
+      canViewAppointments: true,
+      canViewLabResults: true,
+      canViewProgress: true,
+      canReceiveNotifications: true
+    })
+
+    // Clear code (one-time use)
+    await db.update(pregnancies)
+      .set({
+        fatherJoinCode: null,
+        fatherJoinCodeExpires: null
+      })
+      .where(eq(pregnancies.id, pregnancy.id))
+
+    revalidatePath('/dashboard/father')
+    return { success: true }
+  } catch (error) {
+    console.error('Error linking father:', error)
+    return { success: false, error: 'Internal server error' }
+  }
+}
