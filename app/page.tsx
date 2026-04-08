@@ -27,7 +27,7 @@ export default async function HomePage() {
       <div className="max-w-4xl mx-auto text-center">
         <div className="mb-8">
           <h1 className="text-4xl md:text-6xl font-bold text-gray-900 mb-4">
-            Maternal Care Ghana
+            MaternalCare Plus
           </h1>
           <p className="text-xl md:text-2xl text-gray-600 mb-8">
             Digital Antenatal Care Management System

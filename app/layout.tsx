@@ -7,8 +7,8 @@ import { ThemeProvider } from '@/components/theme-provider'
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
-  title: 'Maternal Care Ghana - Digital Antenatal Care',
-  description: 'Digital platform for managing antenatal care in Ghana',
+  title: 'MaternalCare Plus - Digital Antenatal Care',
+  description: 'Digital platform for managing antenatal care',
 }
 
 export default function RootLayout({

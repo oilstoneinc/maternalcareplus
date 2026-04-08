@@ -134,7 +134,7 @@ export default function HospitalDashboardClient({ user, data }: { user: User | n
                   <p className="text-sm font-medium text-gray-600">Active Pregnancies</p>
                   <p className="text-2xl font-bold text-gray-900">{stats.activePregnancies}</p>
                 </div>
-                <Baby className="w-8 h-8 text-blue-600" />
+                <Baby className="w-8 h-8 text-pink-600" />
               </div>
             </CardContent>
           </Card>
@@ -158,7 +158,7 @@ export default function HospitalDashboardClient({ user, data }: { user: User | n
                   <p className="text-sm font-medium text-gray-600">Today's Appointments</p>
                   <p className="text-2xl font-bold text-gray-900">{stats.upcomingAppointments}</p>
                 </div>
-                <Calendar className="w-8 h-8 text-green-600" />
+                <Calendar className="w-8 h-8 text-pink-600" />
               </div>
             </CardContent>
           </Card>
