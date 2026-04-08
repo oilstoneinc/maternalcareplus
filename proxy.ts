@@ -36,8 +36,8 @@ export default clerkMiddleware(async (auth, req) => {
         case "admin":
           return NextResponse.redirect(new URL("/dashboard/admin", req.url));
         default:
-          // Default fallback to hospital dashboard for new signups
-          return NextResponse.redirect(new URL("/dashboard/hospital", req.url));
+          // In a closed-loop system, unknown users are sent to unauthorized
+          return NextResponse.redirect(new URL("/unauthorized", req.url));
       }
     }
 
