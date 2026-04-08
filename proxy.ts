@@ -36,25 +36,25 @@ export default clerkMiddleware(async (auth, req) => {
         case "admin":
           return NextResponse.redirect(new URL("/dashboard/admin", req.url));
         default:
-          // Default fallback if role is somehow unset
-          return NextResponse.redirect(new URL("/dashboard/pregnant-woman", req.url));
+          // Default fallback to hospital dashboard for new signups
+          return NextResponse.redirect(new URL("/dashboard/hospital", req.url));
       }
     }
 
-    // Protect role-specific routes
-    if (pathname.startsWith("/dashboard/hospital") && role !== "hospital_staff" && role !== "admin") {
+    // Protect role-specific routes (only if role is explicitly set to something else)
+    if (pathname.startsWith("/dashboard/hospital") && role && role !== "hospital_staff" && role !== "admin") {
       return NextResponse.redirect(new URL("/unauthorized", req.url));
     }
-    if (pathname.startsWith("/dashboard/midwife") && role !== "midwife" && role !== "admin") {
+    if (pathname.startsWith("/dashboard/midwife") && role && role !== "midwife" && role !== "admin") {
       return NextResponse.redirect(new URL("/unauthorized", req.url));
     }
-    if (pathname.startsWith("/dashboard/pregnant-woman") && role !== "pregnant_woman" && role !== "admin") {
+    if (pathname.startsWith("/dashboard/pregnant-woman") && role && role !== "pregnant_woman" && role !== "admin") {
       return NextResponse.redirect(new URL("/unauthorized", req.url));
     }
-    if (pathname.startsWith("/dashboard/father") && role !== "father" && role !== "admin") {
+    if (pathname.startsWith("/dashboard/father") && role && role !== "father" && role !== "admin") {
       return NextResponse.redirect(new URL("/unauthorized", req.url));
     }
-    if (pathname.startsWith("/dashboard/admin") && role !== "admin") {
+    if (pathname.startsWith("/dashboard/admin") && role && role !== "admin") {
       return NextResponse.redirect(new URL("/unauthorized", req.url));
     }
   }
