@@ -64,40 +64,46 @@ export async function getPatientDashboardData(): Promise<DashboardData | null> {
  * Get data for the Hospital Dashboard
  */
 export async function getHospitalDashboardData(): Promise<HospitalDashboardData | null> {
-  const user = await currentUser()
-  if (!user) throw new Error('Unauthorized')
+  try {
+    const user = await currentUser()
+    if (!user) return null
 
-  // Get user and verify hospital_staff role
-  const dbUser = await db.query.users.findFirst({
-    where: eq(users.clerkId, user.id),
-  })
+    // Get user and verify hospital_staff role
+    const dbUser = await db.query.users.findFirst({
+      where: eq(users.clerkId, user.id),
+    })
 
-  if (!dbUser || (dbUser.role !== 'hospital_staff' && dbUser.role !== 'admin')) {
-    throw new Error('Unauthorized role')
-  }
+    if (!dbUser || (dbUser.role !== 'hospital_staff' && dbUser.role !== 'admin')) {
+      console.warn(`Unauthorized role access attempt to hospital dashboard by ${user.id}`)
+      return null
+    }
 
-  // Get all patients (mocking for now, could be filtered by hospital if needed)
-  const allPatients = await db.query.users.findMany({
-    where: eq(users.role, 'pregnant_woman'),
-    limit: 50,
-  })
+    // Get all patients
+    const allPatients = await db.query.users.findMany({
+      where: eq(users.role, 'pregnant_woman'),
+      limit: 50,
+    })
 
-  // Get active pregnancies
-  const activePregnancies = await db.query.pregnancies.findMany({
-    where: eq(pregnancies.status, 'active'),
-    limit: 50,
-  })
+    // Get active pregnancies
+    const activePregnancies = await db.query.pregnancies.findMany({
+      where: eq(pregnancies.status, 'active'),
+      limit: 50,
+    })
 
-  // Get today's appointments
-  const todayAppointments = await db.query.appointments.findMany({
-    where: sql`DATE(${appointments.scheduledDate}) = CURRENT_DATE`,
-    limit: 20,
-  })
+    // Get today's appointments
+    const todayAppointments = await db.query.appointments.findMany({
+      where: sql`DATE(${appointments.scheduledDate}) = CURRENT_DATE`,
+      limit: 20,
+    })
 
-  return {
-    patients: allPatients,
-    pregnancies: activePregnancies,
-    appointments: todayAppointments,
+    return {
+      patients: allPatients,
+      pregnancies: activePregnancies,
+      appointments: todayAppointments,
+    }
+  } catch (error) {
+    console.error('Error in getHospitalDashboardData:', error)
+    return null
   }
 }
 

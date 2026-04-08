@@ -10,5 +10,9 @@ export default async function HospitalDashboard() {
   
   const data = await getHospitalDashboardData()
 
+  if (!data) {
+    redirect('/unauthorized')
+  }
+
   return <HospitalDashboardClient user={user} data={data} />
 }

@@ -1,4 +1,5 @@
 import { currentUser } from '@clerk/nextjs/server'
+import { redirect } from 'next/navigation'
 
 export async function getCurrentUser() {
   return await currentUser()
@@ -15,7 +16,7 @@ export async function getUserRole() {
 export async function requireAuth() {
   const user = await getCurrentUser()
   if (!user) {
-    throw new Error('Authentication required')
+    redirect('/sign-in')
   }
   return user
 }
@@ -27,7 +28,7 @@ export async function requireRole(role: string | string[]) {
   const allowedRoles = Array.isArray(role) ? role : [role]
   
   if (!userRole || allowedRoles.indexOf(userRole) === -1) {
-    throw new Error(`Access denied. Required role: ${allowedRoles.join(' or ')}`)
+    redirect('/unauthorized')
   }
   
   return user
