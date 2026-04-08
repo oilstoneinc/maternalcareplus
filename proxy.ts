@@ -22,8 +22,8 @@ export default clerkMiddleware(async (auth, req) => {
     const role = (sessionClaims?.publicMetadata as any)?.role || (sessionClaims?.unsafeMetadata as any)?.role;
     const pathname = req.nextUrl.pathname;
 
-    // Redirect authenticated users from root to their dashboard
-    if (pathname === "/") {
+    // Redirect authenticated users from root or plain dashboard directly to their specific role dashboard
+    if (pathname === "/" || pathname === "/dashboard") {
       switch (role) {
         case "pregnant_woman":
           return NextResponse.redirect(new URL("/dashboard/pregnant-woman", req.url));
@@ -36,7 +36,8 @@ export default clerkMiddleware(async (auth, req) => {
         case "admin":
           return NextResponse.redirect(new URL("/dashboard/admin", req.url));
         default:
-          return NextResponse.redirect(new URL("/dashboard", req.url));
+          // Default fallback if role is somehow unset
+          return NextResponse.redirect(new URL("/dashboard/pregnant-woman", req.url));
       }
     }
 
