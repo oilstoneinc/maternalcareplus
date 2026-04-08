@@ -1,13 +1,24 @@
-import { currentUser } from '@clerk/nextjs/server'
+import { currentUser, createClerkClient } from '@clerk/nextjs/server'
 import { redirect } from 'next/navigation'
+
+const clerk = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY })
 
 export async function getCurrentUser() {
   return await currentUser()
 }
 
-export async function getUserRole() {
+/**
+ * Gets the user's role, with an optional "live" check that bypasses
+ * cached session claims by calling the Clerk API directly.
+ */
+export async function getUserRole(live = false) {
   const user = await getCurrentUser()
   if (!user) return null
+  
+  if (live) {
+    const liveUser = await clerk.users.getUser(user.id)
+    return liveUser.publicMetadata?.role as string || null
+  }
   
   // Get user role from public metadata
   return user.publicMetadata?.role as string || null
