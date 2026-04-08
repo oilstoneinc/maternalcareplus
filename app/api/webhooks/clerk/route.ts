@@ -6,36 +6,28 @@ import { users, hospitals } from '@/lib/db/schema'
 import { eq } from 'drizzle-orm'
 
 export async function POST(req: Request) {
-  // Found in the Clerk Dashboard -> Webhooks -> Webhook setup page
   const WEBHOOK_SECRET = process.env.WEBHOOK_SECRET
  
   if (!WEBHOOK_SECRET) {
-    throw new Error('Please add WEBHOOK_SECRET from Clerk Dashboard to your .env file')
+    console.error('Missing WEBHOOK_SECRET in environment variables')
+    return new Response('Error: Missing webhook secret', { status: 500 })
   }
  
-  // Get the headers
   const headerPayload = await headers();
   const svix_id = headerPayload.get("svix-id");
   const svix_timestamp = headerPayload.get("svix-timestamp");
   const svix_signature = headerPayload.get("svix-signature");
  
-  // If there are no headers, error out
   if (!svix_id || !svix_timestamp || !svix_signature) {
-    return new Response('Error occured -- no svix headers found', {
-      status: 400
-    })
+    return new Response('Error: Missing svix headers', { status: 400 })
   }
  
-  // Get the body
   const payload = await req.json()
   const body = JSON.stringify(payload);
- 
-  // Create a new Svix instance with your secret.
   const wh = new Webhook(WEBHOOK_SECRET);
  
   let evt: WebhookEvent
  
-  // Verify the payload using the headers
   try {
     evt = wh.verify(body, {
       "svix-id": svix_id,
@@ -44,61 +36,84 @@ export async function POST(req: Request) {
     }) as WebhookEvent
   } catch (err) {
     console.error('Error verifying webhook:', err);
-    return new Response('Error validating webhook payload', {
-      status: 400
-    })
+    return new Response('Error validating webhook payload', { status: 400 })
   }
 
-  // Handle the webhook logic
   const eventType = evt.type;
 
-  if (eventType === 'user.created') {
-    const { id, email_addresses, first_name, last_name, unsafe_metadata, public_metadata } = evt.data;
-    
+  // HANDLE USER CREATION & UPDATES (Unified via Upsert)
+  if (eventType === 'user.created' || eventType === 'user.updated') {
+    const { id, email_addresses, first_name, last_name, unsafe_metadata, public_metadata, image_url } = evt.data;
     const primaryEmail = email_addresses[0]?.email_address || 'unknown@email.com';
-    
-    // Clerk might put it in unsafe or public metadata depending on how we set it.
     const metadataRole = (unsafe_metadata?.role || public_metadata?.role) as string;
-    const role = (metadataRole as 'pregnant_woman' | 'father' | 'midwife' | 'hospital_staff' | 'admin') || 'hospital_staff';
+    const role = (metadataRole as any) || 'hospital_staff';
     const phone = (unsafe_metadata?.phone as string) || null;
 
     try {
-      // 1. Insert user into Database users table
+      // UPSERT USER: This handles both creation and updates seamlessly
       await db.insert(users).values({
         clerkId: id,
         email: primaryEmail,
-        firstName: first_name || 'Hospital',
-        lastName: last_name || 'Staff',
+        firstName: first_name || 'User',
+        lastName: last_name || '',
         phone: phone,
         role: role,
         isVerified: true,
+        isActive: true,
+      }).onConflictDoUpdate({
+        target: users.clerkId,
+        set: {
+          email: primaryEmail,
+          firstName: first_name || 'User',
+          lastName: last_name || '',
+          phone: phone,
+          role: role,
+          updatedAt: new Date(),
+        }
       })
 
-      // 2. Provision hospital record if this is a hospital sign up
+      // If it's a hospital staff, ensure a hospital record exists
       if (role === 'hospital_staff') {
-         await db.insert(hospitals).values({
-            name: `${first_name || 'New'} Hospital/Clinic`,
+        const existingHospital = await db.query.hospitals.findFirst({
+          where: eq(hospitals.email, primaryEmail)
+        })
+
+        if (!existingHospital) {
+          await db.insert(hospitals).values({
+            name: `${first_name}'s Medical Center`,
             code: `HSP-${Math.floor(Math.random() * 100000)}`,
-            address: 'Update Address from Dashboard',
-            region: 'Greater Accra', // default example
+            address: 'Default Address',
+            region: 'Greater Accra',
             city: 'Accra',
             phone: phone || '0000000000',
             email: primaryEmail,
             type: 'Hospital'
-         })
+          })
+        }
       }
 
-      console.log(`User ${id} successfully synchronized to DB with role ${role}`);
-    } catch (dbError) {
-      console.error('Error saving new Clerk user to DB:', dbError);
-      return new Response('Database synchronization failed', { status: 500 });
+      console.log(`User ${id} (${eventType}) synchronized successfully.`);
+    } catch (err) {
+      console.error('Database sync error:', err);
+      return new Response('Database sync failed', { status: 500 })
     }
   }
 
-  if (eventType === 'user.updated') {
-     // Handle user logic updates if needed
-     console.log('Update event received for', evt.data.id)
+  // HANDLE USER DELETION
+  if (eventType === 'user.deleted') {
+    const { id } = evt.data;
+    try {
+      // We deactivate instead of delete to preserve historic medical records
+      await db.update(users)
+        .set({ isActive: false, updatedAt: new Date() })
+        .where(eq(users.clerkId, id!))
+      
+      console.log(`User ${id} deactivated in database.`);
+    } catch (err) {
+      console.error('Deletion sync error:', err);
+      return new Response('Deletion sync failed', { status: 500 })
+    }
   }
 
-  return new Response('Webhook received gracefully', { status: 200 })
+  return new Response('Success', { status: 200 })
 }
