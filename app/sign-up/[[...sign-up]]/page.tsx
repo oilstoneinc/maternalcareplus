@@ -5,7 +5,8 @@ import { useSignUp } from '@clerk/nextjs'
 import { useRouter } from 'next/navigation'
 
 export default function SignUpPage() {
-  const { isLoaded, signUp, setActive } = useSignUp()
+  const { signUp, errors, fetchStatus } = useSignUp()
+  const isLoaded = fetchStatus === 'idle' && !!signUp
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [firstName, setFirstName] = useState('')
@@ -18,20 +19,20 @@ export default function SignUpPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!isLoaded) return
+    if (!isLoaded || !signUp) return
 
     setLoading(true)
     setError('')
 
     try {
-      const result = await signUp.create({
+      await signUp.password({
         emailAddress: email,
         password,
         firstName,
         lastName,
       })
 
-      if (result.status === 'complete') {
+      if (signUp.status === 'complete') {
         // Update user metadata with role and additional info
         await signUp.update({
           unsafeMetadata: {
@@ -40,8 +41,13 @@ export default function SignUpPage() {
           },
         })
 
-        await setActive({ session: result.createdSessionId })
-        router.push('/dashboard')
+        await signUp.finalize({
+          navigate: (opts: any) => {
+            const { decorateUrl } = opts;
+            const targetUrl = decorateUrl ? decorateUrl('/dashboard') : '/dashboard';
+            router.push(targetUrl);
+          },
+        })
       } else {
         // Handle incomplete sign up
         console.log('Sign up incomplete')
@@ -69,10 +75,11 @@ export default function SignUpPage() {
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="grid md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label htmlFor="firstName" className="block text-sm font-medium text-gray-700 mb-2">
                   First Name
                 </label>
                 <input
+                  id="firstName"
                   type="text"
                   value={firstName}
                   onChange={(e) => setFirstName(e.target.value)}
@@ -82,10 +89,11 @@ export default function SignUpPage() {
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label htmlFor="lastName" className="block text-sm font-medium text-gray-700 mb-2">
                   Last Name
                 </label>
                 <input
+                  id="lastName"
                   type="text"
                   value={lastName}
                   onChange={(e) => setLastName(e.target.value)}
@@ -96,10 +104,11 @@ export default function SignUpPage() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
                 Email Address
               </label>
               <input
+                id="email"
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -109,26 +118,30 @@ export default function SignUpPage() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-2">
                 Phone Number
               </label>
               <input
+                id="phone"
                 type="tel"
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
                 placeholder="+233XXXXXXXXX"
+                title="Phone Number"
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-transparent"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label htmlFor="role" className="block text-sm font-medium text-gray-700 mb-2">
                 I am a...
               </label>
               <select
+                id="role"
                 value={role}
                 onChange={(e) => setRole(e.target.value)}
                 required
+                title="Select your role"
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-transparent"
               >
                 <option value="">Select your role</option>
@@ -140,10 +153,11 @@ export default function SignUpPage() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
                 Password
               </label>
               <input
+                id="password"
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}

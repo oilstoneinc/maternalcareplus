@@ -1,0 +1,17 @@
+
+> maternal-care-plus@0.1.0 build
+> next build
+
+ΓÜá Invalid next.config.js options detected: 
+ΓÜá     Unrecognized key(s) in object: 'serverComponentsExternalPackages' at "experimental"
+ΓÜá See more info here: https://nextjs.org/docs/messages/invalid-next-config
+ΓÜá `experimental.serverComponentsExternalPackages` has been moved to `serverExternalPackages`. Please update your next.config.js file accordingly.
+Γû▓ Next.js 16.2.2 (Turbopack)
+- Environments: .env
+- Experiments (use with caution):
+  ? serverComponentsExternalPackages (invalid experimental key)
+
+
+> Build error occurred
+Error: Both middleware file "./middleware.ts" and proxy file "./proxy.ts" are detected. Please use "./proxy.ts" only. Learn more: https://nextjs.org/docs/messages/middleware-to-proxy
+    at ignore-listed frames

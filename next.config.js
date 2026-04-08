@@ -1,8 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  experimental: {
-    serverComponentsExternalPackages: ['@neondatabase/serverless']
-  },
+  serverExternalPackages: ['@neondatabase/serverless'],
   env: {
     NEON_DATABASE_URL: process.env.NEON_DATABASE_URL,
     CLERK_SECRET_KEY: process.env.CLERK_SECRET_KEY,

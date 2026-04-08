@@ -1,0 +1,36 @@
+
+> maternal-care-plus@0.1.0 build
+> next build
+
+Γû▓ Next.js 16.2.2 (Turbopack)
+- Environments: .env
+
+  Creating an optimized production build ...
+Γ£ô Compiled successfully in 34.0s
+  Running TypeScript ...
+  Finished TypeScript in 29.4s ...
+  Collecting page data using 7 workers ...
+  Generating static pages using 7 workers (0/9) ...
+  Generating static pages using 7 workers (2/9) 
+  Generating static pages using 7 workers (4/9) 
+  Generating static pages using 7 workers (6/9) 
+Γ£ô Generating static pages using 7 workers (9/9) in 1670ms
+  Finalizing page optimization ...
+
+Route (app)
+Γöî ╞Æ /
+Γö£ ╞Æ /_not-found
+Γö£ ╞Æ /dashboard/admin
+Γö£ ╞Æ /dashboard/chat
+Γö£ ╞Æ /dashboard/father
+Γö£ ╞Æ /dashboard/hospital
+Γö£ ╞Æ /dashboard/midwife
+Γö£ ╞Æ /dashboard/pregnant-woman
+Γö£ ╞Æ /sign-in/[[...sign-in]]
+Γöö ╞Æ /sign-up/[[...sign-up]]
+
+
+╞Æ Proxy (Middleware)
+
+╞Æ  (Dynamic)  server-rendered on demand
+

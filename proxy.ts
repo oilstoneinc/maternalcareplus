@@ -8,13 +8,13 @@ const isPublicRoute = createRouteMatcher([
   "/api/webhooks(.*)",
 ]);
 
-export default clerkMiddleware((auth, req) => {
-  const { userId, sessionClaims } = auth();
-
+export default clerkMiddleware(async (auth, req) => {
   // If the route is not public and the user is not authenticated, protect it
   if (!isPublicRoute(req)) {
-    auth().protect();
+    await auth.protect();
   }
+
+  const { userId, sessionClaims } = await auth();
 
   // Handle role-based redirections for authenticated users
   if (userId) {
@@ -60,5 +60,8 @@ export default clerkMiddleware((auth, req) => {
 });
 
 export const config = {
-  matcher: ["/((?!.+\\.[\\w]+$|_next).*)", "/", "/(api|trpc)(.*)"],
+  matcher: [
+    '/((?!_next|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)',
+    '/(api|trpc)(.*)',
+  ],
 };
