@@ -78,9 +78,11 @@ export async function POST(req: Request) {
           where: eq(hospitals.email, primaryEmail)
         })
 
+        let hospitalId = existingHospital?.id;
+
         if (!existingHospital) {
-          await db.insert(hospitals).values({
-            name: `${first_name}'s Medical Center`,
+          const [newHospital] = await db.insert(hospitals).values({
+            name: first_name && first_name !== 'User' ? `${first_name}'s Medical Center` : `Pending Institutional Setup (${primaryEmail})`,
             code: `HSP-${Math.floor(Math.random() * 100000)}`,
             address: 'Default Address',
             region: 'Greater Accra',
@@ -88,7 +90,15 @@ export async function POST(req: Request) {
             phone: phone || '0000000000',
             email: primaryEmail,
             type: 'Hospital'
-          })
+          }).returning()
+          hospitalId = newHospital.id;
+        }
+
+        // Link the user to the hospital
+        if (hospitalId) {
+          await db.update(users)
+            .set({ hospitalId })
+            .where(eq(users.clerkId, id))
         }
       }
 

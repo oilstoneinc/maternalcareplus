@@ -24,6 +24,7 @@ export const users = pgTable('users', {
   emergencyPhone: text('emergency_phone'),
   isVerified: boolean('is_verified').default(false),
   isActive: boolean('is_active').default(true),
+  hospitalId: uuid('hospital_id').references(() => hospitals.id),
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow(),
 })

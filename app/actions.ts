@@ -1,7 +1,7 @@
 'use server'
 
 import { db } from '@/lib/db'
-import { users, pregnancies, appointments, labTests, partnerAccess, messages, User, NewUser, NewPregnancy, NewMessage } from '@/lib/db/schema'
+import { users, pregnancies, appointments, labTests, partnerAccess, messages, User, NewUser, NewPregnancy, NewMessage, hospitals } from '@/lib/db/schema'
 import { currentUser, clerkClient } from '@clerk/nextjs/server'
 import { HospitalDashboardData, DashboardData, Message } from '@/types'
 import { eq, desc, and, or, sql } from 'drizzle-orm'
@@ -206,7 +206,12 @@ export async function getAdminDashboardData() {
   // Get all users
   const allUsers = await db.query.users.findMany({
     orderBy: [desc(users.createdAt)],
-    limit: 50,
+    limit: 100,
+  })
+
+  // Get all hospitals
+  const allHospitals = await db.query.hospitals.findMany({
+    orderBy: [desc(hospitals.name)],
   })
 
   // Get total counts
@@ -218,7 +223,29 @@ export async function getAdminDashboardData() {
   return {
     user: dbUser,
     allUsers,
+    allHospitals,
     userCounts,
+  }
+}
+
+/**
+ * Manually assign a user to a hospital
+ */
+export async function assignUserToHospital(userId: string, hospitalId: string) {
+  try {
+    // Current user checking
+    const curUser = await currentUser()
+    if (!curUser) throw new Error('Unauthorized')
+
+    await db.update(users)
+      .set({ hospitalId, updatedAt: new Date() })
+      .where(eq(users.id, userId))
+    
+    revalidatePath('/dashboard/admin')
+    return { success: true }
+  } catch (error) {
+    console.error('Assignment error:', error)
+    return { success: false, error: 'Failed to assign hospital' }
   }
 }
 
