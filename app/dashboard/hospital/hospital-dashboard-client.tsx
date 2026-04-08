@@ -98,8 +98,8 @@ export default function HospitalDashboardClient({ user, data }: { user: User | n
         {/* Header */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Hospital Dashboard</h1>
-            <p className="text-gray-600 mt-1">Manage antenatal care patients and appointments</p>
+            <h1 className="text-3xl font-bold text-gray-900">MaternalCare Plus</h1>
+            <p className="text-gray-600 mt-1">Hospital Management Console</p>
           </div>
           <div className="flex gap-3 mt-4 md:mt-0">
             <Button onClick={() => setShowOnboarding(true)} className="bg-pink-600 hover:bg-pink-700">
@@ -430,13 +430,12 @@ function PatientOnboardingForm({ onSuccess }: { onSuccess: () => void }) {
     <form onSubmit={handleSubmit} className="space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">First Name</label>
+          <label htmlFor="firstName" className="block text-sm font-medium text-gray-700 mb-2">First Name</label>
             <input
               type="text"
               required
               id="firstName"
               placeholder="First Name"
-              aria-label="First Name"
               value={formData.firstName}
               onChange={(e) => setFormData({...formData, firstName: e.target.value})}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-transparent"
@@ -444,13 +443,12 @@ function PatientOnboardingForm({ onSuccess }: { onSuccess: () => void }) {
         </div>
         
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Last Name</label>
+          <label htmlFor="lastName" className="block text-sm font-medium text-gray-700 mb-2">Last Name</label>
             <input
               type="text"
               required
               id="lastName"
               placeholder="Last Name"
-              aria-label="Last Name"
               value={formData.lastName}
               onChange={(e) => setFormData({...formData, lastName: e.target.value})}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-transparent"
@@ -460,10 +458,12 @@ function PatientOnboardingForm({ onSuccess }: { onSuccess: () => void }) {
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
+          <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">Email</label>
           <input
             type="email"
             required
+            id="email"
+            placeholder="email@example.com"
             value={formData.email}
             onChange={(e) => setFormData({...formData, email: e.target.value})}
             className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-transparent"
@@ -471,10 +471,11 @@ function PatientOnboardingForm({ onSuccess }: { onSuccess: () => void }) {
         </div>
         
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Phone Number</label>
+          <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-2">Phone Number</label>
           <input
             type="tel"
             required
+            id="phone"
             value={formData.phone}
             onChange={(e) => setFormData({...formData, phone: e.target.value})}
             placeholder="+233XXXXXXXXX"
@@ -484,10 +485,12 @@ function PatientOnboardingForm({ onSuccess }: { onSuccess: () => void }) {
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">Address</label>
+        <label htmlFor="address" className="block text-sm font-medium text-gray-700 mb-2">Address</label>
         <input
           type="text"
           required
+          id="address"
+          placeholder="Residential Address"
           value={formData.address}
           onChange={(e) => setFormData({...formData, address: e.target.value})}
           className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-transparent"
@@ -499,10 +502,12 @@ function PatientOnboardingForm({ onSuccess }: { onSuccess: () => void }) {
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Gravidity (Number of Pregnancies)</label>
+            <label htmlFor="gravidity" className="block text-sm font-medium text-gray-700 mb-2">Gravidity (Number of Pregnancies)</label>
             <input
               type="number"
               required
+              id="gravidity"
+              min="1"
               value={formData.gravidity}
               onChange={(e) => setFormData({...formData, gravidity: e.target.value})}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-transparent"
@@ -510,10 +515,12 @@ function PatientOnboardingForm({ onSuccess }: { onSuccess: () => void }) {
           </div>
           
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Parity (Number of Births)</label>
+            <label htmlFor="parity" className="block text-sm font-medium text-gray-700 mb-2">Parity (Number of Births)</label>
             <input
               type="number"
               required
+              id="parity"
+              min="0"
               value={formData.parity}
               onChange={(e) => setFormData({...formData, parity: e.target.value})}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-transparent"
@@ -523,10 +530,11 @@ function PatientOnboardingForm({ onSuccess }: { onSuccess: () => void }) {
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Last Menstrual Period (LMP)</label>
+            <label htmlFor="lmp" className="block text-sm font-medium text-gray-700 mb-2">Last Menstrual Period (LMP)</label>
             <input
               type="date"
               required
+              id="lmp"
               value={formData.lmp}
               onChange={(e) => setFormData({...formData, lmp: e.target.value})}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-transparent"
@@ -534,9 +542,10 @@ function PatientOnboardingForm({ onSuccess }: { onSuccess: () => void }) {
           </div>
           
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Blood Type</label>
+            <label htmlFor="bloodType" className="block text-sm font-medium text-gray-700 mb-2">Blood Type</label>
             <select
               required
+              id="bloodType"
               value={formData.bloodType}
               onChange={(e) => setFormData({...formData, bloodType: e.target.value})}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-transparent"
@@ -560,10 +569,12 @@ function PatientOnboardingForm({ onSuccess }: { onSuccess: () => void }) {
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Emergency Contact Name</label>
+            <label htmlFor="emergencyContact" className="block text-sm font-medium text-gray-700 mb-2">Emergency Contact Name</label>
             <input
               type="text"
               required
+              id="emergencyContact"
+              placeholder="Next of Kin Name"
               value={formData.emergencyContact}
               onChange={(e) => setFormData({...formData, emergencyContact: e.target.value})}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-transparent"
@@ -571,10 +582,11 @@ function PatientOnboardingForm({ onSuccess }: { onSuccess: () => void }) {
           </div>
           
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Emergency Contact Phone</label>
+            <label htmlFor="emergencyPhone" className="block text-sm font-medium text-gray-700 mb-2">Emergency Contact Phone</label>
             <input
               type="tel"
               required
+              id="emergencyPhone"
               value={formData.emergencyPhone}
               onChange={(e) => setFormData({...formData, emergencyPhone: e.target.value})}
               placeholder="+233XXXXXXXXX"

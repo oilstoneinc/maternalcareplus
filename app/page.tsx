@@ -89,7 +89,7 @@ export default async function HomePage() {
         </div>
 
         <div className="mt-8 text-gray-600 text-sm">
-          <p>Brought to you in partnership with Ghana Health Service</p>
+          <p>MaternalCare Plus &bull; Professional Antenatal Management</p>
         </div>
       </div>
     </div>

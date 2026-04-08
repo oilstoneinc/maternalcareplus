@@ -1,6 +1,6 @@
-# Maternal Care Ghana - Digital Antenatal Care System
+# MaternalCare Plus - Professional Antenatal Care System
 
-A comprehensive digital platform for managing antenatal care in Ghana, replacing traditional paper-based maternity books with a modern, mobile-first web application.
+A comprehensive digital platform for managing antenatal care, replacing traditional paper-based maternity books with a modern, premium web application.
 
 ## Features
 
@@ -78,4 +78,4 @@ This application is designed to be deployed on Vercel with Neon as the database 
 
 ## Contributing
 
-This project aims to improve maternal healthcare access in Ghana through digital innovation.
+This project aims to improve maternal healthcare access through digital innovation.
