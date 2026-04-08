@@ -1,178 +1,64 @@
 'use client'
 
-import { useState } from 'react'
-import { useSignUp } from '@clerk/nextjs'
-import { useRouter } from 'next/navigation'
+import { SignUp } from '@clerk/nextjs'
+import { HeartPulse } from 'lucide-react'
 
 export default function SignUpPage() {
-  const { signUp, errors, fetchStatus } = useSignUp()
-  const isLoaded = fetchStatus === 'idle' && !!signUp
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [firstName, setFirstName] = useState('')
-  const [lastName, setLastName] = useState('')
-  const [role, setRole] = useState('hospital_staff') // Hardcoded. Only hospitals can sign up.
-  const [phone, setPhone] = useState('')
-  const [error, setError] = useState('')
-  const [loading, setLoading] = useState(false)
-  const router = useRouter()
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!isLoaded || !signUp) return
-
-    setLoading(true)
-    setError('')
-
-    try {
-      await signUp.password({
-        emailAddress: email,
-        password,
-        firstName,
-        lastName,
-      })
-
-      if (signUp.status === 'complete') {
-        // Update user metadata with role and additional info
-        await signUp.update({
-          unsafeMetadata: {
-            role,
-            phone,
-          },
-        })
-
-        await signUp.finalize({
-          navigate: (opts: any) => {
-            const { decorateUrl } = opts;
-            const targetUrl = decorateUrl ? decorateUrl('/dashboard') : '/dashboard';
-            router.push(targetUrl);
-          },
-        })
-      } else {
-        // Handle incomplete sign up
-        console.log('Sign up incomplete')
-      }
-    } catch (err: any) {
-      setError(err.errors?.[0]?.message || 'An error occurred during sign up')
-    } finally {
-      setLoading(false)
-    }
-  }
-
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-4">
-      <div className="w-full max-w-2xl">
+    <div className="min-h-screen bg-[#F6F4F3] flex flex-col items-center py-12 px-4">
+      {/* Brand Header */}
+      <div className="w-full max-w-md flex items-center justify-center gap-2 mb-10">
+        <HeartPulse className="w-8 h-8 text-[#D48BA1]" />
+        <span className="text-2xl font-black text-slate-800 tracking-tight">MaternalCare Plus</span>
+      </div>
+
+      <div className="w-full flex flex-col items-center">
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-foreground mb-2">
-            Hospital / Clinic Registration
-          </h1>
-          <p className="text-muted-foreground">
-            Join MaternalCare Plus to manage your patients.
-          </p>
+          <h1 className="text-3xl font-extrabold text-slate-900 mb-2">Hospital Registration</h1>
+          <p className="text-slate-600 font-medium">Join our digital health network to manage your patients.</p>
         </div>
-        
-        <div className="bg-card rounded-2xl shadow-xl border border-border p-8">
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="grid md:grid-cols-2 gap-4">
-              <div>
-                <label htmlFor="firstName" className="block text-sm font-medium text-foreground mb-2">
-                  First Name
-                </label>
-                <input
-                  id="firstName"
-                  type="text"
-                  value={firstName}
-                  onChange={(e) => setFirstName(e.target.value)}
-                  required
-                  className="w-full px-4 py-2 border border-input rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent bg-background text-foreground"
-                />
-              </div>
-              
-              <div>
-                <label htmlFor="lastName" className="block text-sm font-medium text-foreground mb-2">
-                  Last Name
-                </label>
-                <input
-                  id="lastName"
-                  type="text"
-                  value={lastName}
-                  onChange={(e) => setLastName(e.target.value)}
-                  required
-                  className="w-full px-4 py-2 border border-input rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent bg-background text-foreground"
-                />
-              </div>
-            </div>
 
-            <div>
-              <label htmlFor="email" className="block text-sm font-medium text-foreground mb-2">
-                Email Address
-              </label>
-              <input
-                id="email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                className="w-full px-4 py-2 border border-input rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent bg-background text-foreground"
-              />
-            </div>
+        <SignUp 
+          routing="path" 
+          path="/sign-up" 
+          signInUrl="/sign-in"
+          fallbackRedirectUrl="/dashboard/hospital"
+          appearance={{
+            elements: {
+              rootBox: "w-full max-w-[440px] shadow-2xl rounded-2xl overflow-hidden",
+              card: "bg-white border-0 shadow-none p-8",
+              headerTitle: "text-slate-900 font-bold",
+              headerSubtitle: "text-slate-500",
+              formButtonPrimary: "bg-[#D48BA1] hover:bg-[#c47a90] text-sm font-bold py-3 rounded-xl transition-all shadow-md",
+              formFieldLabel: "text-slate-700 font-bold",
+              formFieldInput: "border-slate-200 focus:border-[#D48BA1] focus:ring-[#D48BA1] rounded-xl py-2.5",
+              footerActionLink: "text-[#D48BA1] hover:text-[#c47a90] font-bold",
+              identityPreviewTextPrimary: "text-slate-900",
+              dividerLine: "bg-slate-100",
+              dividerText: "text-slate-400 text-xs font-bold uppercase tracking-wider",
+            },
+            layout: {
+              shimmer: true,
+              logoPlacement: "none",
+              showOptionalFields: false,
+            },
+            variables: {
+              colorPrimary: "#D48BA1",
+              colorBackground: "#ffffff",
+              colorText: "#1e293b",
+              colorDanger: "#ef4444",
+              colorSuccess: "#8ABD8A",
+              borderRadius: "12px",
+            }
+          }}
+        />
+      </div>
 
-            <div>
-              <label htmlFor="phone" className="block text-sm font-medium text-foreground mb-2">
-                Phone Number
-              </label>
-              <input
-                id="phone"
-                type="tel"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                placeholder="+233XXXXXXXXX"
-                title="Phone Number"
-                className="w-full px-4 py-2 border border-input rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent bg-background text-foreground"
-              />
-            </div>
-
-            {/* Role implicit handling */} {/* Removed Role dropdown entirely */}
-
-            <div>
-              <label htmlFor="password" className="block text-sm font-medium text-foreground mb-2">
-                Password
-              </label>
-              <input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                minLength={8}
-                className="w-full px-4 py-2 border border-input rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent bg-background text-foreground"
-              />
-            </div>
-
-            {error && (
-              <div className="bg-destructive/10 border border-destructive/20 text-destructive px-4 py-3 rounded-lg">
-                {error}
-              </div>
-            )}
-
-            <button
-              type="submit"
-              disabled={loading || !isLoaded}
-              className="w-full bg-primary text-primary-foreground py-3 rounded-lg font-semibold hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {loading ? 'Creating Account...' : 'Create Account'}
-            </button>
-          </form>
-
-          <div className="mt-6 text-center">
-            <p className="text-muted-foreground">
-              Already have an account?{' '}
-              <a href="/sign-in" className="text-primary hover:text-primary/80 font-medium">
-                Sign in here
-              </a>
-            </p>
-          </div>
-        </div>
+      {/* Trust Badge */}
+      <div className="mt-12 flex items-center gap-2 text-slate-400 text-sm font-medium">
+        <div className="h-px w-8 bg-slate-200"></div>
+        <span>Secure & Professional Health Platform</span>
+        <div className="h-px w-8 bg-slate-200"></div>
       </div>
     </div>
   )
