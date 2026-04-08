@@ -16,7 +16,8 @@ import {
   Filter,
   Download,
   TrendingUp,
-  AlertTriangle
+  AlertTriangle,
+  HeartPulse
 } from 'lucide-react'
 
 interface Pregnancy {
@@ -93,20 +94,25 @@ export default function HospitalDashboardClient({ user, data }: { user: User | n
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4 md:p-6">
+    <div className="min-h-screen bg-[#F6F4F3] p-4 md:p-6">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">MaternalCare Plus</h1>
-            <p className="text-gray-600 mt-1">Hospital Management Console</p>
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-10">
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 bg-white rounded-2xl shadow-sm flex items-center justify-center border border-slate-100">
+               <HeartPulse className="w-7 h-7 text-[#D48BA1]" />
+            </div>
+            <div>
+              <h1 className="text-3xl font-black text-slate-900 tracking-tight">MaternalCare Plus</h1>
+              <p className="text-slate-500 font-bold text-sm tracking-wide uppercase">Hospital Management Console</p>
+            </div>
           </div>
           <div className="flex gap-3 mt-4 md:mt-0">
-            <Button onClick={() => setShowOnboarding(true)} className="bg-pink-600 hover:bg-pink-700">
-              <Plus className="w-4 h-4 mr-2" />
+            <Button onClick={() => setShowOnboarding(true)} className="bg-[#D48BA1] hover:bg-[#c47a90] font-bold py-5 px-6 rounded-xl shadow-md transition-all">
+              <Plus className="w-5 h-5 mr-2" />
               Onboard Patient
             </Button>
-            <Button variant="outline">
+            <Button variant="outline" className="border-slate-200 text-slate-600 font-bold py-5 rounded-xl">
               <Download className="w-4 h-4 mr-2" />
               Export Data
             </Button>
@@ -122,7 +128,7 @@ export default function HospitalDashboardClient({ user, data }: { user: User | n
                   <p className="text-sm font-medium text-gray-600">Total Patients</p>
                   <p className="text-2xl font-bold text-gray-900">{stats.totalPatients}</p>
                 </div>
-                <Users className="w-8 h-8 text-pink-600" />
+                <Users className="w-8 h-8 text-[#D48BA1]" />
               </div>
             </CardContent>
           </Card>
@@ -134,7 +140,7 @@ export default function HospitalDashboardClient({ user, data }: { user: User | n
                   <p className="text-sm font-medium text-gray-600">Active Pregnancies</p>
                   <p className="text-2xl font-bold text-gray-900">{stats.activePregnancies}</p>
                 </div>
-                <Baby className="w-8 h-8 text-pink-600" />
+                <Baby className="w-8 h-8 text-[#D48BA1]" />
               </div>
             </CardContent>
           </Card>
@@ -158,7 +164,7 @@ export default function HospitalDashboardClient({ user, data }: { user: User | n
                   <p className="text-sm font-medium text-gray-600">Today's Appointments</p>
                   <p className="text-2xl font-bold text-gray-900">{stats.upcomingAppointments}</p>
                 </div>
-                <Calendar className="w-8 h-8 text-pink-600" />
+                <Calendar className="w-8 h-8 text-[#D48BA1]" />
               </div>
             </CardContent>
           </Card>
@@ -237,7 +243,7 @@ export default function HospitalDashboardClient({ user, data }: { user: User | n
                         placeholder="Search patients..."
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
-                        className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-transparent"
+                        className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#D48BA1] focus:border-transparent"
                       />
                     </div>
                     <Button variant="outline">
@@ -437,7 +443,7 @@ function PatientOnboardingForm({ onSuccess }: { onSuccess: () => void }) {
               placeholder="First Name"
               value={formData.firstName}
               onChange={(e) => setFormData({...formData, firstName: e.target.value})}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-transparent"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#D48BA1] focus:border-transparent"
             />
         </div>
         
@@ -450,7 +456,7 @@ function PatientOnboardingForm({ onSuccess }: { onSuccess: () => void }) {
               placeholder="Last Name"
               value={formData.lastName}
               onChange={(e) => setFormData({...formData, lastName: e.target.value})}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-transparent"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#D48BA1] focus:border-transparent"
             />
         </div>
       </div>
@@ -465,7 +471,7 @@ function PatientOnboardingForm({ onSuccess }: { onSuccess: () => void }) {
             placeholder="email@example.com"
             value={formData.email}
             onChange={(e) => setFormData({...formData, email: e.target.value})}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-transparent"
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#D48BA1] focus:border-transparent"
           />
         </div>
         
@@ -478,7 +484,7 @@ function PatientOnboardingForm({ onSuccess }: { onSuccess: () => void }) {
             value={formData.phone}
             onChange={(e) => setFormData({...formData, phone: e.target.value})}
             placeholder="+233XXXXXXXXX"
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-transparent"
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#D48BA1] focus:border-transparent"
           />
         </div>
       </div>
@@ -599,7 +605,7 @@ function PatientOnboardingForm({ onSuccess }: { onSuccess: () => void }) {
         <Button
           type="submit"
           disabled={loading}
-          className="bg-pink-600 hover:bg-pink-700"
+          className="bg-[#D48BA1] hover:bg-[#c47a90] font-bold py-6 px-8 rounded-xl shadow-lg transition-all"
         >
           {loading ? 'Creating Account...' : 'Onboard Patient & Send Login Details'}
         </Button>
