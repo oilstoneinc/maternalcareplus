@@ -11,7 +11,7 @@ export default function SignUpPage() {
   const [password, setPassword] = useState('')
   const [firstName, setFirstName] = useState('')
   const [lastName, setLastName] = useState('')
-  const [role, setRole] = useState('')
+  const [role, setRole] = useState('hospital_staff') // Hardcoded. Only hospitals can sign up.
   const [phone, setPhone] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
@@ -64,10 +64,10 @@ export default function SignUpPage() {
       <div className="w-full max-w-2xl">
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold text-foreground mb-2">
-            Create Account
+            Hospital / Clinic Registration
           </h1>
           <p className="text-muted-foreground">
-            Join our digital antenatal care platform
+            Join MaternalCare Plus to manage your patients.
           </p>
         </div>
         
@@ -132,25 +132,7 @@ export default function SignUpPage() {
               />
             </div>
 
-            <div>
-              <label htmlFor="role" className="block text-sm font-medium text-foreground mb-2">
-                I am a...
-              </label>
-              <select
-                id="role"
-                value={role}
-                onChange={(e) => setRole(e.target.value)}
-                required
-                title="Select your role"
-                className="w-full px-4 py-2 border border-input rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent bg-background text-foreground"
-              >
-                <option value="">Select your role</option>
-                <option value="pregnant_woman">Pregnant Woman</option>
-                <option value="father">Father/Partner</option>
-                <option value="midwife">Midwife</option>
-                <option value="hospital_staff">Hospital Staff</option>
-              </select>
-            </div>
+            {/* Role implicit handling */} {/* Removed Role dropdown entirely */}
 
             <div>
               <label htmlFor="password" className="block text-sm font-medium text-foreground mb-2">

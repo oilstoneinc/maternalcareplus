@@ -2,7 +2,7 @@
 
 import { db } from '@/lib/db'
 import { users, pregnancies, appointments, labTests, partnerAccess, messages, User, NewUser, NewPregnancy, NewMessage } from '@/lib/db/schema'
-import { currentUser } from '@clerk/nextjs/server'
+import { currentUser, clerkClient } from '@clerk/nextjs/server'
 import { HospitalDashboardData, DashboardData, Message } from '@/types'
 import { eq, desc, and, or, sql } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
@@ -223,46 +223,69 @@ export async function onboardPatient(formData: any) {
   const user = await currentUser()
   if (!user) throw new Error('Unauthorized')
 
-  // This would typically involve:
-  // 1. Creating the Clerk user (via Clerk SDK, if not already done)
-  // 2. Creating the user record in our DB
-  // 3. Creating the pregnancy record
-  
-  // NOTE: For now, we assume the user might already exist in Clerk or is being created
-  // Since we only have the clerk user ID available here, let's simplify for the demo
-  
+  // 1. Check permissions
+  const dbUser = await db.query.users.findFirst({
+    where: eq(users.clerkId, user.id)
+  })
+  if (!dbUser || (dbUser.role !== 'hospital_staff' && dbUser.role !== 'admin')) {
+    throw new Error('Not authorized to add users')
+  }
+
   try {
-    // 1. Create DB User
-    // In a real app, you'd use the Clerk SDK to create the user first
-    // and then use the clerkId here.
-    
-    // We'll simulate creating a user record
+    // 2. Create the user in Clerk
+    const client = await clerkClient()
+    const newClerkUser = await client.users.createUser({
+      firstName: formData.firstName,
+      lastName: formData.lastName,
+      emailAddress: [formData.email], // Note: array mapping
+      password: formData.password || 'MaternalCare123!', // Temporary password
+      publicMetadata: {
+        role: formData.role || 'pregnant_woman',
+        phone: formData.phone
+      }
+    })
+
+    // 3. Upsert into our DB directly (avoiding race conditions with webhook)
     const [newUser] = await db.insert(users).values({
-      clerkId: `temp_${Date.now()}`, // Placeholder
+      clerkId: newClerkUser.id,
       email: formData.email,
       firstName: formData.firstName,
       lastName: formData.lastName,
       phone: formData.phone,
-      role: 'pregnant_woman',
+      role: formData.role || 'pregnant_woman',
       address: formData.address,
+      isVerified: true
+    }).onConflictDoUpdate({
+      target: users.clerkId,
+      set: {
+        firstName: formData.firstName,
+        role: formData.role || 'pregnant_woman'
+      }
     }).returning()
 
-    // 2. Create Pregnancy record
-    await db.insert(pregnancies).values({
-      userId: newUser.id,
-      hospitalId: formData.hospitalId || '00000000-0000-0000-0000-000000000000', // Default for now
-      gravidity: parseInt(formData.gravidity),
-      parity: parseInt(formData.parity),
-      lmp: new Date(formData.lmp),
-      edd: new Date(new Date(formData.lmp).setDate(new Date(formData.lmp).getDate() + 280)), // Rule of thumb
-      status: 'active',
-    })
+    // 4. Create Pregnancy record if applicable
+    if ((formData.role || 'pregnant_woman') === 'pregnant_woman' && formData.lmp) {
+      // Find hospital logic
+      let hospitalId = '00000000-0000-0000-0000-000000000000';
+      const hospitalData = await db.query.hospitals.findFirst();
+      if (hospitalData) { hospitalId = hospitalData.id }
+
+      await db.insert(pregnancies).values({
+        userId: newUser.id,
+        hospitalId: formData.hospitalId || hospitalId,
+        gravidity: parseInt(formData.gravidity) || 1,
+        parity: parseInt(formData.parity) || 0,
+        lmp: new Date(formData.lmp),
+        edd: new Date(new Date(formData.lmp).setDate(new Date(formData.lmp).getDate() + 280)), // Rule of thumb
+        status: 'active',
+      })
+    }
 
     revalidatePath('/dashboard/hospital')
     return { success: true }
-  } catch (error) {
+  } catch (error: any) {
     console.error('Onboarding error:', error)
-    return { success: false, error: 'Failed to onboard patient' }
+    return { success: false, error: error?.errors?.[0]?.message || 'Failed to onboard patient' }
   }
 }
 
