@@ -34,7 +34,7 @@ export default function SignUpPage() {
       if (result.status === 'complete') {
         // Update user metadata with role and additional info
         await signUp.update({
-          publicMetadata: {
+          unsafeMetadata: {
             role,
             phone,
           },

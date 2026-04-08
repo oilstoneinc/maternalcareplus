@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useEffect, useRef } from 'react'
-import { pusherClient } from '@/lib/pusher'
+import { pusherClient } from '@/lib/pusher-client'
 import { sendMessage, getMessages } from '@/app/actions'
 import { Message } from '@/types'
 import { Button } from '@/components/ui/button'

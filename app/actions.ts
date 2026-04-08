@@ -6,7 +6,7 @@ import { currentUser } from '@clerk/nextjs/server'
 import { HospitalDashboardData, DashboardData, Message } from '@/types'
 import { eq, desc, and, or, sql } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
-import { pusherServer } from '@/lib/pusher'
+import { pusherServer } from '@/lib/pusher-server'
 
 /**
  * Get data for the Patient (Pregnant Woman) Dashboard
@@ -157,17 +157,17 @@ export async function getFatherDashboardData() {
     }
   })
 
-  const pregnancy = access?.pregnancy || null
+  const pregnancy = access?.pregnancy as any || null
 
   // Get upcoming appointments
-  const upcomingAppointments = pregnancy ? await db.query.appointments.findMany({
+  const upcomingAppointments = pregnancy?.id ? await db.query.appointments.findMany({
     where: eq(appointments.pregnancyId, pregnancy.id),
     orderBy: [desc(appointments.scheduledDate)],
     limit: 5,
   }) : []
 
   // Get lab results (User requested fathers see all)
-  const labs = pregnancy ? await db.query.labTests.findMany({
+  const labs = pregnancy?.id ? await db.query.labTests.findMany({
     where: eq(labTests.pregnancyId, pregnancy.id),
     orderBy: [desc(labTests.resultDate)],
     limit: 10

@@ -3,8 +3,8 @@ import type { Config } from 'drizzle-kit'
 export default {
   schema: './lib/db/schema.ts',
   out: './migrations',
-  dialect: 'postgresql',
+  driver: 'pg',
   dbCredentials: {
-    url: process.env.NEON_DATABASE_URL!,
+    connectionString: process.env.NEON_DATABASE_URL!,
   },
 } satisfies Config

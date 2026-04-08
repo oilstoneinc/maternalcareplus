@@ -1,0 +1,40 @@
+
+> maternal-care-plus@0.1.0 build
+> next build
+
+  Γû▓ Next.js 14.2.5
+  - Environments: .env
+
+   Creating an optimized production build ...
+ Γ£ô Compiled successfully
+   Linting and checking validity of types ...
+   Collecting page data ...
+   Generating static pages (0/10) ...
+   Generating static pages (2/10) 
+   Generating static pages (4/10) 
+   Generating static pages (7/10) 
+ Γ£ô Generating static pages (10/10)
+   Finalizing page optimization ...
+   Collecting build traces ...
+
+Route (app)                              Size     First Load JS
+Γöî ╞Æ /                                    138 B          87.5 kB
+Γö£ ╞Æ /_not-found                          875 B          88.2 kB
+Γö£ ╞Æ /dashboard/admin                     12.5 kB         206 kB
+Γö£ ╞Æ /dashboard/chat                      27.9 kB         123 kB
+Γö£ ╞Æ /dashboard/father                    11.2 kB         213 kB
+Γö£ ╞Æ /dashboard/hospital                  6.74 kB         107 kB
+Γö£ ╞Æ /dashboard/midwife                   9.07 kB         210 kB
+Γö£ ╞Æ /dashboard/pregnant-woman            6.99 kB         214 kB
+Γö£ ╞Æ /sign-in/[[...sign-in]]              196 B           115 kB
+Γöö ╞Æ /sign-up/[[...sign-up]]              1.5 kB          111 kB
++ First Load JS shared by all            87.3 kB
+  Γö£ chunks/23-e278897a1d5056f6.js        31.7 kB
+  Γö£ chunks/fd9d1056-4f196e2bfb5f5dd2.js  53.6 kB
+  Γöö other shared chunks (total)          2 kB
+
+
+╞Æ Middleware                             61.5 kB
+
+╞Æ  (Dynamic)  server-rendered on demand
+

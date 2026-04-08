@@ -380,7 +380,6 @@ export default function HospitalDashboardClient({ user, data }: { user: User | n
 }
 
 import { onboardPatient } from '@/app/actions'
-import { toast } from '@/components/ui/toast' // Assuming toast exists or using a substitute
 
 // Patient Onboarding Form Component
 function PatientOnboardingForm({ onSuccess }: { onSuccess: () => void }) {

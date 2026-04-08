@@ -49,7 +49,7 @@ export default async function ChatPage({
       <ChatHub 
         currentUserId={dbUser.id}
         otherUserId={otherUser.id}
-        otherUserName={otherUser.name || 'User'}
+        otherUserName={`${otherUser.firstName} ${otherUser.lastName}`}
       />
     </div>
   )
