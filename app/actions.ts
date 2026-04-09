@@ -315,8 +315,13 @@ export async function syncClerkAccount() {
       })
     }
 
+    // Determine target path for instant redirection injection
+    let targetPath = '/dashboard'
+    if (role === 'admin') targetPath = '/dashboard/admin'
+    if (role === 'hospital_staff') targetPath = '/dashboard/hospital'
+
     revalidatePath('/')
-    return { success: true, role }
+    return { success: true, role, targetPath }
   } catch (err) {
     console.error('Self-healing sync error:', err)
     return { success: false, error: 'Critical sync failure' }

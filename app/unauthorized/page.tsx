@@ -42,6 +42,9 @@ export default function UnauthorizedPage() {
     try {
       const result = await syncClerkAccount()
       if (result.success) {
+        // RESET Loop protection on actual success
+        sessionStorage.setItem('mc_sync_attempts', '0')
+        
         // FORCE RELOAD CLERK DATA
         if (user) {
           await user.reload()
@@ -51,7 +54,8 @@ export default function UnauthorizedPage() {
         
         // Short delay to show success state before redirect
         setTimeout(() => {
-          window.location.href = '/'
+          // DIRECT INJECTION: Use the path from the server to bypass root loop
+          window.location.href = result.targetPath || '/'
         }, silent ? 0 : 1500)
       } else if (!silent) {
         setSyncStatus('error')

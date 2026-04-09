@@ -27,15 +27,20 @@ export default clerkMiddleware(async (auth, req) => {
     let role = publicRole || unsafeRole;
     
     // 2. DATABASE FALLBACK (Self-Healing)
-    // If Clerk metadata is missing (Dashboard config missing or cache delay), 
-    // check Neon directly for the role.
+    // If Clerk metadata is missing, check Neon using a super-direct select.
     if (!role) {
-      const dbUser = await db.query.users.findFirst({
-        where: eq(users.clerkId, userId)
-      });
-      if (dbUser?.role) {
-        role = dbUser.role;
-        console.log(`Middleware: Database-First detection for ${userId} - Role: ${role}`);
+      try {
+        const result = await db.select({ role: users.role })
+          .from(users)
+          .where(eq(users.clerkId, userId))
+          .limit(1);
+        
+        if (result && result[0]?.role) {
+          role = result[0].role;
+          console.log(`Middleware: Direct-SQL Role Detection for ${userId} -> ${role}`);
+        }
+      } catch (e) {
+        console.error("Middleware: Direct-SQL Failure", e);
       }
     }
     
