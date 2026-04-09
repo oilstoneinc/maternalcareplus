@@ -41,23 +41,33 @@ interface Patient {
   lastVisit: string
 }
 
-export default function HospitalDashboardClient({ user, data }: { user: User | null, data: any }) {
+export default function HospitalDashboardClient({ user, data }: { user: any, data: any }) {
   const [activeTab, setActiveTab] = useState('overview')
+
+  const formatDate = (date: any) => {
+    if (!date) return 'N/A'
+    try {
+      return new Date(date).toLocaleDateString()
+    } catch (e) {
+      return 'N/A'
+    }
+  }
+
   const [patients, setPatients] = useState<Patient[]>(data?.patients?.map((p: any) => ({
     id: p.id,
-    name: `${p.firstName} ${p.lastName}`,
+    name: `${p.firstName || ''} ${p.lastName || ''}`.trim() || 'Anonymous',
     email: p.email,
     phone: p.phone,
     pregnancies: 1, // Mock/aggregate as needed
     status: p.isActive ? 'active' : 'inactive',
-    lastVisit: p.updatedAt?.toLocaleDateString() || 'N/A'
+    lastVisit: formatDate(p.updatedAt)
   })) || [])
   
   const [pregnancies, setPregnancies] = useState<Pregnancy[]>(data?.pregnancies?.map((p: any) => ({
     id: p.id,
     patientName: "Patient Name", // Would need to join or pass in data
     gestationalAge: p.gestationalAge || 0,
-    edd: p.edd?.toLocaleDateString() || 'N/A',
+    edd: formatDate(p.edd),
     lastVisit: 'N/A',
     nextVisit: 'N/A',
     riskLevel: 'low',
