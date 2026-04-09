@@ -33,7 +33,14 @@ export async function getPatientDashboardData(): Promise<DashboardData | null> {
     }
   })
 
-  if (!pregnancy) return { user: dbUser, pregnancy: null, appointments: [], labs: [] }
+  if (!pregnancy) return { user: dbUser, pregnancy: null, appointments: [], labs: [], vitals: [] }
+
+  // Get recent vitals
+  const recentVitals = await db.query.vitalSigns.findMany({
+    where: eq(vitalSigns.pregnancyId, pregnancy.id),
+    orderBy: [desc(vitalSigns.recordedDate)],
+    limit: 10,
+  })
 
   // Get upcoming appointments
   const upcomingAppointments = await db.query.appointments.findMany({
@@ -57,6 +64,7 @@ export async function getPatientDashboardData(): Promise<DashboardData | null> {
     pregnancy,
     appointments: upcomingAppointments,
     labs: recentLabs,
+    vitals: recentVitals,
   }
 }
 

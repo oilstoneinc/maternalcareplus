@@ -3,6 +3,7 @@ export interface DashboardData {
   pregnancy: any
   appointments: any[]
   labs: any[]
+  vitals: any[]
 }
 
 export interface HospitalDashboardData {

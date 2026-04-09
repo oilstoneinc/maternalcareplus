@@ -164,7 +164,21 @@ export default function MidwifeDashboardClient({ user, data }: MidwifeDashboardP
                           <span className="flex items-center gap-1 border-l pl-3"><AlertCircle className="h-3 w-3 text-yellow-500" /> Low Risk</span>
                         </div>
                       </div>
-                      <ChevronRight className="h-5 w-5 text-muted-foreground group-hover:translate-x-1 transition-transform" />
+                      <div className="flex items-center gap-2">
+                        <Button 
+                          size="sm" 
+                          variant="secondary"
+                          className="bg-secondary/10 hover:bg-secondary/20 text-secondary border-none"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setSelectedPatient(patient)
+                            setShowRecording(true)
+                          }}
+                        >
+                          Record Visit
+                        </Button>
+                        <ChevronRight className="h-5 w-5 text-muted-foreground group-hover:translate-x-1 transition-transform" />
+                      </div>
                     </CardContent>
                   </Card>
                 ))}
@@ -309,6 +323,181 @@ export default function MidwifeDashboardClient({ user, data }: MidwifeDashboardP
           </Card>
         </div>
       </div>
+
+      {/* Record Visit Modal */}
+      {showRecording && selectedPatient && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-4xl max-height-[90vh] overflow-hidden flex flex-col">
+            <div className="p-6 border-b border-gray-100 flex items-center justify-between bg-white sticky top-0 z-10">
+              <div>
+                <CardTitle className="text-xl">Record Antenatal Visit</CardTitle>
+                <CardDescription>Patient: {selectedPatient.firstName} {selectedPatient.lastName}</CardDescription>
+              </div>
+              <Button variant="outline" onClick={() => setShowRecording(false)}>✕</Button>
+            </div>
+            
+            <div className="flex-1 overflow-y-auto p-6">
+              <VisitRecordingForm 
+                patient={selectedPatient}
+                onSuccess={() => {
+                  setShowRecording(false)
+                }}
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
+  )
+}
+
+// Visit Recording Form Component
+function VisitRecordingForm({ patient, onSuccess }: { patient: any, onSuccess: () => void }) {
+  const [loading, setLoading] = useState(false)
+  const [formData, setFormData] = useState({
+    pregnancyId: patient.pregnancyId || patient.id,
+    hospitalId: patient.hospitalId,
+    gestationalAge: '24', // Default
+    weight: '',
+    bpSystolic: '',
+    bpDiastolic: '',
+    heartRate: '',
+    fhr: '',
+    fundalHeight: '',
+    presentation: '',
+    medicalHistory: '',
+    allergies: '',
+    medications: '',
+    findings: '',
+    recommendations: '',
+    nextVisitDate: '',
+    bloodType: '',
+    rhesusFactor: ''
+  })
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setLoading(true)
+    
+    try {
+      const result = await recordAntenatalVisit(formData)
+      if (result.success) {
+        onSuccess()
+      } else {
+        alert(result.error)
+      }
+    } catch (error) {
+      console.error('Error recording visit:', error)
+      alert('Failed to record visit')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+    setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }))
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+        <div className="space-y-4">
+          <h3 className="text-lg font-bold flex items-center gap-2 text-secondary">
+            <Activity className="h-5 w-5" /> Vitals & Measurements
+          </h3>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Weight (kg)</label>
+              <Input name="weight" type="number" step="0.1" required value={formData.weight} onChange={handleChange} />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Heart Rate (bpm)</label>
+              <Input name="heartRate" type="number" required value={formData.heartRate} onChange={handleChange} />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">BP Systolic</label>
+              <Input name="bpSystolic" type="number" required placeholder="120" value={formData.bpSystolic} onChange={handleChange} />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">BP Diastolic</label>
+              <Input name="bpDiastolic" type="number" required placeholder="80" value={formData.bpDiastolic} onChange={handleChange} />
+            </div>
+          </div>
+        </div>
+
+        <div className="space-y-4">
+          <h3 className="text-lg font-bold flex items-center gap-2 text-pink-600">
+            <Heart className="h-5 w-5" /> Obstetric Assessment
+          </h3>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Gestational Age (wks)</label>
+              <Input name="gestationalAge" type="number" required value={formData.gestationalAge} onChange={handleChange} />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Fundal Height (cm)</label>
+              <Input name="fundalHeight" type="number" step="0.1" value={formData.fundalHeight} onChange={handleChange} />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Fetal Heart Rate</label>
+              <Input name="fhr" type="number" placeholder="140" value={formData.fhr} onChange={handleChange} />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Presentation</label>
+              <select 
+                 name="presentation"
+                 aria-label="Fetal Presentation"
+                 className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background"
+                 value={formData.presentation}
+                 onChange={handleChange}
+              >
+                <option value="">Select...</option>
+                <option value="cephalic">Cephalic</option>
+                <option value="breech">Breech</option>
+                <option value="transverse">Transverse</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+        <div className="space-y-4">
+          <h3 className="text-lg font-bold text-gray-800">History & Alerts</h3>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Medical History Update</label>
+              <Textarea name="medicalHistory" placeholder="Any new conditions..." value={formData.medicalHistory} onChange={handleChange} />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Allergies (comma sep)</label>
+              <Input name="allergies" placeholder="Penicillin, Peanuts..." value={formData.allergies} onChange={handleChange} />
+            </div>
+          </div>
+        </div>
+
+        <div className="space-y-4">
+          <h3 className="text-lg font-bold text-gray-800">Plan of Care</h3>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Clinical Findings</label>
+              <Textarea name="findings" required placeholder="Describe findings..." value={formData.findings} onChange={handleChange} />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Recommendations</label>
+              <Textarea name="recommendations" value={formData.recommendations} onChange={handleChange} />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Next Visit Date</label>
+              <Input name="nextVisitDate" type="date" value={formData.nextVisitDate} onChange={handleChange} />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <Button disabled={loading} type="submit" className="w-full bg-secondary hover:bg-secondary/90 text-white py-6 rounded-2xl text-lg font-bold shadow-xl transition-all active:scale-95">
+        {loading ? 'Saving Record...' : 'Complete Visit & Save Record'}
+      </Button>
+    </form>
   )
 }

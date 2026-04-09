@@ -50,15 +50,28 @@ export default function PregnantWomanClient({ user, data }: { user: any, data: D
   const [progress, setProgress] = useState(60)
   const [daysToEdd, setDaysToEdd] = useState(112)
 
-  // Weight tracking mock data
-  const weightData = [
-    { week: 4, weight: 62 },
-    { week: 8, weight: 62.5 },
-    { week: 12, weight: 63.8 },
-    { week: 16, weight: 65.2 },
-    { week: 20, weight: 67.1 },
-    { week: 24, weight: 68.5 },
-  ]
+  // Real weight tracking data from vitals
+  const weightData = (data?.vitals || [])
+    .map(v => ({ 
+      week: v.notes?.match(/Week (\d+)/)?.[1] || new Date(v.recordedDate).toLocaleDateString(), 
+      weight: parseFloat(v.weight as string) 
+    }))
+    .reverse()
+
+  const bpData = (data?.vitals || [])
+    .map(v => ({ 
+      date: new Date(v.recordedDate).toLocaleDateString(), 
+      systolic: v.bloodPressureSystolic,
+      diastolic: v.bloodPressureDiastolic
+    }))
+    .reverse()
+
+  const heartRateData = (data?.vitals || [])
+    .map(v => ({ 
+      date: new Date(v.recordedDate).toLocaleDateString(), 
+      fhr: v.heartRate // Using heart rate field for FHR if recorded
+    }))
+    .reverse()
 
   const [shareCode, setShareCode] = useState<string | null>(data?.pregnancy?.fatherJoinCode || null)
   const [isGenerating, setIsGenerating] = useState(false)
@@ -207,18 +220,63 @@ export default function PregnantWomanClient({ user, data }: { user: any, data: D
                     />
                   </TabsContent>
 
-                  <TabsContent value="bp" className="h-[300px] flex items-center justify-center text-gray-500 bg-gray-50 rounded-xl">
-                    <div className="text-center">
-                      <Activity className="w-12 h-12 mx-auto mb-3 opacity-20" />
-                      <p>Start recording your BP to see trends</p>
-                    </div>
+                  <TabsContent value="weight" className="pt-4">
+                    <ProgressChart 
+                      title="Weight Tracking"
+                      description="Your weight gain journey over time"
+                      data={weightData.length > 0 ? weightData : [{ week: 'Start', weight: 0 }]}
+                      dataKey="weight"
+                      xAxisKey="week"
+                      unit=" kg"
+                      color="hsl(330, 81%, 60%)"
+                    />
                   </TabsContent>
 
-                  <TabsContent value="heart" className="h-[300px] flex items-center justify-center text-gray-500 bg-gray-50 rounded-xl">
-                    <div className="text-center">
-                      <TrendingUp className="w-12 h-12 mx-auto mb-3 opacity-20" />
-                      <p>Fetal heart rate tracking coming soon</p>
-                    </div>
+                  <TabsContent value="bp" className="pt-4">
+                    {bpData.length > 0 ? (
+                      <div className="h-[300px]">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <LineChart data={bpData}>
+                            <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                            <XAxis dataKey="date" />
+                            <YAxis />
+                            <Tooltip />
+                            <Line type="monotone" dataKey="systolic" stroke="#ef4444" name="Systolic" strokeWidth={2} />
+                            <Line type="monotone" dataKey="diastolic" stroke="#3b82f6" name="Diastolic" strokeWidth={2} />
+                          </LineChart>
+                        </ResponsiveContainer>
+                      </div>
+                    ) : (
+                      <div className="h-[300px] flex items-center justify-center text-gray-500 bg-gray-50 rounded-xl">
+                        <div className="text-center">
+                          <Activity className="w-12 h-12 mx-auto mb-3 opacity-20" />
+                          <p>Start recording your BP to see trends</p>
+                        </div>
+                      </div>
+                    )}
+                  </TabsContent>
+
+                  <TabsContent value="heart" className="pt-4">
+                    {heartRateData.length > 0 ? (
+                        <div className="h-[300px]">
+                          <ResponsiveContainer width="100%" height="100%">
+                            <LineChart data={heartRateData}>
+                              <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                              <XAxis dataKey="date" />
+                              <YAxis domain={['auto', 'auto']} />
+                              <Tooltip />
+                              <Line type="monotone" dataKey="fhr" stroke="#ec4899" name="Fetal Heart Rate" strokeWidth={3} dot={{ r: 4 }} />
+                            </LineChart>
+                          </ResponsiveContainer>
+                        </div>
+                    ) : (
+                      <div className="h-[300px] flex items-center justify-center text-gray-500 bg-gray-50 rounded-xl">
+                        <div className="text-center">
+                          <TrendingUp className="w-12 h-12 mx-auto mb-3 opacity-20" />
+                          <p>Fetal heart rate tracking will appear here</p>
+                        </div>
+                      </div>
+                    )}
                   </TabsContent>
                 </Tabs>
               </CardContent>
