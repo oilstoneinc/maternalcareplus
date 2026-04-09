@@ -11,11 +11,20 @@ export default function UnauthorizedPage() {
   const [isSyncing, setIsSyncing] = useState(false)
   const [syncStatus, setSyncStatus] = useState<'idle' | 'success' | 'error'>('idle')
   const [errorMessage, setErrorMessage] = useState('')
+  const [loopDetected, setLoopDetected] = useState(false)
 
   // AUTO-DETECT: When the page loads, try to sync silently.
-  // If the user already exists in Neon, this will forward them immediately.
   useEffect(() => {
     if (isLoaded && user && syncStatus === 'idle') {
+      // Loop protection: Check if we've already tried this too many times in this session
+      const syncCount = parseInt(sessionStorage.getItem('mc_sync_attempts') || '0')
+      
+      if (syncCount > 3) {
+        console.log("Too many sync loops detected. Stopping auto-sync.")
+        setLoopDetected(true)
+        return
+      }
+
       handleManualSync(true) // Pass 'true' for silent/auto mode
     }
   }, [isLoaded, user])
@@ -23,6 +32,13 @@ export default function UnauthorizedPage() {
   const handleManualSync = async (silent = false) => {
     if (!silent) setIsSyncing(true)
     setSyncStatus('idle')
+    
+    // Increment sync attempts in session storage
+    if (silent) {
+       const syncCount = parseInt(sessionStorage.getItem('mc_sync_attempts') || '0')
+       sessionStorage.setItem('mc_sync_attempts', (syncCount + 1).toString())
+    }
+
     try {
       const result = await syncClerkAccount()
       if (result.success) {
@@ -65,10 +81,12 @@ export default function UnauthorizedPage() {
 
         <div className="space-y-3">
           <h1 className="text-3xl font-black text-slate-900 tracking-tight leading-tight">
-            Access Restricted
+            {loopDetected ? 'Action Required' : 'Access Restricted'}
           </h1>
           <p className="text-slate-500 font-medium leading-relaxed">
-            Your account doesn't have an assigned role yet. This happens when the provider account hasn't been fully activated in the database.
+            {loopDetected 
+              ? "We've tried to synchronize your account, but the security layer is still catching up. Please click the button below for a final manual link."
+              : "Your account doesn't have an assigned role yet. This happens when the provider account hasn't been fully activated in the database."}
           </p>
         </div>
 
@@ -79,6 +97,10 @@ export default function UnauthorizedPage() {
               {syncStatus === 'success' ? (
                 <span className="text-[10px] font-black uppercase tracking-widest text-green-500 flex items-center gap-1">
                    <CheckCircle2 className="h-3 w-3" /> Activated
+                </span>
+              ) : loopDetected ? (
+                <span className="text-[10px] font-black uppercase tracking-widest text-amber-500 flex items-center gap-1">
+                   Catching Up...
                 </span>
               ) : (
                 <span className="text-[10px] font-black uppercase tracking-widest text-red-500 animate-pulse">Pending Activation</span>
@@ -101,10 +123,20 @@ export default function UnauthorizedPage() {
               <Loader2 className="h-5 w-5 animate-spin" />
             ) : syncStatus === 'success' ? (
               <CheckCircle2 className="h-5 w-5" />
+            ) : loopDetected ? (
+              <Zap className="h-5 w-5 fill-white" />
             ) : (
               <RefreshCcw className="h-5 w-5 group-hover:rotate-180 transition-transform duration-500" />
             )}
-            <span>{isSyncing ? 'Linking Database...' : syncStatus === 'success' ? 'Activated! Redirecting...' : 'Force Sync & Activate'}</span>
+            <span>
+              {isSyncing 
+                ? 'Linking Database...' 
+                : syncStatus === 'success' 
+                  ? 'Activated! Redirecting...' 
+                  : loopDetected 
+                    ? 'Final Manual Link' 
+                    : 'Force Sync & Activate'}
+            </span>
           </button>
 
           {syncStatus === 'error' && (

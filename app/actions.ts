@@ -280,9 +280,16 @@ export async function syncClerkAccount() {
         isVerified: true,
         isActive: true,
       })
+    } else if (dbUser.role !== role) {
+       // FORCE UPDATE: User exists but their role in DB is different from Clerk (e.g. they were just promoted)
+       console.log(`Self-healing: Synchronizing role for ${user.id} -> ${role}`)
+       await db.update(users)
+         .set({ role: role as any, updatedAt: new Date() })
+         .where(eq(users.clerkId, user.id))
+    }
 
-      // If it's a hospital staff role, ensure they have a hospital entry
-      if (role === 'hospital_staff') {
+    // If it's a hospital staff role, ensure they have a hospital entry
+    if (role === 'hospital_staff') {
         const existingHospital = await db.query.hospitals.findFirst({
           where: eq(hospitals.email, primaryEmail)
         })
@@ -300,7 +307,6 @@ export async function syncClerkAccount() {
           })
         }
       }
-    }
 
     // Proactive Metadata Sync: Push role to Clerk if missing
     if (!user.publicMetadata?.role) {
