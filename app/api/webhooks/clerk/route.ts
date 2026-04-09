@@ -1,6 +1,6 @@
 import { Webhook } from 'svix'
 import { headers } from 'next/headers'
-import { WebhookEvent } from '@clerk/nextjs/server'
+import { WebhookEvent, createClerkClient } from '@clerk/nextjs/server'
 import { db } from '@/lib/db'
 import { users, hospitals } from '@/lib/db/schema'
 import { eq } from 'drizzle-orm'
@@ -71,6 +71,15 @@ export async function POST(req: Request) {
           updatedAt: new Date(),
         }
       })
+
+      // SYNC ROLE TO CLERK (Crucial for immediate session update)
+      const clerk = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY });
+      if (!metadataRole) { // If role is missing in Clerk, push it
+         await clerk.users.updateUserMetadata(id, {
+            publicMetadata: { role: role }
+         });
+         console.log(`Pushed default role '${role}' to Clerk metadata for user ${id}`);
+      }
 
       // If it's a hospital staff, ensure a hospital record exists
       if (role === 'hospital_staff') {
