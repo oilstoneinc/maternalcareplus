@@ -1,12 +1,13 @@
 'use client'
 
 import { useState } from 'react'
-import { SignOutButton } from '@clerk/nextjs'
-import { ShieldAlert, RefreshCcw, Home, LogOut, Loader2, CheckCircle2 } from 'lucide-react'
+import { SignOutButton, useUser } from '@clerk/nextjs'
+import { ShieldAlert, RefreshCcw, Home, LogOut, Loader2, CheckCircle2, Zap } from 'lucide-react'
 import Link from 'next/link'
 import { syncClerkAccount } from '@/app/actions'
 
 export default function UnauthorizedPage() {
+  const { user } = useUser()
   const [isSyncing, setIsSyncing] = useState(false)
   const [syncStatus, setSyncStatus] = useState<'idle' | 'success' | 'error'>('idle')
   const [errorMessage, setErrorMessage] = useState('')
@@ -17,7 +18,14 @@ export default function UnauthorizedPage() {
     try {
       const result = await syncClerkAccount()
       if (result.success) {
+        // FORCE RELOAD CLERK DATA: This is the critical fix!
+        // This tells the browser to discard the old JWT and fetch the new role.
+        if (user) {
+          await user.reload()
+        }
+        
         setSyncStatus('success')
+        
         // Short delay to show success state before redirect
         setTimeout(() => {
           window.location.href = '/'

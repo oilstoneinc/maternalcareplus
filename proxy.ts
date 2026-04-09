@@ -18,8 +18,11 @@ export default clerkMiddleware(async (auth, req) => {
 
   // Handle role-based redirections for authenticated users
   if (userId) {
-    // Check both public and unsafe metadata for role
-    const role = (sessionClaims?.publicMetadata as any)?.role || (sessionClaims?.unsafeMetadata as any)?.role;
+    // Check both public and unsafe metadata for role (robustness check)
+    const publicRole = (sessionClaims?.publicMetadata as any)?.role;
+    const unsafeRole = (sessionClaims?.unsafeMetadata as any)?.role;
+    const role = publicRole || unsafeRole;
+    
     const pathname = req.nextUrl.pathname;
 
     // Redirect authenticated users from root or plain dashboard directly to their specific role dashboard
