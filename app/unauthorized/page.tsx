@@ -1,25 +1,32 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { SignOutButton, useUser } from '@clerk/nextjs'
 import { ShieldAlert, RefreshCcw, Home, LogOut, Loader2, CheckCircle2, Zap } from 'lucide-react'
 import Link from 'next/link'
 import { syncClerkAccount } from '@/app/actions'
 
 export default function UnauthorizedPage() {
-  const { user } = useUser()
+  const { user, isLoaded } = useUser()
   const [isSyncing, setIsSyncing] = useState(false)
   const [syncStatus, setSyncStatus] = useState<'idle' | 'success' | 'error'>('idle')
   const [errorMessage, setErrorMessage] = useState('')
 
-  const handleManualSync = async () => {
-    setIsSyncing(true)
+  // AUTO-DETECT: When the page loads, try to sync silently.
+  // If the user already exists in Neon, this will forward them immediately.
+  useEffect(() => {
+    if (isLoaded && user && syncStatus === 'idle') {
+      handleManualSync(true) // Pass 'true' for silent/auto mode
+    }
+  }, [isLoaded, user])
+
+  const handleManualSync = async (silent = false) => {
+    if (!silent) setIsSyncing(true)
     setSyncStatus('idle')
     try {
       const result = await syncClerkAccount()
       if (result.success) {
-        // FORCE RELOAD CLERK DATA: This is the critical fix!
-        // This tells the browser to discard the old JWT and fetch the new role.
+        // FORCE RELOAD CLERK DATA
         if (user) {
           await user.reload()
         }
@@ -29,16 +36,18 @@ export default function UnauthorizedPage() {
         // Short delay to show success state before redirect
         setTimeout(() => {
           window.location.href = '/'
-        }, 1500)
-      } else {
+        }, silent ? 0 : 1500)
+      } else if (!silent) {
         setSyncStatus('error')
         setErrorMessage(result.error || 'Failed to link account record.')
       }
     } catch (e) {
-      setSyncStatus('error')
-      setErrorMessage('Critical error during synchronization.')
+      if (!silent) {
+        setSyncStatus('error')
+        setErrorMessage('Critical error during synchronization.')
+      }
     } finally {
-      setIsSyncing(false)
+      if (!silent) setIsSyncing(false)
     }
   }
 
@@ -84,7 +93,7 @@ export default function UnauthorizedPage() {
 
         <div className="w-full flex flex-col gap-3">
           <button 
-            onClick={handleManualSync}
+            onClick={() => handleManualSync(false)}
             disabled={isSyncing || syncStatus === 'success'}
             className="group relative w-full px-6 py-4 bg-emerald-500 hover:bg-emerald-600 disabled:bg-slate-200 text-white rounded-2xl font-bold transition-all transform hover:-translate-y-1 active:scale-95 shadow-lg shadow-emerald-100 disabled:shadow-none flex items-center justify-center gap-2 overflow-hidden"
           >

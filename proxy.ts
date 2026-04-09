@@ -1,5 +1,8 @@
 import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
+import { db } from "./lib/db";
+import { users } from "./lib/db/schema";
+import { eq } from "drizzle-orm";
 
 const isPublicRoute = createRouteMatcher([
   "/",
@@ -18,10 +21,23 @@ export default clerkMiddleware(async (auth, req) => {
 
   // Handle role-based redirections for authenticated users
   if (userId) {
-    // Check both public and unsafe metadata for role (robustness check)
+    // 1. Check Clerk Session Claims (Fastest)
     const publicRole = (sessionClaims?.publicMetadata as any)?.role;
     const unsafeRole = (sessionClaims?.unsafeMetadata as any)?.role;
-    const role = publicRole || unsafeRole;
+    let role = publicRole || unsafeRole;
+    
+    // 2. DATABASE FALLBACK (Self-Healing)
+    // If Clerk metadata is missing (Dashboard config missing or cache delay), 
+    // check Neon directly for the role.
+    if (!role) {
+      const dbUser = await db.query.users.findFirst({
+        where: eq(users.clerkId, userId)
+      });
+      if (dbUser?.role) {
+        role = dbUser.role;
+        console.log(`Middleware: Database-First detection for ${userId} - Role: ${role}`);
+      }
+    }
     
     const pathname = req.nextUrl.pathname;
 
