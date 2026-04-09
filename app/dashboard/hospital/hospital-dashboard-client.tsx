@@ -396,10 +396,14 @@ export default function HospitalDashboardClient({ user, data }: { user: any, dat
 }
 
 import { onboardPatient } from '@/app/actions'
+import { Check, Copy } from 'lucide-react'
 
 // Patient Onboarding Form Component
 function PatientOnboardingForm({ onSuccess }: { onSuccess: () => void }) {
   const [loading, setLoading] = useState(false)
+  const [successData, setSuccessData] = useState<{email: string, password: string, loginUrl: string} | null>(null)
+  const [copied, setCopied] = useState(false)
+  
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
@@ -428,10 +432,10 @@ function PatientOnboardingForm({ onSuccess }: { onSuccess: () => void }) {
       // Real API call to onboard patient
       const result = await onboardPatient(formData)
       
-      if (result.success) {
-        onSuccess()
+      if (result.success && result.data) {
+        setSuccessData(result.data)
       } else {
-        alert(result.error)
+        alert(result.error || 'Failed to onboard patient')
       }
     } catch (error) {
       console.error('Error onboarding patient:', error)
@@ -439,6 +443,59 @@ function PatientOnboardingForm({ onSuccess }: { onSuccess: () => void }) {
     } finally {
       setLoading(false)
     }
+  }
+
+  const copyCreds = () => {
+    if (!successData) return
+    const text = `Patient Login Details:\nEmail: ${successData.email}\nPassword: ${successData.password}\nLogin at: ${successData.loginUrl}`
+    navigator.clipboard.writeText(text)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+
+  if (successData) {
+    return (
+      <div className="p-6 text-center space-y-6">
+        <div className="h-20 w-20 bg-green-100 rounded-full flex items-center justify-center mx-auto">
+          <Check className="h-10 w-10 text-green-600" />
+        </div>
+        <div>
+          <h2 className="text-2xl font-bold text-gray-900">Patient Onboarded!</h2>
+          <p className="text-gray-500 mt-2">Please give these credentials to the patient now.</p>
+        </div>
+
+        <div className="bg-gray-50 p-4 rounded-xl border border-gray-200 text-left space-y-3 relative">
+          <div>
+            <p className="text-xs font-medium text-gray-500 uppercase">Email Address</p>
+            <p className="font-semibold text-gray-900">{successData.email}</p>
+          </div>
+          <div>
+            <p className="text-xs font-medium text-gray-500 uppercase">Temporary Password</p>
+            <p className="font-mono font-bold text-pink-600 bg-pink-50 px-2 py-1 rounded inline-block">
+              {successData.password}
+            </p>
+          </div>
+          <div>
+            <p className="text-xs font-medium text-gray-500 uppercase">Login Link</p>
+            <p className="text-sm text-blue-600 truncate">{successData.loginUrl}</p>
+          </div>
+          
+          <button 
+            onClick={copyCreds}
+            className="absolute top-2 right-2 p-2 hover:bg-gray-200 rounded-lg transition-colors"
+          >
+            {copied ? <Check className="h-4 w-4 text-green-600" /> : <Copy className="h-4 w-4 text-gray-400" />}
+          </button>
+        </div>
+
+        <Button 
+          onClick={onSuccess}
+          className="w-full bg-[#D48BA1] hover:bg-[#c47a90] text-white py-4 rounded-xl"
+        >
+          Close and Finish
+        </Button>
+      </div>
+    )
   }
 
   return (

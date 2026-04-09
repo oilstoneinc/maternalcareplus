@@ -42,12 +42,19 @@ import {
   Cell
 } from 'recharts'
 
+import { recordAntenatalVisit } from '@/app/actions'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
+
 interface MidwifeDashboardProps {
   user: any
   data: any
 }
 
 export default function MidwifeDashboardClient({ user, data }: MidwifeDashboardProps) {
+  const [showRecording, setShowRecording] = useState(false)
+  const [selectedPatient, setSelectedPatient] = useState<any>(null)
   const [searchTerm, setSearchTerm] = useState('')
   
   // Stats

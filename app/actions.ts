@@ -1,7 +1,7 @@
 'use server'
 
 import { db } from '@/lib/db'
-import { users, pregnancies, appointments, labTests, partnerAccess, messages, User, NewUser, NewPregnancy, NewMessage, hospitals } from '@/lib/db/schema'
+import { users, pregnancies, appointments, labTests, partnerAccess, messages, User, NewUser, NewPregnancy, NewMessage, hospitals, vitalSigns } from '@/lib/db/schema'
 import { currentUser, clerkClient } from '@clerk/nextjs/server'
 import { HospitalDashboardData, DashboardData, Message } from '@/types'
 import { eq, desc, and, or, sql } from 'drizzle-orm'
@@ -354,11 +354,13 @@ export async function onboardPatient(formData: any) {
   try {
     // 2. Create the user in Clerk
     const client = await clerkClient()
+    const tempPassword = formData.password || `MC${Math.random().toString(36).substring(2, 8).toUpperCase()}!2026`
+    
     const newClerkUser = await client.users.createUser({
       firstName: formData.firstName,
       lastName: formData.lastName,
       emailAddress: [formData.email], // Note: array mapping
-      password: formData.password || 'MaternalCare123!', // Temporary password
+      password: tempPassword,
       publicMetadata: {
         role: formData.role || 'pregnant_woman',
         phone: formData.phone
@@ -402,10 +404,91 @@ export async function onboardPatient(formData: any) {
     }
 
     revalidatePath('/dashboard/hospital')
-    return { success: true }
+    return { 
+      success: true, 
+      data: {
+        email: formData.email,
+        password: tempPassword,
+        loginUrl: `${process.env.NEXT_PUBLIC_APP_URL || ''}/sign-in`
+      } 
+    }
   } catch (error: any) {
     console.error('Onboarding error:', error)
     return { success: false, error: error?.errors?.[0]?.message || 'Failed to onboard patient' }
+  }
+}
+
+/**
+ * Record an antenatal visit (midwife dashboard)
+ */
+export async function recordAntenatalVisit(formData: any) {
+  const user = await currentUser()
+  if (!user) throw new Error('Unauthorized')
+
+  // Verify midwife role
+  const dbUser = await db.query.users.findFirst({
+    where: eq(users.clerkId, user.id)
+  })
+  if (!dbUser || (dbUser.role !== 'midwife' && dbUser.role !== 'admin')) {
+    throw new Error('Not authorized to record visits')
+  }
+
+  try {
+    const pregnancyId = formData.pregnancyId
+    const hospitalId = formData.hospitalId
+
+    // 1. Update Pregnancy clinical history if provided
+    if (formData.medicalHistory || formData.allergies || formData.medications || formData.bloodType) {
+      await db.update(pregnancies)
+        .set({
+          medicalHistory: formData.medicalHistory || undefined,
+          allergies: formData.allergies ? formData.allergies.split(',').map((s: string) => s.trim()) : undefined,
+          medications: formData.medications ? formData.medications.split(',').map((s: string) => s.trim()) : undefined,
+          bloodType: formData.bloodType || undefined,
+          rhesusFactor: formData.rhesusFactor || undefined,
+        })
+        .where(eq(pregnancies.id, pregnancyId))
+    }
+
+    // 2. Record Vital Signs
+    await db.insert(vitalSigns).values({
+      pregnancyId: pregnancyId,
+      recordedDate: new Date(),
+      weight: formData.weight,
+      bloodPressureSystolic: parseInt(formData.bpSystolic),
+      bloodPressureDiastolic: parseInt(formData.bpDiastolic),
+      heartRate: parseInt(formData.heartRate),
+      recordedBy: dbUser.id,
+      notes: formData.notes
+    })
+
+    // 3. Create or Update Appointment
+    // If there is an existing appointment for today, we might want to update it.
+    // For now, we'll just insert a completed one.
+    await db.insert(appointments).values({
+      pregnancyId: pregnancyId,
+      hospitalId: hospitalId,
+      midwifeId: dbUser.id,
+      scheduledDate: new Date(),
+      actualDate: new Date(),
+      gestationalAge: parseInt(formData.gestationalAge),
+      weight: formData.weight,
+      bloodPressure: `${formData.bpSystolic}/${formData.bpDiastolic}`,
+      fundalHeight: formData.fundalHeight,
+      fetalHeartRate: parseInt(formData.fhr),
+      presentation: formData.presentation,
+      findings: formData.findings,
+      recommendations: formData.recommendations,
+      nextVisitDate: formData.nextVisitDate ? new Date(formData.nextVisitDate) : null,
+      status: 'completed'
+    })
+
+    revalidatePath('/dashboard/midwife')
+    revalidatePath('/dashboard/pregnant-woman')
+    return { success: true }
+  } catch (error: any) {
+    console.error('Record visit error:', error)
+    return { success: false, error: 'Failed to record visit details' }
   }
 }
 
