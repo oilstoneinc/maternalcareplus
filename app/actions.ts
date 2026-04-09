@@ -250,6 +250,74 @@ export async function assignUserToHospital(userId: string, hospitalId: string) {
 }
 
 /**
+ * Self-healing sync: Manually forces a synchronization of the Clerk user to the Neon database.
+ * Use this when webhooks are late or failing.
+ */
+export async function syncClerkAccount() {
+  try {
+    const user = await currentUser()
+    if (!user) return { success: false, error: 'No authenticated user' }
+
+    const primaryEmail = user.emailAddresses[0]?.emailAddress
+    if (!primaryEmail) return { success: false, error: 'No email found in Clerk' }
+
+    // Check if user exists in DB
+    const dbUser = await db.query.users.findFirst({
+      where: eq(users.clerkId, user.id)
+    })
+
+    const role = (user.publicMetadata?.role as string) || 'hospital_staff'
+
+    if (!dbUser) {
+      // FORCE CREATE: Handle cases where webhook hasn't run yet
+      console.log(`Self-healing: Creating missing user record for ${user.id}`)
+      await db.insert(users).values({
+        clerkId: user.id,
+        email: primaryEmail,
+        firstName: user.firstName || 'User',
+        lastName: user.lastName || '',
+        role: role as any,
+        isVerified: true,
+        isActive: true,
+      })
+
+      // If it's a hospital staff role, ensure they have a hospital entry
+      if (role === 'hospital_staff') {
+        const existingHospital = await db.query.hospitals.findFirst({
+          where: eq(hospitals.email, primaryEmail)
+        })
+
+        if (!existingHospital) {
+          await db.insert(hospitals).values({
+            name: user.firstName ? `${user.firstName}'s Medical Center` : `Pending Setup (${primaryEmail})`,
+            code: `HSP-AUTO-${Math.floor(Math.random() * 10000)}`,
+            address: 'Institutional Setup Pending',
+            region: 'Unknown',
+            city: 'Unknown',
+            phone: '0000000000',
+            email: primaryEmail,
+            type: 'Hospital',
+          })
+        }
+      }
+    }
+
+    // Proactive Metadata Sync: Push role to Clerk if missing
+    if (!user.publicMetadata?.role) {
+      await (await clerkClient()).users.updateUserMetadata(user.id, {
+        publicMetadata: { role: role }
+      })
+    }
+
+    revalidatePath('/')
+    return { success: true, role }
+  } catch (err) {
+    console.error('Self-healing sync error:', err)
+    return { success: false, error: 'Critical sync failure' }
+  }
+}
+
+/**
  * Onboard a new patient
  */
 export async function onboardPatient(formData: any) {
