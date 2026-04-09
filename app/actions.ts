@@ -77,11 +77,13 @@ export async function getHospitalDashboardData(): Promise<HospitalDashboardData 
     })
 
     if (!dbUser) {
-      throw new Error(`getHospitalDashboardData: No dbUser found in Neon DB for exact Clerk ID ${user.id}`)
+      console.log(`getHospitalDashboardData: No dbUser found for ${user.id}`)
+      return null
     }
     
     if (dbUser.role !== 'hospital_staff' && dbUser.role !== 'admin') {
-      throw new Error(`getHospitalDashboardData: Unauthorized role access attempt. Expected hospital_staff or admin, but got: ${dbUser.role}`)
+      console.warn(`Unauthorized role access attempt to hospital dashboard by ${user.id}, role is ${dbUser.role}`)
+      return null
     }
 
     // Get all patients
@@ -109,7 +111,7 @@ export async function getHospitalDashboardData(): Promise<HospitalDashboardData 
     }
   } catch (error) {
     console.error('Error in getHospitalDashboardData:', error)
-    throw new Error(`getHospitalDashboardData failed: ${error instanceof Error ? error.message : String(error)}`)
+    return null
   }
 }
 

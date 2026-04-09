@@ -8,22 +8,10 @@ export default async function HospitalDashboard() {
   await requireRole(['hospital_staff', 'admin'])
   const user = await currentUser()
   
-  let data = null
-  let errorMessage = ''
-
-  try {
-    data = await getHospitalDashboardData()
-  } catch (e) {
-    errorMessage = e instanceof Error ? e.message : String(e)
-  }
+  const data = await getHospitalDashboardData()
 
   if (!data) {
-    return (
-      <div style={{ padding: '2rem', fontFamily: 'monospace', color: 'red' }}>
-        <h1>DATABASE OR ACCESS ERROR</h1>
-        <p>{errorMessage || 'No data was returned but no error was thrown.'}</p>
-      </div>
-    )
+    redirect('/unauthorized')
   }
 
   return <HospitalDashboardClient user={user} data={data} />
