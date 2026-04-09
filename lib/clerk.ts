@@ -11,35 +11,51 @@ export async function getCurrentUser() {
 }
 
 /**
- * Gets the user's role, with an optional "live" check that bypasses
- * cached session claims by calling the Clerk API directly.
+ * Gets the user's role.
+ * ALWAYS checks the database as a fallback if JWT is stale.
+ * This is the key fix for the redirect loop — the JWT does not
+ * update immediately after syncClerkAccount(), so we must
+ * check the database directly on every role check.
  */
 export async function getUserRole(live = false) {
   const user = await getCurrentUser()
   if (!user) return null
   
+  // 1. Try the JWT/session claims first (fastest, works most of the time)
   let role = (user.publicMetadata?.role as string) || null
 
-  if (live) {
-    const liveUser = await clerk.users.getUser(user.id)
-    role = (liveUser.publicMetadata?.role as string) || null
-
-    if (!role) {
-      // Fallback to database
+  // 2. ALWAYS fall back to DB if JWT is stale (e.g. right after first activation)
+  if (!role) {
+    try {
       const dbUser = await db.query.users.findFirst({
         where: eq(users.clerkId, user.id)
       })
       if (dbUser?.role) {
-        role = dbUser.role
-        // Sync back to Clerk on-the-fly
-        await clerk.users.updateUserMetadata(user.id, {
-          publicMetadata: { role: dbUser.role }
-        })
+        role = dbUser.role as string
+        // Proactively sync role back to Clerk so future JWT checks work
+        try {
+          await clerk.users.updateUserMetadata(user.id, {
+            publicMetadata: { role: dbUser.role }
+          })
+        } catch (_syncErr) {
+          // Non-fatal — role was found in DB, proceed
+        }
       }
+    } catch (_dbErr) {
+      // Non-fatal — continue with null role
+    }
+  }
+
+  // 3. If live=true, do an extra fresh Clerk API check as well
+  if (live && !role) {
+    try {
+      const liveUser = await clerk.users.getUser(user.id)
+      role = (liveUser.publicMetadata?.role as string) || null
+    } catch (_liveErr) {
+      // Non-fatal
     }
   }
   
-  // Get user role from public metadata
   return role
 }
 

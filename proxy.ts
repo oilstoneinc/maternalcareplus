@@ -1,8 +1,5 @@
 import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
-import { db } from "./lib/db";
-import { users } from "./lib/db/schema";
-import { eq } from "drizzle-orm";
 
 const isPublicRoute = createRouteMatcher([
   "/",
@@ -19,34 +16,14 @@ export default clerkMiddleware(async (auth, req) => {
 
   const { userId, sessionClaims } = await auth();
 
-  // Handle role-based redirections for authenticated users
   if (userId) {
-    // 1. Check Clerk Session Claims (Fastest)
-    const publicRole = (sessionClaims?.publicMetadata as any)?.role;
-    const unsafeRole = (sessionClaims?.unsafeMetadata as any)?.role;
-    let role = publicRole || unsafeRole;
-    
-    // 2. DATABASE FALLBACK (Self-Healing)
-    // If Clerk metadata is missing, check Neon using a super-direct select.
-    if (!role) {
-      try {
-        const result = await db.select({ role: users.role })
-          .from(users)
-          .where(eq(users.clerkId, userId))
-          .limit(1);
-        
-        if (result && result[0]?.role) {
-          role = result[0].role;
-          console.log(`Middleware: Direct-SQL Role Detection for ${userId} -> ${role}`);
-        }
-      } catch (e) {
-        console.error("Middleware: Direct-SQL Failure", e);
-      }
-    }
+    // Read role from JWT session claims only (fast, no DB query in Edge)
+    const role = (sessionClaims?.publicMetadata as any)?.role 
+               || (sessionClaims?.unsafeMetadata as any)?.role;
     
     const pathname = req.nextUrl.pathname;
 
-    // Redirect authenticated users from root or plain dashboard directly to their specific role dashboard
+    // Only redirect from root paths — dashboard pages handle their own auth
     if (pathname === "/" || pathname === "/dashboard") {
       switch (role) {
         case "pregnant_woman":
@@ -60,25 +37,26 @@ export default clerkMiddleware(async (auth, req) => {
         case "admin":
           return NextResponse.redirect(new URL("/dashboard/admin", req.url));
         default:
-          // In a closed-loop system, unknown users are sent to unauthorized
+          // Role not in JWT yet — send to unauthorized where self-healing runs
           return NextResponse.redirect(new URL("/unauthorized", req.url));
       }
     }
 
-    // Protect role-specific routes (only if role is explicitly set to something else)
-    if (pathname.startsWith("/dashboard/hospital") && role && role !== "hospital_staff" && role !== "admin") {
+    // Protect role-specific routes — only block if role is KNOWN and WRONG
+    // If role is undefined (stale JWT), let the page load so DB fallback can run
+    if (role && pathname.startsWith("/dashboard/hospital") && role !== "hospital_staff" && role !== "admin") {
       return NextResponse.redirect(new URL("/unauthorized", req.url));
     }
-    if (pathname.startsWith("/dashboard/midwife") && role && role !== "midwife" && role !== "admin") {
+    if (role && pathname.startsWith("/dashboard/midwife") && role !== "midwife" && role !== "admin") {
       return NextResponse.redirect(new URL("/unauthorized", req.url));
     }
-    if (pathname.startsWith("/dashboard/pregnant-woman") && role && role !== "pregnant_woman" && role !== "admin") {
+    if (role && pathname.startsWith("/dashboard/pregnant-woman") && role !== "pregnant_woman" && role !== "admin") {
       return NextResponse.redirect(new URL("/unauthorized", req.url));
     }
-    if (pathname.startsWith("/dashboard/father") && role && role !== "father" && role !== "admin") {
+    if (role && pathname.startsWith("/dashboard/father") && role !== "father" && role !== "admin") {
       return NextResponse.redirect(new URL("/unauthorized", req.url));
     }
-    if (pathname.startsWith("/dashboard/admin") && role && role !== "admin") {
+    if (role && pathname.startsWith("/dashboard/admin") && role !== "admin") {
       return NextResponse.redirect(new URL("/unauthorized", req.url));
     }
   }
