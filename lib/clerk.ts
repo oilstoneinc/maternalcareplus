@@ -32,17 +32,20 @@ export async function getUserRole(live = false) {
       })
       if (dbUser?.role) {
         role = dbUser.role as string
+        console.log(`[getUserRole] Fallback SUCCESS: Found role ${role} in Neon DB for ${user.id}`)
         // Proactively sync role back to Clerk so future JWT checks work
         try {
           await clerk.users.updateUserMetadata(user.id, {
             publicMetadata: { role: dbUser.role }
           })
-        } catch (_syncErr) {
-          // Non-fatal — role was found in DB, proceed
+        } catch (syncErr) {
+          console.error(`[getUserRole] Warning: Failed to sync role up to Clerk:`, syncErr)
         }
+      } else {
+         console.warn(`[getUserRole] Fallback warning: dbUser found but role is undefined/null`)
       }
-    } catch (_dbErr) {
-      // Non-fatal — continue with null role
+    } catch (dbErr) {
+      console.error(`[getUserRole] CRITICAL DB ERROR during fallback check:`, dbErr)
     }
   }
 
@@ -51,8 +54,8 @@ export async function getUserRole(live = false) {
     try {
       const liveUser = await clerk.users.getUser(user.id)
       role = (liveUser.publicMetadata?.role as string) || null
-    } catch (_liveErr) {
-      // Non-fatal
+    } catch (liveErr) {
+      console.error(`[getUserRole] Live check error:`, liveErr)
     }
   }
   
@@ -74,6 +77,7 @@ export async function requireRole(role: string | string[]) {
   const allowedRoles = Array.isArray(role) ? role : [role]
   
   if (!userRole || allowedRoles.indexOf(userRole) === -1) {
+    console.error(`[requireRole] FORBIDDEN! User ${user.id} has role '${userRole}' but needed one of [${allowedRoles.join(', ')}]`)
     redirect('/unauthorized')
   }
   

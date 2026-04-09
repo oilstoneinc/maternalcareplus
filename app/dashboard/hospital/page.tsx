@@ -11,7 +11,7 @@ export default async function HospitalDashboard() {
   const data = await getHospitalDashboardData()
 
   if (!data) {
-    redirect('/unauthorized')
+    throw new Error('Failed to load hospital dashboard data. Please check terminal logs for getHospitalDashboardData.')
   }
 
   return <HospitalDashboardClient user={user} data={data} />
