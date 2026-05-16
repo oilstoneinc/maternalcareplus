@@ -684,3 +684,151 @@ export async function getMessages(otherUserId: string) {
     return []
   }
 }
+
+/**
+ * MCH Book Actions
+ */
+
+export async function savePreviousPregnancy(data: any) {
+  const user = await currentUser()
+  if (!user) throw new Error('Unauthorized')
+
+  const dbUser = await db.query.users.findFirst({
+    where: eq(users.clerkId, user.id)
+  })
+
+  if (!dbUser || !['hospital_staff', 'midwife', 'admin'].includes(dbUser.role)) {
+    throw new Error('Unauthorized role')
+  }
+
+  try {
+    await db.insert(previousPregnancies).values({
+      userId: data.userId,
+      year: parseInt(data.year),
+      pregnancyDuration: parseInt(data.duration),
+      modeOfDelivery: data.mode,
+      birthWeight: data.weight,
+      sex: data.sex,
+      alive: data.alive === 'true',
+      complications: data.complications
+    })
+    revalidatePath(`/dashboard/hospital/patients/${data.pregnancyId}/mch-book`)
+    return { success: true }
+  } catch (error) {
+    console.error('Save previous pregnancy error:', error)
+    return { success: false, error: 'Failed to save record' }
+  }
+}
+
+export async function saveDeliveryRecord(data: any) {
+  const user = await currentUser()
+  if (!user) throw new Error('Unauthorized')
+
+  const dbUser = await db.query.users.findFirst({
+    where: eq(users.clerkId, user.id)
+  })
+
+  if (!dbUser || !['hospital_staff', 'midwife', 'admin'].includes(dbUser.role)) {
+    throw new Error('Unauthorized role')
+  }
+
+  try {
+    await db.insert(deliveries).values({
+      pregnancyId: data.pregnancyId,
+      hospitalId: dbUser.hospitalId!,
+      deliveryDate: new Date(data.date),
+      modeOfDelivery: data.mode,
+      apgarScore1Min: parseInt(data.apgar1),
+      apgarScore5Min: parseInt(data.apgar5),
+      bloodLoss: parseInt(data.bloodLoss),
+      maternalComplications: data.maternalComplications,
+      neonatalComplications: data.neonatalComplications,
+      deliveredBy: dbUser.id,
+      notes: data.notes
+    })
+
+    // Update pregnancy status
+    await db.update(pregnancies)
+      .set({ status: 'completed' })
+      .where(eq(pregnancies.id, data.pregnancyId))
+
+    // Create child record
+    await db.insert(children).values({
+      pregnancyId: data.pregnancyId,
+      userId: data.motherId,
+      dateOfBirth: new Date(data.date),
+      sex: data.sex,
+      birthWeight: data.weight,
+      birthLength: data.length
+    })
+
+    revalidatePath(`/dashboard/hospital/patients/${data.pregnancyId}/mch-book`)
+    return { success: true }
+  } catch (error) {
+    console.error('Save delivery record error:', error)
+    return { success: false, error: 'Failed to save delivery record' }
+  }
+}
+
+export async function updateMCHPregnancyDetails(data: any) {
+  const user = await currentUser()
+  if (!user) throw new Error('Unauthorized')
+
+  const dbUser = await db.query.users.findFirst({
+    where: eq(users.clerkId, user.id)
+  })
+
+  if (!dbUser || !['hospital_staff', 'midwife', 'admin'].includes(dbUser.role)) {
+    throw new Error('Unauthorized role')
+  }
+
+  try {
+    await db.update(pregnancies)
+      .set({
+        iptpDoses: parseInt(data.iptpDoses),
+        ttDoses: parseInt(data.ttDoses),
+        itnDistributed: data.itnDistributed === 'true'
+      })
+      .where(eq(pregnancies.id, data.pregnancyId))
+    
+    revalidatePath(`/dashboard/hospital/patients/${data.pregnancyId}/mch-book`)
+    return { success: true }
+  } catch (error) {
+    console.error('Update MCH details error:', error)
+    return { success: false, error: 'Failed to update details' }
+  }
+}
+
+export async function savePostnatalCare(data: any) {
+  const user = await currentUser()
+  if (!user) throw new Error('Unauthorized')
+
+  const dbUser = await db.query.users.findFirst({
+    where: eq(users.clerkId, user.id)
+  })
+
+  if (!dbUser || !['hospital_staff', 'midwife', 'admin'].includes(dbUser.role)) {
+    throw new Error('Unauthorized role')
+  }
+
+  try {
+    await db.insert(postnatalCare).values({
+      pregnancyId: data.pregnancyId,
+      visitPeriod: data.period,
+      visitDate: new Date(data.date),
+      maternalCondition: data.maternalCondition,
+      lochia: data.lochia,
+      perineum: data.perineum,
+      breastfeedingStatus: data.breastfeeding,
+      babyCondition: data.babyCondition,
+      umbilicalCord: data.umbilicalCord,
+      familyPlanningMethod: data.familyPlanning,
+      notes: data.notes
+    })
+    revalidatePath(`/dashboard/hospital/patients/${data.pregnancyId}/mch-book`)
+    return { success: true }
+  } catch (error) {
+    console.error('Save postnatal care error:', error)
+    return { success: false, error: 'Failed to save record' }
+  }
+}

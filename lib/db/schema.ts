@@ -69,6 +69,9 @@ export const pregnancies = pgTable('pregnancies', {
   prePregnancyWeight: decimal('pre_pregnancy_weight', { precision: 5, scale: 2 }), // in kg
   fatherJoinCode: text('father_join_code').unique(),
   fatherJoinCodeExpires: timestamp('father_join_code_expires'),
+  iptpDoses: integer('iptp_doses').default(0), // Malaria prevention doses
+  ttDoses: integer('tt_doses').default(0), // Tetanus Toxoid doses
+  itnDistributed: boolean('itn_distributed').default(false), // Mosquito net
   isActive: boolean('is_active').default(true),
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow(),
@@ -236,3 +239,93 @@ export type PartnerAccess = typeof partnerAccess.$inferSelect
 export type NewPartnerAccess = typeof partnerAccess.$inferInsert
 export type VitalSign = typeof vitalSigns.$inferSelect
 export type NewVitalSign = typeof vitalSigns.$inferInsert
+
+// MCH Book specific tables
+export const previousPregnancies = pgTable('previous_pregnancies', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  userId: uuid('user_id').references(() => users.id).notNull(),
+  year: integer('year').notNull(),
+  pregnancyDuration: integer('pregnancy_duration'), // Weeks
+  modeOfDelivery: text('mode_of_delivery'), // SVD, C-Section, etc.
+  birthWeight: decimal('birth_weight', { precision: 5, scale: 2 }), // kg
+  sex: text('sex'), // Male, Female
+  alive: boolean('alive').default(true),
+  complications: text('complications'),
+  createdAt: timestamp('created_at').defaultNow(),
+})
+
+export const deliveries = pgTable('deliveries', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  pregnancyId: uuid('pregnancy_id').references(() => pregnancies.id).notNull(),
+  hospitalId: uuid('hospital_id').references(() => hospitals.id).notNull(),
+  deliveryDate: timestamp('delivery_date').notNull(),
+  modeOfDelivery: text('mode_of_delivery').notNull(),
+  apgarScore1Min: integer('apgar_score_1min'),
+  apgarScore5Min: integer('apgar_score_5min'),
+  bloodLoss: integer('blood_loss'), // ml
+  maternalComplications: text('maternal_complications'),
+  neonatalComplications: text('neonatal_complications'),
+  deliveredBy: uuid('delivered_by').references(() => users.id),
+  notes: text('notes'),
+  createdAt: timestamp('created_at').defaultNow(),
+})
+
+export const postnatalCare = pgTable('postnatal_care', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  pregnancyId: uuid('pregnancy_id').references(() => pregnancies.id).notNull(),
+  visitPeriod: text('visit_period').notNull(), // '48hours', '1week', '6weeks'
+  visitDate: timestamp('visit_date').notNull(),
+  maternalCondition: text('maternal_condition'),
+  lochia: text('lochia'),
+  perineum: text('perineum'),
+  breastfeedingStatus: text('breastfeeding_status'),
+  babyCondition: text('baby_condition'),
+  umbilicalCord: text('umbilical_cord'),
+  familyPlanningMethod: text('family_planning_method'),
+  notes: text('notes'),
+  createdAt: timestamp('created_at').defaultNow(),
+})
+
+export const children = pgTable('children', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  pregnancyId: uuid('pregnancy_id').references(() => pregnancies.id).notNull(),
+  userId: uuid('user_id').references(() => users.id).notNull(), // The mother's ID
+  firstName: text('first_name'),
+  lastName: text('last_name'),
+  dateOfBirth: timestamp('date_of_birth').notNull(),
+  sex: text('sex').notNull(),
+  birthWeight: decimal('birth_weight', { precision: 5, scale: 2 }), // kg
+  birthLength: decimal('birth_length', { precision: 5, scale: 2 }), // cm
+  createdAt: timestamp('created_at').defaultNow(),
+})
+
+export const immunizations = pgTable('immunizations', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  childId: uuid('child_id').references(() => children.id).notNull(),
+  vaccineName: text('vaccine_name').notNull(), // BCG, OPV0, Penta1, etc.
+  doseNumber: integer('dose_number').default(1),
+  targetAge: text('target_age'), // 'Birth', '6 Weeks', etc.
+  dateAdministered: timestamp('date_administered'),
+  batchNumber: text('batch_number'),
+  administeredBy: uuid('administered_by').references(() => users.id),
+  createdAt: timestamp('created_at').defaultNow(),
+})
+
+export const childGrowth = pgTable('child_growth', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  childId: uuid('child_id').references(() => children.id).notNull(),
+  recordDate: timestamp('record_date').notNull(),
+  ageInMonths: integer('age_in_months').notNull(),
+  weight: decimal('weight', { precision: 5, scale: 2 }), // kg
+  height: decimal('height', { precision: 5, scale: 2 }), // cm
+  headCircumference: decimal('head_circumference', { precision: 5, scale: 2 }), // cm
+  notes: text('notes'),
+  createdAt: timestamp('created_at').defaultNow(),
+})
+
+export type PreviousPregnancy = typeof previousPregnancies.$inferSelect
+export type Delivery = typeof deliveries.$inferSelect
+export type PostnatalCare = typeof postnatalCare.$inferSelect
+export type Child = typeof children.$inferSelect
+export type Immunization = typeof immunizations.$inferSelect
+export type ChildGrowth = typeof childGrowth.$inferSelect

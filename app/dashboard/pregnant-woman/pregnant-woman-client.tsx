@@ -129,6 +129,12 @@ export default function PregnantWomanClient({ user, data }: { user: any, data: D
             <p className="text-gray-600">You're making wonderful progress on your journey.</p>
           </div>
           <div className="flex gap-3">
+            <Link href="/dashboard/pregnant-woman/digital-mch-book">
+              <Button variant="outline" className="rounded-full shadow-sm bg-white border-muted">
+                <BookOpen className="w-4 h-4 mr-2" />
+                MCH Book
+              </Button>
+            </Link>
             <Button variant="outline" className="rounded-full shadow-sm bg-white border-muted">
               <Bell className="w-4 h-4 mr-2" />
               Notifications

@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { ArrowLeft, Activity, Calendar as CalendarIcon, FileText, Plus } from 'lucide-react'
+import { ArrowLeft, Activity, Calendar as CalendarIcon, FileText, Plus, BookOpen } from 'lucide-react'
 import Link from 'next/link'
 import { recordAntenatalVisit } from '@/app/actions' // We will use this to record vitals and schedule
 
@@ -35,6 +35,14 @@ export default function PatientProfileClient({ data }: { data: any }) {
           <div>
             <h1 className="text-3xl font-black text-slate-900 tracking-tight">{patientName}</h1>
             <p className="text-slate-500 font-medium">Age: {age} • ID: {patient.id.substring(0,8).toUpperCase()}</p>
+          </div>
+          <div className="ml-auto">
+            <Link href={`/dashboard/hospital/patients/${pregnancy.id}/mch-book`}>
+              <Button className="bg-slate-900 hover:bg-slate-800 text-white rounded-xl shadow-lg flex items-center gap-2">
+                <BookOpen className="w-4 h-4" />
+                MCH Record Book
+              </Button>
+            </Link>
           </div>
         </div>
 
