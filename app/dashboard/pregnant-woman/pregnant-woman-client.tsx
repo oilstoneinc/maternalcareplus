@@ -43,6 +43,7 @@ interface DashboardData {
   pregnancy: any
   appointments: any[]
   labs: any[]
+  vitals: any[]
 }
 
 export default function PregnantWomanClient({ user, data }: { user: any, data: DashboardData | null }) {
