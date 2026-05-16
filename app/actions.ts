@@ -712,6 +712,13 @@ export async function savePreviousPregnancy(data: any) {
       alive: data.alive === 'true',
       complications: data.complications
     })
+
+    // Trigger Real-time update
+    await pusherServer.trigger(`pregnancy-${data.pregnancyId}`, 'mch-update', {
+      type: 'previous_pregnancy',
+      message: 'New obstetric history added'
+    })
+
     revalidatePath(`/dashboard/hospital/patients/${data.pregnancyId}/mch-book`)
     return { success: true }
   } catch (error) {
@@ -762,6 +769,12 @@ export async function saveDeliveryRecord(data: any) {
       birthLength: data.length
     })
 
+    // Trigger Real-time update
+    await pusherServer.trigger(`pregnancy-${data.pregnancyId}`, 'mch-update', {
+      type: 'delivery',
+      message: 'Delivery record completed! Congratulations!'
+    })
+
     revalidatePath(`/dashboard/hospital/patients/${data.pregnancyId}/mch-book`)
     return { success: true }
   } catch (error) {
@@ -791,6 +804,12 @@ export async function updateMCHPregnancyDetails(data: any) {
       })
       .where(eq(pregnancies.id, data.pregnancyId))
     
+    // Trigger Real-time update
+    await pusherServer.trigger(`pregnancy-${data.pregnancyId}`, 'mch-update', {
+      type: 'anc_details',
+      message: 'ANC interventions updated'
+    })
+
     revalidatePath(`/dashboard/hospital/patients/${data.pregnancyId}/mch-book`)
     return { success: true }
   } catch (error) {
@@ -825,6 +844,13 @@ export async function savePostnatalCare(data: any) {
       familyPlanningMethod: data.familyPlanning,
       notes: data.notes
     })
+
+    // Trigger Real-time update
+    await pusherServer.trigger(`pregnancy-${data.pregnancyId}`, 'mch-update', {
+      type: 'pnc',
+      message: 'New postnatal care record added'
+    })
+
     revalidatePath(`/dashboard/hospital/patients/${data.pregnancyId}/mch-book`)
     return { success: true }
   } catch (error) {

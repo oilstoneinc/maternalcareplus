@@ -31,10 +31,27 @@ import {
   ResponsiveContainer 
 } from 'recharts'
 import { motion, AnimatePresence } from 'framer-motion'
+import { useRouter } from 'next/navigation'
+import { useEffect } from 'react'
+import { pusherClient } from '@/lib/pusher-client'
 
 export default function DigitalMCHBookClient({ data }: { data: any }) {
   const { pregnancy, user, ancVisits, delivery, child, immunizations, growth } = data
   const [activeSection, setActiveSection] = useState('pregnancy')
+  const router = useRouter()
+
+  useEffect(() => {
+    const channel = pusherClient.subscribe(`pregnancy-${pregnancy.id}`)
+    
+    channel.bind('mch-update', (data: any) => {
+      console.log('Real-time MCH update received:', data)
+      router.refresh()
+    })
+
+    return () => {
+      pusherClient.unsubscribe(`pregnancy-${pregnancy.id}`)
+    }
+  }, [pregnancy.id, router])
 
   const formatDate = (date: any) => {
     if (!date) return 'N/A'
