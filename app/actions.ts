@@ -94,25 +94,51 @@ export async function getHospitalDashboardData(): Promise<HospitalDashboardData 
       return null
     }
 
-    // Get all patients
+    // Get all patients linked to this hospital
     const allPatients = await db.query.users.findMany({
-      where: eq(users.role, 'pregnant_woman'),
+      where: and(
+        eq(users.role, 'pregnant_woman'),
+        eq(users.hospitalId, dbUser.hospitalId!)
+      ),
       limit: 50,
     })
 
-    // Get active pregnancies
-    const activePregnancies = await db.query.pregnancies.findMany({
-      where: eq(pregnancies.status, 'active'),
+    // Get active pregnancies for this hospital
+    const activePregnanciesRaw = await db.query.pregnancies.findMany({
+      where: and(
+        eq(pregnancies.status, 'active'),
+        eq(pregnancies.hospitalId, dbUser.hospitalId!)
+      ),
       limit: 50,
     })
 
-    // Get today's appointments
+    // Map pregnancies to include patient name
+    const activePregnancies = activePregnanciesRaw.map(p => {
+      const patient = allPatients.find(u => u.id === p.userId)
+      return {
+        ...p,
+        patientName: patient ? `${patient.firstName} ${patient.lastName}`.trim() : 'Unknown Patient',
+        nextVisit: 'Not scheduled', // This could be fetched from appointments
+        riskLevel: p.riskFactors?.length ? 'high' : 'low'
+      }
+    })
+
+    // Get today's appointments for this hospital
     const todayAppointments = await db.query.appointments.findMany({
-      where: sql`DATE(${appointments.scheduledDate}) = CURRENT_DATE`,
+      where: and(
+        sql`DATE(${appointments.scheduledDate}) = CURRENT_DATE`,
+        eq(appointments.hospitalId, dbUser.hospitalId!)
+      ),
       limit: 20,
     })
 
+    // Get hospital details
+    const hospital = dbUser.hospitalId ? await db.query.hospitals.findFirst({
+      where: eq(hospitals.id, dbUser.hospitalId)
+    }) : null;
+
     return {
+      hospital,
       patients: allPatients,
       pregnancies: activePregnancies,
       appointments: todayAppointments,
@@ -395,10 +421,10 @@ export async function onboardPatient(formData: any) {
 
     // 4. Create Pregnancy record if applicable
     if ((formData.role || 'pregnant_woman') === 'pregnant_woman' && formData.lmp) {
-      // Find hospital logic
-      let hospitalId = '00000000-0000-0000-0000-000000000000';
-      const hospitalData = await db.query.hospitals.findFirst();
-      if (hospitalData) { hospitalId = hospitalData.id }
+      let hospitalId = dbUser.hospitalId;
+      if (!hospitalId) {
+        throw new Error('You must be assigned to a hospital to onboard a patient.')
+      }
 
       await db.insert(pregnancies).values({
         userId: newUser.id,
@@ -437,7 +463,7 @@ export async function recordAntenatalVisit(formData: any) {
   const dbUser = await db.query.users.findFirst({
     where: eq(users.clerkId, user.id)
   })
-  if (!dbUser || (dbUser.role !== 'midwife' && dbUser.role !== 'admin')) {
+  if (!dbUser || (dbUser.role !== 'midwife' && dbUser.role !== 'hospital_staff' && dbUser.role !== 'admin')) {
     throw new Error('Not authorized to record visits')
   }
 
@@ -491,6 +517,17 @@ export async function recordAntenatalVisit(formData: any) {
       status: 'completed'
     })
 
+    if (formData.nextVisitDate) {
+      await db.insert(appointments).values({
+        pregnancyId: pregnancyId,
+        hospitalId: hospitalId,
+        midwifeId: dbUser.id,
+        scheduledDate: new Date(formData.nextVisitDate),
+        status: 'scheduled'
+      })
+    }
+
+    revalidatePath('/dashboard/hospital')
     revalidatePath('/dashboard/midwife')
     revalidatePath('/dashboard/pregnant-woman')
     return { success: true }

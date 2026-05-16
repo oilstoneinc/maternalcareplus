@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { User } from '@clerk/nextjs/server'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import Link from 'next/link'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
 import { 
@@ -65,12 +66,12 @@ export default function HospitalDashboardClient({ user, data }: { user: any, dat
   
   const [pregnancies, setPregnancies] = useState<Pregnancy[]>(data?.pregnancies?.map((p: any) => ({
     id: p.id,
-    patientName: "Patient Name", // Would need to join or pass in data
+    patientName: p.patientName || "Unknown Patient",
     gestationalAge: p.gestationalAge || 0,
     edd: formatDate(p.edd),
-    lastVisit: 'N/A',
-    nextVisit: 'N/A',
-    riskLevel: 'low',
+    lastVisit: 'N/A', // Could be added to backend
+    nextVisit: p.nextVisit || 'Not scheduled',
+    riskLevel: p.riskLevel || 'low',
     status: p.status
   })) || [])
   const [searchTerm, setSearchTerm] = useState('')
@@ -226,9 +227,11 @@ export default function HospitalDashboardClient({ user, data }: { user: any, dat
                           <p className="font-medium">{pregnancy.patientName}</p>
                           <p className="text-sm text-gray-600">{pregnancy.nextVisit}</p>
                         </div>
-                        <Button variant="outline" size="sm">
-                          View Details
-                        </Button>
+                        <Link href={`/dashboard/hospital/patients/${pregnancy.id}`}>
+                          <Button variant="outline" size="sm">
+                            View Details
+                          </Button>
+                        </Link>
                       </div>
                     ))}
                   </div>
@@ -339,9 +342,11 @@ export default function HospitalDashboardClient({ user, data }: { user: any, dat
                           </div>
                         </div>
                         <div className="mt-4 flex gap-2">
-                          <Button size="sm" className="flex-1">
-                            View Details
-                          </Button>
+                          <Link href={`/dashboard/hospital/patients/${pregnancy.id}`} className="flex-1">
+                            <Button size="sm" className="w-full">
+                              View Details
+                            </Button>
+                          </Link>
                           <Button variant="outline" size="sm" aria-label="Call Patient">
                             <Phone className="w-4 h-4" />
                           </Button>

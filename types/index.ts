@@ -7,6 +7,7 @@ export interface DashboardData {
 }
 
 export interface HospitalDashboardData {
+  hospital?: any
   patients: any[]
   pregnancies: any[]
   appointments: any[]

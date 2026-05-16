@@ -22,7 +22,7 @@ export default function SignUpPage() {
           routing="path" 
           path="/sign-up" 
           signInUrl="/sign-in"
-          fallbackRedirectUrl="/dashboard/hospital"
+          fallbackRedirectUrl="/onboarding/hospital"
           appearance={{
             elements: {
               rootBox: "w-full max-w-[440px] shadow-2xl rounded-2xl overflow-hidden",

@@ -15,6 +15,10 @@ export default async function HospitalDashboard() {
       redirect('/unauthorized')
     }
 
+    if (data.hospital && data.hospital.name.includes('Pending Setup')) {
+      redirect('/onboarding/hospital')
+    }
+
     // SANITIZATION: Handle Date serialization issues for production
     // Next.js can sometimes have issues passing raw Date objects through the RSC boundary
     // in some production configurations. We convert to a plain JSON object with strings.
