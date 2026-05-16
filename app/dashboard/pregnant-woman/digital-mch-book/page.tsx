@@ -64,8 +64,8 @@ export default async function DigitalMCHBookPage() {
     })
 
     let childId = childRecord?.id
-    let immunizationsData = []
-    let growthData = []
+    let immunizationsData: any[] = []
+    let growthData: any[] = []
 
     if (childId) {
       immunizationsData = await db.query.immunizations.findMany({

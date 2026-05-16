@@ -16,7 +16,9 @@ import {
   TrendingUp, 
   Award,
   ChevronRight,
-  Stethoscope
+  Stethoscope,
+  CheckCircle2,
+  UserCheck
 } from 'lucide-react'
 import Link from 'next/link'
 import { 
