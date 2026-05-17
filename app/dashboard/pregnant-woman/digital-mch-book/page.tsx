@@ -1,5 +1,6 @@
 import { currentUser } from '@clerk/nextjs/server'
 import { redirect } from 'next/navigation'
+import { requireRole } from '@/lib/clerk'
 import { db } from '@/lib/db'
 import { 
   users, 
@@ -15,6 +16,7 @@ import DigitalMCHBookClient from './digital-mch-book-client'
 
 export default async function DigitalMCHBookPage() {
   try {
+    await requireRole('pregnant_woman')
     const user = await currentUser()
     if (!user) redirect('/sign-in')
     
