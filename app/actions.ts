@@ -858,3 +858,77 @@ export async function savePostnatalCare(data: any) {
     return { success: false, error: 'Failed to save record' }
   }
 }
+
+export async function recordImmunization(data: any) {
+  const user = await currentUser()
+  if (!user) throw new Error('Unauthorized')
+
+  const dbUser = await db.query.users.findFirst({
+    where: eq(users.clerkId, user.id)
+  })
+
+  if (!dbUser || !['hospital_staff', 'midwife', 'admin'].includes(dbUser.role)) {
+    throw new Error('Unauthorized role')
+  }
+
+  try {
+    await db.insert(immunizations).values({
+      childId: data.childId,
+      vaccineName: data.vaccineName,
+      doseNumber: parseInt(data.doseNumber || '1'),
+      targetAge: data.targetAge,
+      dateAdministered: new Date(data.dateAdministered),
+      batchNumber: data.batchNumber,
+      administeredBy: dbUser.id
+    })
+
+    // Trigger Real-time update
+    await pusherServer.trigger(`pregnancy-${data.pregnancyId}`, 'mch-update', {
+      type: 'immunization',
+      message: `Vaccine ${data.vaccineName} recorded!`
+    })
+
+    revalidatePath(`/dashboard/hospital/patients/${data.pregnancyId}/mch-book/child`)
+    return { success: true }
+  } catch (error) {
+    console.error('Record immunization error:', error)
+    return { success: false, error: 'Failed to record immunization' }
+  }
+}
+
+export async function recordChildGrowth(data: any) {
+  const user = await currentUser()
+  if (!user) throw new Error('Unauthorized')
+
+  const dbUser = await db.query.users.findFirst({
+    where: eq(users.clerkId, user.id)
+  })
+
+  if (!dbUser || !['hospital_staff', 'midwife', 'admin'].includes(dbUser.role)) {
+    throw new Error('Unauthorized role')
+  }
+
+  try {
+    await db.insert(childGrowth).values({
+      childId: data.childId,
+      recordDate: new Date(data.recordDate),
+      ageInMonths: parseInt(data.ageInMonths),
+      weight: data.weight,
+      height: data.height,
+      headCircumference: data.headCircumference,
+      notes: data.notes
+    })
+
+    // Trigger Real-time update
+    await pusherServer.trigger(`pregnancy-${data.pregnancyId}`, 'mch-update', {
+      type: 'growth',
+      message: 'Child growth parameters recorded!'
+    })
+
+    revalidatePath(`/dashboard/hospital/patients/${data.pregnancyId}/mch-book/child`)
+    return { success: true }
+  } catch (error) {
+    console.error('Record child growth error:', error)
+    return { success: false, error: 'Failed to record growth details' }
+  }
+}
