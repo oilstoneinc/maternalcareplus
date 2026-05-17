@@ -29,6 +29,9 @@ import {
 } from 'lucide-react'
 import ProgressChart from '@/components/dashboard/ProgressChart'
 import { generateFatherJoinCode } from '@/app/actions'
+import { pusherClient } from '@/lib/pusher-client'
+import { useRouter } from 'next/navigation'
+import { Sparkles as SparklesIcon } from 'lucide-react'
 import { 
   LineChart, 
   Line, 
@@ -78,6 +81,28 @@ export default function PregnantWomanClient({ user, data }: { user: any, data: D
   const [shareCode, setShareCode] = useState<string | null>(data?.pregnancy?.fatherJoinCode || null)
   const [isGenerating, setIsGenerating] = useState(false)
   const [copied, setCopied] = useState(false)
+  const [realtimeNotification, setRealtimeNotification] = useState<string | null>(null)
+  const router = useRouter()
+
+  useEffect(() => {
+    if (!data?.pregnancy?.id) return
+    const channel = pusherClient.subscribe(`pregnancy-${data.pregnancy.id}`)
+    
+    channel.bind('mch-update', (payload: any) => {
+      console.log('Real-time updates received:', payload)
+      setRealtimeNotification(payload.message || 'Your digital MCH record has been updated by the hospital!')
+      router.refresh()
+      
+      // Auto-clear notification after 8 seconds
+      setTimeout(() => {
+        setRealtimeNotification(null)
+      }, 8000)
+    })
+
+    return () => {
+      pusherClient.unsubscribe(`pregnancy-${data.pregnancy.id}`)
+    }
+  }, [data?.pregnancy?.id, router])
 
   useEffect(() => {
     if (data?.pregnancy) {
@@ -149,6 +174,21 @@ export default function PregnantWomanClient({ user, data }: { user: any, data: D
             </Button>
           </div>
         </header>
+
+        {realtimeNotification && (
+          <div className="bg-emerald-50 border border-emerald-200 rounded-3xl p-5 shadow-sm flex items-center gap-4 animate-in fade-in slide-in-from-top-4 duration-300">
+            <div className="bg-emerald-500 p-2.5 rounded-2xl text-white">
+              <SparklesIcon className="w-5 h-5" />
+            </div>
+            <div className="flex-1">
+              <h4 className="font-black text-slate-800 text-sm tracking-tight">Record Update Alert</h4>
+              <p className="text-slate-600 text-xs font-semibold mt-0.5">{realtimeNotification}</p>
+            </div>
+            <Button variant="outline" size="sm" className="rounded-full bg-white text-xs border-emerald-200 hover:bg-emerald-100/50" onClick={() => window.location.reload()}>
+              View Changes
+            </Button>
+          </div>
+        )}
 
         {/* Hero Progress Section */}
         <Card className="border-none shadow-xl bg-white/80 backdrop-blur-md overflow-hidden ring-1 ring-black/5">
