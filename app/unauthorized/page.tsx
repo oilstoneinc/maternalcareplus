@@ -12,20 +12,27 @@ export default function UnauthorizedPage() {
   const [syncStatus, setSyncStatus] = useState<'idle' | 'success' | 'error'>('idle')
   const [errorMessage, setErrorMessage] = useState('')
   const [loopDetected, setLoopDetected] = useState(false)
+  const [detectedRole, setDetectedRole] = useState('')
 
   // AUTO-DETECT: When the page loads, try to sync silently.
   useEffect(() => {
-    if (isLoaded && user && syncStatus === 'idle') {
-      // Loop protection: Check if we've already tried this too many times in this session
-      const syncCount = parseInt(sessionStorage.getItem('mc_sync_attempts') || '0')
-      
-      if (syncCount > 3) {
-        console.log("Too many sync loops detected. Stopping auto-sync.")
-        setLoopDetected(true)
-        return
+    if (isLoaded && user) {
+      if (user.publicMetadata?.role) {
+        setDetectedRole(user.publicMetadata.role as string)
       }
+      
+      if (syncStatus === 'idle') {
+        // Loop protection: Check if we've already tried this too many times in this session
+        const syncCount = parseInt(sessionStorage.getItem('mc_sync_attempts') || '0')
+        
+        if (syncCount > 3) {
+          console.log("Too many sync loops detected. Stopping auto-sync.")
+          setLoopDetected(true)
+          return
+        }
 
-      handleManualSync(true) // Pass 'true' for silent/auto mode
+        handleManualSync(true) // Pass 'true' for silent/auto mode
+      }
     }
   }, [isLoaded, user])
 
@@ -44,6 +51,10 @@ export default function UnauthorizedPage() {
       if (result.success) {
         // RESET Loop protection on actual success
         sessionStorage.setItem('mc_sync_attempts', '0')
+        
+        if (result.role) {
+          setDetectedRole(result.role)
+        }
         
         // FORCE RELOAD CLERK DATA
         if (user) {
@@ -69,6 +80,15 @@ export default function UnauthorizedPage() {
     } finally {
       if (!silent) setIsSyncing(false)
     }
+  }
+
+  const formatRole = (roleStr: string) => {
+    if (!roleStr) return 'Unassigned'
+    return roleStr
+      .replace('_', ' ')
+      .split(' ')
+      .map(w => w.charAt(0).toUpperCase() + w.slice(1))
+      .join(' ')
   }
 
   return (
@@ -111,8 +131,8 @@ export default function UnauthorizedPage() {
               )}
            </div>
            <p className="text-sm font-bold text-slate-700 text-left flex items-center gap-2">
-              Role: <span className={syncStatus === 'success' ? 'text-green-600' : 'text-red-500 uppercase'}>
-                {syncStatus === 'success' ? 'Hospital Administrator' : 'Unassigned'}
+              Role: <span className={syncStatus === 'success' ? 'text-green-600 font-black' : 'text-red-500 font-black'}>
+                {formatRole(detectedRole)}
               </span>
            </p>
         </div>

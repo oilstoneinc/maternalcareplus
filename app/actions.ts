@@ -303,16 +303,20 @@ export async function syncClerkAccount() {
     const primaryEmail = user.emailAddresses[0]?.emailAddress
     if (!primaryEmail) return { success: false, error: 'No email found in Clerk' }
 
-    // Check if user exists in DB
+    // 1. Check if user exists in DB (source of truth for onboarded patients/midwives)
     const dbUser = await db.query.users.findFirst({
       where: eq(users.clerkId, user.id)
     })
 
-    const role = (user.publicMetadata?.role as string) || 'hospital_staff'
+    // Prioritize DB role, then Clerk metadata role, then default fallback
+    let role = dbUser?.role || (user.publicMetadata?.role as string) || null
+
+    if (!role) {
+      role = 'hospital_staff' // Default for first-time provider signups
+    }
 
     if (!dbUser) {
-      // FORCE CREATE: Handle cases where webhook hasn't run yet
-      console.log(`Self-healing: Creating missing user record for ${user.id}`)
+      console.log(`Self-healing: Creating missing user record for ${user.id} with role ${role}`)
       await db.insert(users).values({
         clerkId: user.id,
         email: primaryEmail,
@@ -323,44 +327,45 @@ export async function syncClerkAccount() {
         isActive: true,
       })
     } else if (dbUser.role !== role) {
-       // FORCE UPDATE: User exists but their role in DB is different from Clerk (e.g. they were just promoted)
-       console.log(`Self-healing: Synchronizing role for ${user.id} -> ${role}`)
-       await db.update(users)
-         .set({ role: role as any, updatedAt: new Date() })
-         .where(eq(users.clerkId, user.id))
+       // DB is source of truth, synchronize Clerk metadata if they disagree
+       console.log(`Self-healing: Clerk/DB mismatch. Database role is ${dbUser.role}, Clerk is ${role}. Syncing Clerk.`)
+       role = dbUser.role
     }
 
-    // If it's a hospital staff role, ensure they have a hospital entry
-    if (role === 'hospital_staff') {
-        const existingHospital = await db.query.hospitals.findFirst({
-          where: eq(hospitals.email, primaryEmail)
-        })
-
-        if (!existingHospital) {
-          await db.insert(hospitals).values({
-            name: user.firstName ? `${user.firstName}'s Medical Center` : `Pending Setup (${primaryEmail})`,
-            code: `HSP-AUTO-${Math.floor(Math.random() * 10000)}`,
-            address: 'Institutional Setup Pending',
-            region: 'Unknown',
-            city: 'Unknown',
-            phone: '0000000000',
-            email: primaryEmail,
-            type: 'Hospital',
-          })
-        }
-      }
-
-    // Proactive Metadata Sync: Push role to Clerk if missing
-    if (!user.publicMetadata?.role) {
+    // Ensure Clerk is updated
+    if (user.publicMetadata?.role !== role) {
       await (await clerkClient()).users.updateUserMetadata(user.id, {
         publicMetadata: { role: role }
       })
     }
 
-    // Determine target path for instant redirection injection
+    // 2. If it's a hospital staff role, ensure they have a hospital entry
+    if (role === 'hospital_staff') {
+      const existingHospital = await db.query.hospitals.findFirst({
+        where: eq(hospitals.email, primaryEmail)
+      })
+
+      if (!existingHospital) {
+        await db.insert(hospitals).values({
+          name: user.firstName ? `${user.firstName}'s Medical Center` : `Pending Setup (${primaryEmail})`,
+          code: `HSP-AUTO-${Math.floor(Math.random() * 10000)}`,
+          address: 'Institutional Setup Pending',
+          region: 'Unknown',
+          city: 'Unknown',
+          phone: '0000000000',
+          email: primaryEmail,
+          type: 'Hospital',
+        })
+      }
+    }
+
+    // 3. Determine precise target path for redirect
     let targetPath = '/dashboard'
     if (role === 'admin') targetPath = '/dashboard/admin'
     if (role === 'hospital_staff') targetPath = '/dashboard/hospital'
+    if (role === 'midwife') targetPath = '/dashboard/midwife'
+    if (role === 'pregnant_woman') targetPath = '/dashboard/pregnant-woman'
+    if (role === 'father') targetPath = '/dashboard/father'
 
     revalidatePath('/')
     return { success: true, role, targetPath }
