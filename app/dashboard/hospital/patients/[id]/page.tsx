@@ -2,7 +2,7 @@ import { currentUser } from '@clerk/nextjs/server'
 import { redirect } from 'next/navigation'
 import { requireRole } from '@/lib/clerk'
 import { db } from '@/lib/db'
-import { users, pregnancies, appointments, vitalSigns, labTests } from '@/lib/db/schema'
+import { users, pregnancies, appointments, vitalSigns, labTests, hospitals } from '@/lib/db/schema'
 import { eq, and, desc } from 'drizzle-orm'
 import PatientProfileClient from './patient-profile-client'
 
@@ -24,17 +24,19 @@ export default async function PatientProfilePage({ params }: { params: Promise<{
       redirect('/unauthorized')
     }
 
-    // Fetch the pregnancy
+    // Fetch the pregnancy (relaxed to allow cross-hospital registry tracking for verified staff)
     const pregnancy = await db.query.pregnancies.findFirst({
-      where: and(
-        eq(pregnancies.id, pregnancyId),
-        eq(pregnancies.hospitalId, dbUser.hospitalId) // Security: enforce hospital isolation
-      )
+      where: eq(pregnancies.id, pregnancyId)
     })
 
     if (!pregnancy) {
       redirect('/dashboard/hospital') // Not found or unauthorized
     }
+
+    // Fetch the onboarding hospital
+    const onboardingHospital = await db.query.hospitals.findFirst({
+      where: eq(hospitals.id, pregnancy.hospitalId)
+    })
 
     // Fetch the patient
     const patient = await db.query.users.findFirst({
@@ -70,7 +72,9 @@ export default async function PatientProfilePage({ params }: { params: Promise<{
       patient,
       vitals,
       appointments: allAppointments,
-      labs
+      labs,
+      onboardingHospital,
+      currentHospitalId: dbUser.hospitalId
     }))
 
     return <PatientProfileClient data={safeData} />

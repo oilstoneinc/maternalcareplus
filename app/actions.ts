@@ -4,7 +4,7 @@ import { db } from '@/lib/db'
 import { users, pregnancies, appointments, labTests, partnerAccess, messages, User, NewUser, NewPregnancy, NewMessage, hospitals, vitalSigns, previousPregnancies, deliveries, postnatalCare, children, immunizations, childGrowth, hospitalInvites } from '@/lib/db/schema'
 import { currentUser, clerkClient } from '@clerk/nextjs/server'
 import { HospitalDashboardData, DashboardData, Message } from '@/types'
-import { eq, desc, and, or, sql } from 'drizzle-orm'
+import { eq, desc, and, or, sql, ilike } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 import { pusherServer } from '@/lib/pusher-server'
 
@@ -1033,5 +1033,78 @@ export async function recordChildGrowth(data: any) {
   } catch (error) {
     console.error('Record child growth error:', error)
     return { success: false, error: 'Failed to record growth details' }
+  }
+}
+
+/**
+ * Search all pregnant women nationally (cross-hospital registry)
+ */
+export async function searchGlobalPatients(queryText: string) {
+  const user = await currentUser()
+  if (!user) throw new Error('Unauthorized')
+
+  // Verify clinical provider role
+  const dbUser = await db.query.users.findFirst({
+    where: eq(users.clerkId, user.id)
+  })
+
+  if (!dbUser || !['hospital_staff', 'midwife', 'admin'].includes(dbUser.role)) {
+    throw new Error('Not authorized to search patient registry')
+  }
+
+  if (!queryText || queryText.trim().length < 2) {
+    return []
+  }
+
+  const cleanQuery = `%${queryText.trim()}%`
+
+  try {
+    // Query patients match
+    const matchingPatients = await db.query.users.findMany({
+      where: and(
+        eq(users.role, 'pregnant_woman'),
+        or(
+          ilike(users.firstName, cleanQuery),
+          ilike(users.lastName, cleanQuery),
+          ilike(users.email, cleanQuery),
+          ilike(users.phone, cleanQuery)
+        )
+      ),
+      limit: 25
+    })
+
+    const results = []
+
+    for (const patient of matchingPatients) {
+      // Find active pregnancy
+      const activePreg = await db.query.pregnancies.findFirst({
+        where: and(
+          eq(pregnancies.userId, patient.id),
+          eq(pregnancies.status, 'active')
+        )
+      })
+
+      if (activePreg) {
+        // Find onboarding hospital
+        const onboardingHospital = await db.query.hospitals.findFirst({
+          where: eq(hospitals.id, activePreg.hospitalId)
+        })
+
+        results.push({
+          id: patient.id,
+          name: `${patient.firstName} ${patient.lastName}`.trim(),
+          email: patient.email,
+          phone: patient.phone,
+          pregnancyId: activePreg.id,
+          onboardedHospitalName: onboardingHospital ? onboardingHospital.name : 'Unknown Hospital',
+          onboardedHospitalLocation: onboardingHospital ? `${onboardingHospital.city}, ${onboardingHospital.region}` : 'Unknown Location'
+        })
+      }
+    }
+
+    return results
+  } catch (error) {
+    console.error('searchGlobalPatients error:', error)
+    return []
   }
 }

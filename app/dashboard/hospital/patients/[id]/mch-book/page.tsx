@@ -31,12 +31,9 @@ export default async function MCHBookPage({ params }: { params: Promise<{ id: st
       redirect('/unauthorized')
     }
 
-    // Fetch pregnancy with security check
+    // Fetch pregnancy (relaxed to allow cross-hospital registry tracking for verified staff)
     const pregnancyData = await db.query.pregnancies.findFirst({
-      where: and(
-        eq(pregnancies.id, pregnancyId),
-        eq(pregnancies.hospitalId, dbUser.hospitalId)
-      )
+      where: eq(pregnancies.id, pregnancyId)
     })
 
     if (!pregnancyData) {

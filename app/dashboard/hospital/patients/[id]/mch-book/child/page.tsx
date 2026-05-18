@@ -28,12 +28,9 @@ export default async function ChildHealthPage({ params }: { params: Promise<{ id
       redirect('/unauthorized')
     }
 
-    // Fetch pregnancy with security check
+    // Fetch pregnancy (relaxed to allow cross-hospital registry tracking for verified staff)
     const pregnancyData = await db.query.pregnancies.findFirst({
-      where: and(
-        eq(pregnancies.id, pregnancyId),
-        eq(pregnancies.hospitalId, dbUser.hospitalId)
-      )
+      where: eq(pregnancies.id, pregnancyId)
     })
 
     if (!pregnancyData) {

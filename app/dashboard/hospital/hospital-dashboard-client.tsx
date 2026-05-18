@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import Link from 'next/link'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
+import { searchGlobalPatients } from '@/app/actions'
 import { 
   Users, 
   Calendar, 
@@ -76,6 +77,28 @@ export default function HospitalDashboardClient({ user, data }: { user: any, dat
   })) || [])
   const [searchTerm, setSearchTerm] = useState('')
   const [showOnboarding, setShowOnboarding] = useState(false)
+
+  // National Patient Registry Search states
+  const [globalSearchTerm, setGlobalSearchTerm] = useState('')
+  const [globalSearchResults, setGlobalSearchResults] = useState<any[]>([])
+  const [isSearchingGlobal, setIsSearchingGlobal] = useState(false)
+  const [hasSearchedGlobal, setHasSearchedGlobal] = useState(false)
+
+  const handleGlobalSearch = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!globalSearchTerm.trim()) return
+    setIsSearchingGlobal(true)
+    setHasSearchedGlobal(true)
+    try {
+      const results = await searchGlobalPatients(globalSearchTerm)
+      setGlobalSearchResults(results || [])
+    } catch (err) {
+      console.error(err)
+      alert('Error searching national patient registry')
+    } finally {
+      setIsSearchingGlobal(false)
+    }
+  }
 
   useEffect(() => {
     // - [x] Implement the Admin Dashboard
@@ -241,6 +264,103 @@ export default function HospitalDashboardClient({ user, data }: { user: any, dat
           </TabsContent>
 
           <TabsContent value="patients" className="space-y-6">
+            {/* National Patient Registry Search Panel */}
+            <Card className="border-[#D48BA1]/20 shadow-md bg-white">
+              <CardHeader className="bg-slate-50/50 pb-4">
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                  <div>
+                    <CardTitle className="text-slate-800 flex items-center gap-2">
+                      <HeartPulse className="h-5 w-5 text-[#D48BA1]" />
+                      National MCH Patient Registry Search
+                    </CardTitle>
+                    <CardDescription className="text-xs text-muted-foreground mt-1">
+                      Search across all hospitals nationally to locate a visiting mother's unified MCH record by Name, Phone, Email, or Clerk ID.
+                    </CardDescription>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent className="pt-6 space-y-4">
+                <form onSubmit={handleGlobalSearch} className="flex gap-2">
+                  <div className="relative flex-1">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-4 h-4" />
+                    <input
+                      type="text"
+                      placeholder="Enter patient name, phone, email, or ID (e.g. Ridge patient visiting for ANC)..."
+                      value={globalSearchTerm}
+                      onChange={(e) => setGlobalSearchTerm(e.target.value)}
+                      className="w-full pl-10 pr-4 py-2 border border-slate-200 focus:border-[#D48BA1] focus:ring-1 focus:ring-[#D48BA1] rounded-xl text-sm shadow-sm"
+                    />
+                  </div>
+                  <Button 
+                    type="submit" 
+                    disabled={isSearchingGlobal} 
+                    className="bg-[#D48BA1] hover:bg-[#c47a90] text-white rounded-xl shadow-sm text-sm font-semibold"
+                  >
+                    {isSearchingGlobal ? 'Searching...' : 'Search National Registry'}
+                  </Button>
+                </form>
+
+                {hasSearchedGlobal && (
+                  <div className="pt-4 border-t border-slate-100">
+                    <h4 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-3">Registry Search Results</h4>
+                    {globalSearchResults.length === 0 ? (
+                      <p className="text-sm text-slate-500 font-medium py-2">
+                        No patients found matching "{globalSearchTerm}" in the national database.
+                      </p>
+                    ) : (
+                      <div className="overflow-x-auto border border-slate-100 rounded-xl bg-white">
+                        <table className="w-full text-left border-collapse">
+                          <thead className="bg-slate-50 text-[10px] font-black text-slate-900 uppercase tracking-widest">
+                            <tr className="border-b border-slate-100">
+                              <th className="px-4 py-3">Patient Name</th>
+                              <th className="px-4 py-3">Contact</th>
+                              <th className="px-4 py-3">Primary Onboarding Facility</th>
+                              <th className="px-4 py-3 text-right">Action</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100 text-sm">
+                            {globalSearchResults.map((res) => (
+                              <tr key={res.id} className="hover:bg-slate-50/50 transition-colors">
+                                <td className="px-4 py-3">
+                                  <div className="flex flex-col">
+                                    <span className="font-bold text-slate-800">{res.name}</span>
+                                    <span className="text-[10px] text-muted-foreground uppercase tracking-widest font-mono">ID: {res.id.substring(0,8)}</span>
+                                  </div>
+                                </td>
+                                <td className="px-4 py-3">
+                                  <div className="flex flex-col text-xs text-slate-600">
+                                    <span>{res.phone || 'No phone'}</span>
+                                    <span className="text-muted-foreground font-mono">{res.email}</span>
+                                  </div>
+                                </td>
+                                <td className="px-4 py-3">
+                                  <div className="flex flex-col">
+                                    <span className="font-semibold text-slate-700 text-xs">{res.onboardedHospitalName}</span>
+                                    <span className="text-[10px] text-muted-foreground">{res.onboardedHospitalLocation}</span>
+                                  </div>
+                                </td>
+                                <td className="px-4 py-3 text-right">
+                                  <Link href={`/dashboard/hospital/patients/${res.pregnancyId}`}>
+                                    <Button 
+                                      variant="outline" 
+                                      size="sm"
+                                      className="border-pink-200 text-[#D48BA1] hover:bg-pink-50 hover:text-[#c47a90] rounded-xl font-bold text-xs"
+                                    >
+                                      Retrieve History & Record ANC Visit
+                                    </Button>
+                                  </Link>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
             <Card>
               <CardHeader>
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">

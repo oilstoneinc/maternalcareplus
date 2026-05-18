@@ -10,7 +10,7 @@ import Link from 'next/link'
 import { recordAntenatalVisit } from '@/app/actions' // We will use this to record vitals and schedule
 
 export default function PatientProfileClient({ data }: { data: any }) {
-  const { patient, pregnancy, vitals, appointments, labs } = data
+  const { patient, pregnancy, vitals, appointments, labs, onboardingHospital, currentHospitalId } = data
   const [activeTab, setActiveTab] = useState('overview')
   const [showVitalForm, setShowVitalForm] = useState(false)
 
@@ -34,7 +34,17 @@ export default function PatientProfileClient({ data }: { data: any }) {
           </Link>
           <div>
             <h1 className="text-3xl font-black text-slate-900 tracking-tight">{patientName}</h1>
-            <p className="text-slate-500 font-medium">Age: {age} • ID: {patient.id.substring(0,8).toUpperCase()}</p>
+            <div className="flex flex-wrap items-center gap-2 mt-1">
+              <p className="text-slate-500 font-medium">Age: {age} • ID: {patient.id.substring(0,8).toUpperCase()}</p>
+              {onboardingHospital && (
+                <>
+                  <span className="text-slate-300">•</span>
+                  <Badge className="bg-indigo-50 text-indigo-700 border-indigo-250 text-[10px] uppercase tracking-wider font-extrabold px-2.5 py-0.5 flex items-center gap-1">
+                    Primary Care Facility: {onboardingHospital.name} ({onboardingHospital.city})
+                  </Badge>
+                </>
+              )}
+            </div>
           </div>
           <div className="ml-auto">
             <Link href={`/dashboard/hospital/patients/${pregnancy.id}/mch-book`}>
@@ -141,7 +151,7 @@ export default function PatientProfileClient({ data }: { data: any }) {
                   </div>
                 </CardHeader>
                 <CardContent className="p-6">
-                  <VitalForm pregnancyId={pregnancy.id} hospitalId={pregnancy.hospitalId} onComplete={() => setShowVitalForm(false)} />
+                   <VitalForm pregnancyId={pregnancy.id} hospitalId={currentHospitalId || pregnancy.hospitalId} onComplete={() => setShowVitalForm(false)} />
                 </CardContent>
               </Card>
             )}
