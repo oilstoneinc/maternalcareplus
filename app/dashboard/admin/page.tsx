@@ -15,6 +15,14 @@ export default async function AdminDashboard() {
   // 3. Fetch data
   const data = await getAdminDashboardData()
 
-  // 4. Render client component
-  return <AdminDashboardClient user={user} data={data} />
+  // 4. Render client component with safe plain user object
+  const plainUser = {
+    id: user.id,
+    firstName: user.firstName,
+    lastName: user.lastName,
+    imageUrl: user.imageUrl,
+    emailAddress: user.emailAddresses[0]?.emailAddress || '',
+  }
+
+  return <AdminDashboardClient user={plainUser} data={data} />
 }

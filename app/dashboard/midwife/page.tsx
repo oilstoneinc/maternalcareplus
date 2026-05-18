@@ -15,6 +15,14 @@ export default async function MidwifeDashboard() {
   // 3. Fetch data
   const data = await getMidwifeDashboardData()
 
-  // 4. Render client component
-  return <MidwifeDashboardClient user={user} data={data} />
+  // 4. Render client component with safe plain user object
+  const plainUser = {
+    id: user.id,
+    firstName: user.firstName,
+    lastName: user.lastName,
+    imageUrl: user.imageUrl,
+    emailAddress: user.emailAddresses[0]?.emailAddress || '',
+  }
+
+  return <MidwifeDashboardClient user={plainUser} data={data} />
 }

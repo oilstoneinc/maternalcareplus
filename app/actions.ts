@@ -12,66 +12,99 @@ import { pusherServer } from '@/lib/pusher-server'
  * Get data for the Patient (Pregnant Woman) Dashboard
  */
 export async function getPatientDashboardData(): Promise<DashboardData | null> {
-  const user = await currentUser()
-  if (!user) throw new Error('Unauthorized')
+  try {
+    const user = await currentUser()
+    if (!user) throw new Error('Unauthorized')
 
-  // Get user from our database
-  const dbUser = await db.query.users.findFirst({
-    where: eq(users.clerkId, user.id),
-  })
+    // Get user from our database
+    const dbUser = await db.query.users.findFirst({
+      where: eq(users.clerkId, user.id),
+    })
 
-  if (!dbUser) return null
+    if (!dbUser) return null
 
-  // Get active pregnancy
-  const pregnancy = await db.query.pregnancies.findFirst({
-    where: and(
-      eq(pregnancies.userId, dbUser.id),
-      eq(pregnancies.status, 'active')
-    )
-  })
+    // Get active pregnancy
+    let pregnancy: any = null
+    try {
+      pregnancy = await db.query.pregnancies.findFirst({
+        where: and(
+          eq(pregnancies.userId, dbUser.id),
+          eq(pregnancies.status, 'active')
+        )
+      })
+    } catch (e) {
+      console.error('Error fetching active pregnancy:', e)
+    }
 
-  if (!pregnancy) return { user: dbUser, pregnancy: null, appointments: [], labs: [], vitals: [] }
+    if (!pregnancy) {
+      return { user: dbUser, pregnancy: null, appointments: [], labs: [], vitals: [] }
+    }
 
-  // Fetch hospital separately to avoid Drizzle relation dependencies
-  const hospital = await db.query.hospitals.findFirst({
-    where: eq(hospitals.id, pregnancy.hospitalId)
-  })
+    // Fetch hospital separately to avoid Drizzle relation dependencies
+    let hospital: any = null
+    try {
+      hospital = await db.query.hospitals.findFirst({
+        where: eq(hospitals.id, pregnancy.hospitalId)
+      })
+    } catch (e) {
+      console.error('Error fetching pregnancy hospital:', e)
+    }
 
-  const pregnancyWithHospital = {
-    ...pregnancy,
-    hospital: hospital || null
-  }
+    const pregnancyWithHospital = {
+      ...pregnancy,
+      hospital: hospital || null
+    }
 
-  // Get recent vitals
-  const recentVitals = await db.query.vitalSigns.findMany({
-    where: eq(vitalSigns.pregnancyId, pregnancy.id),
-    orderBy: [desc(vitalSigns.recordedDate)],
-    limit: 10,
-  })
+    // Get recent vitals
+    let recentVitals: any[] = []
+    try {
+      recentVitals = await db.query.vitalSigns.findMany({
+        where: eq(vitalSigns.pregnancyId, pregnancy.id),
+        orderBy: [desc(vitalSigns.recordedDate)],
+        limit: 10,
+      })
+    } catch (e) {
+      console.error('Error fetching recent vitals:', e)
+    }
 
-  // Get upcoming appointments
-  const upcomingAppointments = await db.query.appointments.findMany({
-    where: and(
-      eq(appointments.pregnancyId, pregnancy.id),
-      sql`${appointments.scheduledDate} >= NOW()`
-    ),
-    orderBy: [desc(appointments.scheduledDate)],
-    limit: 5,
-  })
+    // Get upcoming appointments
+    let upcomingAppointments: any[] = []
+    try {
+      upcomingAppointments = await db.query.appointments.findMany({
+        where: and(
+          eq(appointments.pregnancyId, pregnancy.id),
+          sql`${appointments.scheduledDate} >= NOW()`
+        ),
+        orderBy: [desc(appointments.scheduledDate)],
+        limit: 5,
+      })
+    } catch (e) {
+      console.error('Error fetching upcoming appointments:', e)
+    }
 
-  // Get recent lab results
-  const recentLabs = await db.query.labTests.findMany({
-    where: eq(labTests.pregnancyId, pregnancy.id),
-    orderBy: [desc(labTests.resultDate)],
-    limit: 3,
-  })
+    // Get recent lab results
+    let recentLabs: any[] = []
+    try {
+      recentLabs = await db.query.labTests.findMany({
+        where: eq(labTests.pregnancyId, pregnancy.id),
+        orderBy: [desc(labTests.resultDate)],
+        limit: 3,
+      })
+    } catch (e) {
+      console.error('Error fetching recent lab tests:', e)
+    }
 
-  return {
-    user: dbUser,
-    pregnancy: pregnancyWithHospital,
-    appointments: upcomingAppointments,
-    labs: recentLabs,
-    vitals: recentVitals,
+    return {
+      user: dbUser,
+      pregnancy: pregnancyWithHospital,
+      appointments: upcomingAppointments,
+      labs: recentLabs,
+      vitals: recentVitals,
+    }
+  } catch (err) {
+    console.error('CRITICAL ERROR in getPatientDashboardData:', err)
+    // Safe graceful fallback to prevent rendering error
+    return null
   }
 }
 
