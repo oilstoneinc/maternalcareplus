@@ -32,13 +32,9 @@ export default function RootLayout({
             enableSystem
             disableTransitionOnChange
           >
-            <header className="flex justify-between items-center p-4 border-b">
-              <div className="font-bold text-xl text-primary">MaternalCare Plus</div>
+            <header className="flex justify-between items-center p-4 border-b bg-white shadow-sm border-slate-100">
+              <div className="font-bold text-xl text-[#D48BA1]">MaternalCare Plus</div>
               <div className="flex gap-4 items-center">
-                <Show when="signed-out">
-                  <SignInButton />
-                  <SignUpButton />
-                </Show>
                 <Show when="signed-in">
                   <UserButton />
                 </Show>
