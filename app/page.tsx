@@ -42,24 +42,23 @@ export default async function HomePage() {
               <p className="mt-6 text-lg text-slate-600 sm:mt-5 sm:text-xl lg:text-xl font-medium leading-relaxed max-w-xl">
                 A secure, unified maternal care platform connecting hospitals, midwives, and mothers for real-time tracking, digital MCH record books, and instant messaging.
               </p>
-              <div className="mt-10 sm:max-w-lg sm:mx-auto lg:mx-0 flex flex-col sm:flex-row gap-4 mb-4">
+              <div className="mt-10 sm:max-w-lg sm:mx-auto lg:mx-0 flex flex-col gap-4 mb-4">
                 <a
                   href="/sign-in"
-                  className="inline-flex items-center justify-center px-8 py-4 border border-slate-200 text-lg font-black rounded-2xl text-slate-800 bg-white hover:bg-slate-50 shadow-lg transition-all transform hover:-translate-y-1"
+                  className="inline-flex items-center justify-center px-10 py-5 border border-transparent text-xl font-black rounded-3xl text-white bg-[#D48BA1] hover:bg-[#c47a90] shadow-xl shadow-pink-100 transition-all transform hover:-translate-y-1 w-full sm:w-auto"
                 >
-                  Provider Portal
-                  <ArrowRight className="ml-2 w-5 h-5 text-slate-400" />
+                  Pregnant Woman Portal — Sign In
+                  <HeartPulse className="ml-3 w-6 h-6" />
                 </a>
-                <a
-                  href="/sign-in"
-                  className="inline-flex items-center justify-center px-8 py-4 border border-transparent text-lg font-black rounded-2xl text-white bg-[#D48BA1] hover:bg-[#c47a90] shadow-xl shadow-pink-100 transition-all transform hover:-translate-y-1"
-                >
-                  Mother & Family Portal
-                  <HeartPulse className="ml-2 w-5 h-5" />
-                </a>
+                <div className="text-sm font-bold text-slate-500 mt-2">
+                  Are you a clinical provider? Hospital portal access is invite-only.{" "}
+                  <a href="/sign-in" className="text-[#D48BA1] hover:underline font-black">
+                    Authorized Provider Sign-In
+                  </a>
+                </div>
               </div>
-              <p className="mt-4 text-slate-400 font-bold text-xs">
-                * Institutional credentials or provider registration required for login.
+              <p className="mt-2 text-slate-400 font-bold text-xs">
+                * Patients must be registered by their hospital first to log in.
               </p>
             </div>
             <div className="mt-12 lg:mt-0 lg:col-span-6 flex justify-center">
