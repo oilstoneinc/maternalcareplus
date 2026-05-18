@@ -27,13 +27,20 @@ export async function getPatientDashboardData(): Promise<DashboardData | null> {
     where: and(
       eq(pregnancies.userId, dbUser.id),
       eq(pregnancies.status, 'active')
-    ),
-    with: {
-      hospital: true,
-    }
+    )
   })
 
   if (!pregnancy) return { user: dbUser, pregnancy: null, appointments: [], labs: [], vitals: [] }
+
+  // Fetch hospital separately to avoid Drizzle relation dependencies
+  const hospital = await db.query.hospitals.findFirst({
+    where: eq(hospitals.id, pregnancy.hospitalId)
+  })
+
+  const pregnancyWithHospital = {
+    ...pregnancy,
+    hospital: hospital || null
+  }
 
   // Get recent vitals
   const recentVitals = await db.query.vitalSigns.findMany({
@@ -61,7 +68,7 @@ export async function getPatientDashboardData(): Promise<DashboardData | null> {
 
   return {
     user: dbUser,
-    pregnancy,
+    pregnancy: pregnancyWithHospital,
     appointments: upcomingAppointments,
     labs: recentLabs,
     vitals: recentVitals,
@@ -200,12 +207,12 @@ export async function getFatherDashboardData() {
   // Get linked pregnancy via partner_access
   const access = await db.query.partnerAccess.findFirst({
     where: eq(partnerAccess.partnerId, dbUser.id),
-    with: {
-      pregnancy: true
-    }
   })
 
-  const pregnancy = access?.pregnancy as any || null
+  // Fetch linked pregnancy separately to avoid Drizzle relation dependencies
+  const pregnancy = access?.pregnancyId ? await db.query.pregnancies.findFirst({
+    where: eq(pregnancies.id, access.pregnancyId)
+  }) : null
 
   // Get upcoming appointments
   const upcomingAppointments = pregnancy?.id ? await db.query.appointments.findMany({
