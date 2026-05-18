@@ -34,7 +34,7 @@ import {
   Tooltip,
   Legend
 } from 'recharts'
-import { assignUserToHospital } from '@/app/actions'
+import { assignUserToHospital, inviteHospital } from '@/app/actions'
 
 interface AdminDashboardProps {
   user: any
@@ -46,6 +46,38 @@ export default function AdminDashboardClient({ user, data }: AdminDashboardProps
   const [assigningUser, setAssigningUser] = useState<string | null>(null)
   const [selectedHospital, setSelectedHospital] = useState('')
   const [isUpdating, setIsUpdating] = useState(false)
+
+  // Invitation Modal States
+  const [showInviteModal, setShowInviteModal] = useState(false)
+  const [inviteEmail, setInviteEmail] = useState('')
+  const [inviteHospitalName, setInviteHospitalName] = useState('')
+  const [isInviting, setIsInviting] = useState(false)
+  const [inviteSuccessToken, setInviteSuccessToken] = useState<string | null>(null)
+
+  const handleInviteSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!inviteEmail || !inviteHospitalName) return
+    setIsInviting(true)
+    try {
+      const res = await inviteHospital(inviteEmail, inviteHospitalName)
+      if (res.success) {
+        setInviteSuccessToken(res.token || '')
+        setInviteEmail('')
+        setInviteHospitalName('')
+        setTimeout(() => {
+          setShowInviteModal(false)
+          setInviteSuccessToken(null)
+          window.location.reload()
+        }, 3000)
+      } else {
+        alert('Invitation Failed: ' + res.error)
+      }
+    } catch (err) {
+      alert('Error sending invitation')
+    } finally {
+      setIsInviting(false)
+    }
+  }
 
   const userCounts = data?.userCounts || []
   const allUsers = data?.allUsers || []
@@ -95,6 +127,12 @@ export default function AdminDashboardClient({ user, data }: AdminDashboardProps
           </div>
         </div>
         <div className="flex items-center gap-3">
+          <button 
+            onClick={() => setShowInviteModal(true)}
+            className="px-4 py-2 bg-[#D48BA1] hover:bg-[#c47a90] text-white rounded-xl font-semibold transition-all flex items-center gap-2 shadow-lg shadow-pink-100"
+          >
+            <Mail className="h-4 w-4" /> Invite Hospital
+          </button>
           <button className="px-4 py-2 bg-indigo-600 text-white rounded-xl font-semibold hover:bg-indigo-700 transition-all flex items-center gap-2 shadow-lg shadow-indigo-100">
             <UserPlus className="h-4 w-4" /> Add Admin
           </button>
@@ -220,51 +258,109 @@ export default function AdminDashboardClient({ user, data }: AdminDashboardProps
                 </div>
               </TabsContent>
 
-              <TabsContent value="hospitals" className="p-0">
-                 <div className="overflow-x-auto">
-                   <table className="w-full text-left border-collapse">
-                     <thead className="bg-muted/30 text-[10px] font-black text-muted-foreground uppercase tracking-widest">
-                       <tr>
-                         <th className="px-6 py-4">Hospital Name</th>
-                         <th className="px-6 py-4">Location</th>
-                         <th className="px-6 py-4 text-center">Staff Count</th>
-                         <th className="px-6 py-4 text-right">Action</th>
-                       </tr>
-                     </thead>
-                     <tbody className="divide-y divide-border/50">
-                       {allHospitals.map((h: any) => (
-                         <tr key={h.id} className="hover:bg-slate-50 transition-colors">
-                           <td className="px-6 py-4">
-                              <div className="flex items-center gap-3">
-                                 <div className="p-2 bg-indigo-50 rounded-lg">
-                                    <Building2 className="h-4 w-4 text-indigo-600" />
-                                 </div>
-                                 <div className="flex flex-col">
-                                    <span className="text-sm font-bold">{h.name}</span>
-                                    <span className="text-[10px] text-muted-foreground uppercase tracking-widest">{h.code}</span>
-                                 </div>
-                              </div>
-                           </td>
-                           <td className="px-6 py-4">
-                              <div className="flex flex-col gap-0.5">
-                                 <span className="text-xs font-medium flex items-center gap-1"><MapPin className="h-3 w-3" /> {h.city}</span>
-                                 <span className="text-[10px] text-muted-foreground">{h.region}</span>
-                              </div>
-                           </td>
-                           <td className="px-6 py-4 text-center font-bold text-sm">
-                              {allUsers.filter((u: any) => u.hospitalId === h.id).length}
-                           </td>
-                           <td className="px-6 py-4 text-right">
-                              <button className="p-2 hover:bg-slate-100 rounded-lg" title="Manage Hospital">
-                                 <MoreVertical className="h-4 w-4" />
-                              </button>
-                           </td>
+              <TabsContent value="hospitals" className="p-6 space-y-8">
+                 <div>
+                   <h3 className="text-sm font-bold text-slate-800 mb-3 flex items-center gap-2">
+                     <Building2 className="h-4 w-4 text-indigo-500" />
+                     Registered Clinical Facilities
+                   </h3>
+                   <div className="overflow-x-auto border border-slate-100 rounded-xl bg-white">
+                     <table className="w-full text-left border-collapse">
+                       <thead className="bg-muted/30 text-[10px] font-black text-slate-900 uppercase tracking-widest">
+                         <tr>
+                           <th className="px-6 py-4">Hospital Name</th>
+                           <th className="px-6 py-4">Location</th>
+                           <th className="px-6 py-4 text-center">Staff Count</th>
+                           <th className="px-6 py-4 text-right">Action</th>
                          </tr>
-                       ))}
-                     </tbody>
-                   </table>
+                       </thead>
+                       <tbody className="divide-y divide-border/50 text-sm">
+                         {allHospitals.map((h: any) => (
+                           <tr key={h.id} className="hover:bg-slate-50/50 transition-colors">
+                             <td className="px-6 py-4">
+                               <div className="flex items-center gap-3">
+                                  <div className="p-2 bg-indigo-50 rounded-lg">
+                                     <Building2 className="h-4 w-4 text-indigo-600" />
+                                  </div>
+                                  <div className="flex flex-col">
+                                     <span className="text-sm font-bold">{h.name}</span>
+                                     <span className="text-[10px] text-muted-foreground uppercase tracking-widest">{h.code}</span>
+                                  </div>
+                               </div>
+                             </td>
+                             <td className="px-6 py-4">
+                               <div className="flex flex-col gap-0.5">
+                                  <span className="text-xs font-medium flex items-center gap-1"><MapPin className="h-3 w-3" /> {h.city}</span>
+                                  <span className="text-[10px] text-muted-foreground">{h.region}</span>
+                               </div>
+                             </td>
+                             <td className="px-6 py-4 text-center font-bold text-sm">
+                               {allUsers.filter((u: any) => u.hospitalId === h.id).length}
+                             </td>
+                             <td className="px-6 py-4 text-right">
+                               <button className="p-2 hover:bg-slate-100 rounded-lg" title="Manage Hospital">
+                                  <MoreVertical className="h-4 w-4" />
+                               </button>
+                             </td>
+                           </tr>
+                         ))}
+                       </tbody>
+                     </table>
+                   </div>
                  </div>
-              </TabsContent>
+
+                 <div className="pt-6 border-t border-slate-100">
+                   <h3 className="text-sm font-bold text-slate-800 mb-3 flex items-center gap-2">
+                     <Mail className="h-4 w-4 text-pink-500" />
+                     Direct Invite Logs (Neon DB)
+                   </h3>
+                   <div className="overflow-x-auto border border-slate-100 rounded-xl bg-white">
+                     <table className="w-full text-left border-collapse">
+                       <thead className="bg-muted/30 text-[10px] font-black text-muted-foreground uppercase tracking-widest">
+                         <tr>
+                           <th className="px-6 py-4">Facility Name & Email</th>
+                           <th className="px-6 py-4">Invitation Token</th>
+                           <th className="px-6 py-4">Sent Date</th>
+                           <th className="px-6 py-4">Status</th>
+                         </tr>
+                       </thead>
+                       <tbody className="divide-y divide-border/50 text-sm">
+                         {(data?.allInvites || []).length === 0 ? (
+                           <tr>
+                             <td colSpan={4} className="px-6 py-8 text-center text-muted-foreground font-medium">
+                               No invitations sent yet. Click "Invite Hospital" to get started.
+                             </td>
+                           </tr>
+                         ) : (
+                           (data?.allInvites || []).map((inv: any) => (
+                             <tr key={inv.id} className="hover:bg-slate-50/50 transition-colors">
+                               <td className="px-6 py-4">
+                                 <div className="flex flex-col">
+                                   <span className="font-bold text-slate-800">{inv.hospitalName}</span>
+                                   <span className="text-xs text-muted-foreground font-mono">{inv.email}</span>
+                                 </div>
+                               </td>
+                               <td className="px-6 py-4 font-mono font-bold text-slate-700">
+                                 {inv.token}
+                               </td>
+                               <td className="px-6 py-4 text-xs text-slate-500">
+                                 {new Date(inv.sentAt).toLocaleDateString()}
+                               </td>
+                               <td className="px-6 py-4">
+                                 {inv.status === 'accepted' ? (
+                                   <Badge className="bg-green-50 text-green-700 border-green-200">Accepted</Badge>
+                                 ) : (
+                                   <Badge className="bg-amber-50 text-amber-700 border-amber-200 animate-pulse">Pending</Badge>
+                                 )}
+                               </td>
+                             </tr>
+                           ))
+                         )}
+                       </tbody>
+                     </table>
+                   </div>
+                 </div>
+               </TabsContent>
             </Tabs>
           </Card>
         </div>
@@ -305,6 +401,86 @@ export default function AdminDashboardClient({ user, data }: AdminDashboardProps
           </Card>
         </div>
       </div>
+      {/* Invite Hospital Modal */}
+      {showInviteModal && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden border border-slate-100 animate-in fade-in zoom-in duration-200">
+            <div className="p-6 bg-[#D48BA1] text-white animate-pulse-once">
+              <h2 className="text-xl font-bold flex items-center gap-2">
+                <Mail className="h-5 w-5" />
+                Invite Clinical Facility
+              </h2>
+              <p className="text-xs text-slate-100 opacity-90 mt-1">
+                Provide the hospital's primary setup details. A database pre-registration and unique invite token will be generated instantly.
+              </p>
+            </div>
+
+            <form onSubmit={handleInviteSubmit} className="p-6 space-y-4">
+              {inviteSuccessToken ? (
+                <div className="text-center py-4 space-y-3">
+                  <div className="inline-flex p-3 rounded-full bg-green-50 text-green-600">
+                    <CheckCircle2 className="h-8 w-8" />
+                  </div>
+                  <h3 className="font-bold text-lg text-slate-800">Invitation Registered!</h3>
+                  <p className="text-xs text-slate-500 max-w-xs mx-auto">
+                    The clinical facility has been pre-registered. Share their unique invitation token to complete onboarding:
+                  </p>
+                  <div className="p-3 bg-slate-50 rounded-xl font-mono font-bold text-slate-700 select-all border text-center text-sm">
+                    {inviteSuccessToken}
+                  </div>
+                  <p className="text-[10px] text-muted-foreground animate-pulse mt-2">
+                    Refreshing console...
+                  </p>
+                </div>
+              ) : (
+                <>
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-slate-700">Facility Name</label>
+                    <input 
+                      type="text" 
+                      required
+                      placeholder="e.g. Ridge Maternity Hospital"
+                      className="w-full border-slate-200 focus:border-[#D48BA1] focus:ring-[#D48BA1] rounded-xl py-2 px-3 text-sm shadow-sm"
+                      value={inviteHospitalName}
+                      onChange={(e) => setInviteHospitalName(e.target.value)}
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-slate-700">Primary Setup Email Address</label>
+                    <input 
+                      type="email" 
+                      required
+                      placeholder="e.g. contact@ridgehospital.org"
+                      className="w-full border-slate-200 focus:border-[#D48BA1] focus:ring-[#D48BA1] rounded-xl py-2 px-3 text-sm shadow-sm"
+                      value={inviteEmail}
+                      onChange={(e) => setInviteEmail(e.target.value)}
+                    />
+                  </div>
+
+                  <div className="pt-4 flex items-center justify-end gap-2 border-t mt-4">
+                    <button 
+                      type="button"
+                      disabled={isInviting}
+                      onClick={() => setShowInviteModal(false)}
+                      className="px-4 py-2 border rounded-xl text-sm font-semibold hover:bg-slate-50 transition-all"
+                    >
+                      Cancel
+                    </button>
+                    <button 
+                      type="submit"
+                      disabled={isInviting}
+                      className="px-4 py-2 bg-[#D48BA1] hover:bg-[#c47a90] text-white rounded-xl text-sm font-semibold transition-all shadow-md shadow-pink-100 flex items-center gap-1.5"
+                    >
+                      {isInviting ? 'Registering...' : 'Generate Invite & Pre-Register'}
+                    </button>
+                  </div>
+                </>
+              )}
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

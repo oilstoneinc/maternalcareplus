@@ -1,7 +1,7 @@
 'use server'
 
 import { db } from '@/lib/db'
-import { users, pregnancies, appointments, labTests, partnerAccess, messages, User, NewUser, NewPregnancy, NewMessage, hospitals, vitalSigns, previousPregnancies, deliveries, postnatalCare, children, immunizations, childGrowth } from '@/lib/db/schema'
+import { users, pregnancies, appointments, labTests, partnerAccess, messages, User, NewUser, NewPregnancy, NewMessage, hospitals, vitalSigns, previousPregnancies, deliveries, postnatalCare, children, immunizations, childGrowth, hospitalInvites } from '@/lib/db/schema'
 import { currentUser, clerkClient } from '@clerk/nextjs/server'
 import { HospitalDashboardData, DashboardData, Message } from '@/types'
 import { eq, desc, and, or, sql } from 'drizzle-orm'
@@ -302,10 +302,16 @@ export async function getAdminDashboardData() {
     count: sql`count(*)`,
   }).from(users).groupBy(users.role)
 
+  // Get all hospital invites
+  const allInvites = await db.query.hospitalInvites.findMany({
+    orderBy: [desc(hospitalInvites.sentAt)],
+  })
+
   return {
     user: dbUser,
     allUsers,
     allHospitals,
+    allInvites,
     userCounts,
   }
 }
@@ -328,6 +334,55 @@ export async function assignUserToHospital(userId: string, hospitalId: string) {
   } catch (error) {
     console.error('Assignment error:', error)
     return { success: false, error: 'Failed to assign hospital' }
+  }
+}
+
+/**
+ * Invite a new hospital (Admin Action)
+ */
+export async function inviteHospital(email: string, hospitalName: string) {
+  try {
+    const user = await currentUser()
+    if (!user) throw new Error('Unauthorized')
+
+    // 1. Verify that the current user is an Admin
+    const dbUser = await db.query.users.findFirst({
+      where: eq(users.clerkId, user.id)
+    })
+    if (!dbUser || dbUser.role !== 'admin') {
+      throw new Error('Only administrators can invite hospitals')
+    }
+
+    // 2. Generate a secure invitation token
+    const token = `INV-${Math.random().toString(36).substring(2, 10).toUpperCase()}`
+
+    // 3. Register the invite in the hospital_invites database table
+    await db.insert(hospitalInvites).values({
+      email: email.trim().toLowerCase(),
+      hospitalName: hospitalName.trim(),
+      token,
+      status: 'pending',
+    })
+
+    // 4. Pre-create the hospital entry so it is registered in the database, marked as not verified
+    const hospitalCode = `HSP-${Math.random().toString(36).substring(2, 8).toUpperCase()}`
+    await db.insert(hospitals).values({
+      name: hospitalName.trim(),
+      code: hospitalCode,
+      address: 'Pending Completion of Profile Onboarding',
+      region: 'Pending',
+      city: 'Pending',
+      phone: '0000000000',
+      email: email.trim().toLowerCase(),
+      type: 'Hospital',
+      isVerified: false,
+    })
+
+    revalidatePath('/dashboard/admin')
+    return { success: true, token }
+  } catch (error: any) {
+    console.error('Invite hospital error:', error)
+    return { success: false, error: error?.message || 'Failed to send invite' }
   }
 }
 
@@ -379,23 +434,26 @@ export async function syncClerkAccount() {
       })
     }
 
-    // 2. If it's a hospital staff role, ensure they have a hospital entry
+    // 2. If it's a hospital staff role, ensure they have a valid invite or pre-registered hospital entry
     if (role === 'hospital_staff') {
       const existingHospital = await db.query.hospitals.findFirst({
         where: eq(hospitals.email, primaryEmail)
       })
 
-      if (!existingHospital) {
-        await db.insert(hospitals).values({
-          name: user.firstName ? `${user.firstName}'s Medical Center` : `Pending Setup (${primaryEmail})`,
-          code: `HSP-AUTO-${Math.floor(Math.random() * 10000)}`,
-          address: 'Institutional Setup Pending',
-          region: 'Unknown',
-          city: 'Unknown',
-          phone: '0000000000',
-          email: primaryEmail,
-          type: 'Hospital',
-        })
+      const invite = await db.query.hospitalInvites.findFirst({
+        where: eq(hospitalInvites.email, primaryEmail)
+      })
+
+      if (!invite && !existingHospital) {
+        console.warn(`Blocked signup for ${primaryEmail}: No invite or hospital pre-registered. Invite only lockdown is active.`)
+        return { success: false, error: 'Access denied: Hospital registration is invite-only.' }
+      }
+
+      // Automatically link user to pre-created hospital
+      if (existingHospital) {
+        await db.update(users)
+          .set({ hospitalId: existingHospital.id })
+          .where(eq(users.clerkId, user.id))
       }
     }
 

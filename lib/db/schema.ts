@@ -41,6 +41,7 @@ export const hospitals = pgTable('hospitals', {
   email: text('email'),
   type: text('type').notNull(), // Hospital, Health Center, Clinic
   isActive: boolean('is_active').default(true),
+  isVerified: boolean('is_verified').default(false),
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow(),
 })
@@ -329,3 +330,18 @@ export type PostnatalCare = typeof postnatalCare.$inferSelect
 export type Child = typeof children.$inferSelect
 export type Immunization = typeof immunizations.$inferSelect
 export type ChildGrowth = typeof childGrowth.$inferSelect
+
+// Hospital Invites table
+export const hospitalInvites = pgTable('hospital_invites', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  email: text('email').unique().notNull(),
+  token: text('token').unique().notNull(),
+  hospitalName: text('hospital_name').notNull(),
+  status: text('status').default('pending'), // 'pending', 'accepted', 'expired'
+  sentAt: timestamp('sent_at').defaultNow(),
+  acceptedAt: timestamp('accepted_at'),
+})
+
+export type HospitalInvite = typeof hospitalInvites.$inferSelect
+export type NewHospitalInvite = typeof hospitalInvites.$inferInsert
+
