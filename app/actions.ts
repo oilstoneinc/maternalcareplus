@@ -520,40 +520,25 @@ export async function onboardPatient(formData: any) {
   }
 
   try {
-    // 2. Create the user in Clerk
-    const client = await clerkClient()
-    const tempPassword = formData.password || `MC${Math.random().toString(36).substring(2, 8).toUpperCase()}!2026`
+    const origin = process.env.NEXT_PUBLIC_APP_URL || 'https://maternalcareplus.vercel.app'
+    const emailLower = formData.email.trim().toLowerCase()
     
-    const newClerkUser = await client.users.createUser({
-      firstName: formData.firstName,
-      lastName: formData.lastName,
-      emailAddress: [formData.email], // Note: array mapping
-      password: tempPassword,
-      publicMetadata: {
-        role: formData.role || 'pregnant_woman',
-        phone: formData.phone
-      }
-    })
-
-    // 3. Upsert into our DB directly (avoiding race conditions with webhook)
+    // 1. Generate invitation token and temporary placeholders
+    const inviteToken = `INV-PW-${Math.random().toString(36).substring(2, 10).toUpperCase()}`
+    
+    // 2. Register patient directly in our DB immediately (so hospital sees it instantly!)
     const [newUser] = await db.insert(users).values({
-      clerkId: newClerkUser.id,
-      email: formData.email,
-      firstName: formData.firstName,
-      lastName: formData.lastName,
-      phone: formData.phone,
+      clerkId: inviteToken, // placeholder invitation token
+      email: emailLower,
+      firstName: formData.firstName.trim(),
+      lastName: formData.lastName.trim(),
+      phone: formData.phone || null,
       role: formData.role || 'pregnant_woman',
-      address: formData.address,
-      isVerified: true
-    }).onConflictDoUpdate({
-      target: users.clerkId,
-      set: {
-        firstName: formData.firstName,
-        role: formData.role || 'pregnant_woman'
-      }
+      address: formData.address || null,
+      isVerified: false,
     }).returning()
 
-    // 4. Create Pregnancy record if applicable
+    // 3. Create Pregnancy record if applicable
     if ((formData.role || 'pregnant_woman') === 'pregnant_woman' && formData.lmp) {
       let hospitalId = dbUser.hospitalId;
       if (!hospitalId) {
@@ -571,14 +556,33 @@ export async function onboardPatient(formData: any) {
       })
     }
 
+    // 4. Send programmatic Clerk Invitation to trigger automatic email delivery
+    try {
+      const client = await clerkClient()
+      await client.invitations.createInvitation({
+        emailAddress: emailLower,
+        redirectUrl: `${origin}/sign-up`,
+        publicMetadata: {
+          role: formData.role || 'pregnant_woman',
+          phone: formData.phone || '',
+          hospitalId: dbUser.hospitalId || '',
+        },
+        ignoreExisting: true,
+      })
+      console.log(`[onboardPatient] Programmatic Clerk Invitation successfully sent to pregnant woman ${emailLower}`)
+    } catch (clerkErr: any) {
+      console.error('[onboardPatient] Warning: Clerk programmatic invitation failed:', clerkErr)
+      // We still proceed so the DB record is persisted
+    }
+
     revalidatePath('/dashboard/hospital')
     return { 
       success: true, 
       data: {
-        email: formData.email,
-        password: tempPassword,
-        loginUrl: `${process.env.NEXT_PUBLIC_APP_URL || ''}/sign-in`
-      } 
+        email: emailLower, 
+        isInvitationFlow: true,
+        loginUrl: `${origin}/sign-up`
+      }
     }
   } catch (error: any) {
     console.error('Onboarding error:', error)

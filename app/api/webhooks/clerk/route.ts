@@ -50,27 +50,48 @@ export async function POST(req: Request) {
     const phone = (unsafe_metadata?.phone as string) || null;
 
     try {
-      // UPSERT USER: This handles both creation and updates seamlessly
-      await db.insert(users).values({
-        clerkId: id,
-        email: primaryEmail,
-        firstName: first_name || 'User',
-        lastName: last_name || '',
-        phone: phone,
-        role: role,
-        isVerified: true,
-        isActive: true,
-      }).onConflictDoUpdate({
-        target: users.clerkId,
-        set: {
-          email: primaryEmail,
+      // 1. Check if there is an existing pre-registered user matching this email address
+      const existingUserByEmail = await db.query.users.findFirst({
+        where: eq(users.email, primaryEmail.trim().toLowerCase())
+      })
+
+      if (existingUserByEmail) {
+        // Link the pre-registered user to the new Clerk User ID
+        await db.update(users)
+          .set({
+            clerkId: id,
+            firstName: first_name || existingUserByEmail.firstName,
+            lastName: last_name || existingUserByEmail.lastName,
+            phone: phone || existingUserByEmail.phone,
+            role: role || existingUserByEmail.role,
+            isVerified: true,
+            updatedAt: new Date(),
+          })
+          .where(eq(users.id, existingUserByEmail.id))
+        console.log(`[Clerk Webhook] Successfully matched and linked pre-registered user ${existingUserByEmail.id} to clerkId ${id}`)
+      } else {
+        // UPSERT USER: Standard flow if not pre-created
+        await db.insert(users).values({
+          clerkId: id,
+          email: primaryEmail.trim().toLowerCase(),
           firstName: first_name || 'User',
           lastName: last_name || '',
           phone: phone,
           role: role,
-          updatedAt: new Date(),
-        }
-      })
+          isVerified: true,
+          isActive: true,
+        }).onConflictDoUpdate({
+          target: users.clerkId,
+          set: {
+            email: primaryEmail.trim().toLowerCase(),
+            firstName: first_name || 'User',
+            lastName: last_name || '',
+            phone: phone,
+            role: role,
+            updatedAt: new Date(),
+          }
+        })
+      }
 
       // SYNC ROLE TO CLERK (Crucial for immediate session update)
       const clerk = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY });

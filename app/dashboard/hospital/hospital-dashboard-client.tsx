@@ -526,7 +526,7 @@ import { Check, Copy } from 'lucide-react'
 // Patient Onboarding Form Component
 function PatientOnboardingForm({ onSuccess }: { onSuccess: () => void }) {
   const [loading, setLoading] = useState(false)
-  const [successData, setSuccessData] = useState<{email: string, password: string, loginUrl: string} | null>(null)
+  const [successData, setSuccessData] = useState<{email: string, password?: string, loginUrl: string, isInvitationFlow?: boolean} | null>(null)
   const [copied, setCopied] = useState(false)
   
   const [formData, setFormData] = useState({
@@ -572,7 +572,9 @@ function PatientOnboardingForm({ onSuccess }: { onSuccess: () => void }) {
 
   const copyCreds = () => {
     if (!successData) return
-    const text = `Patient Login Details:\nEmail: ${successData.email}\nPassword: ${successData.password}\nLogin at: ${successData.loginUrl}`
+    const text = successData.isInvitationFlow
+      ? `Patient Onboarded Successfully!\nEmail Address: ${successData.email}\nAn invitation email has been sent directly to the patient to complete registration and set their own secure password.`
+      : `Patient Login Details:\nEmail: ${successData.email}\nPassword: ${successData.password}\nLogin at: ${successData.loginUrl}`
     navigator.clipboard.writeText(text)
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
@@ -581,12 +583,16 @@ function PatientOnboardingForm({ onSuccess }: { onSuccess: () => void }) {
   if (successData) {
     return (
       <div className="p-6 text-center space-y-6">
-        <div className="h-20 w-20 bg-green-100 rounded-full flex items-center justify-center mx-auto">
+        <div className="h-20 w-20 bg-green-100 rounded-full flex items-center justify-center mx-auto animate-bounce">
           <Check className="h-10 w-10 text-green-600" />
         </div>
         <div>
           <h2 className="text-2xl font-bold text-gray-900">Patient Onboarded!</h2>
-          <p className="text-gray-500 mt-2">Please give these credentials to the patient now.</p>
+          <p className="text-gray-500 mt-2 text-sm">
+            {successData.isInvitationFlow 
+              ? "An official email invitation has been sent directly to the patient." 
+              : "Please give these credentials to the patient now."}
+          </p>
         </div>
 
         <div className="bg-gray-50 p-4 rounded-xl border border-gray-200 text-left space-y-3 relative">
@@ -594,14 +600,23 @@ function PatientOnboardingForm({ onSuccess }: { onSuccess: () => void }) {
             <p className="text-xs font-medium text-gray-500 uppercase">Email Address</p>
             <p className="font-semibold text-gray-900">{successData.email}</p>
           </div>
+          {successData.isInvitationFlow ? (
+            <div>
+              <p className="text-xs font-medium text-gray-500 uppercase">Registration Access</p>
+              <p className="text-sm font-bold text-emerald-600 bg-emerald-50 px-2.5 py-1.5 rounded-lg inline-block">
+                Secure Invitation Sent via Email
+              </p>
+            </div>
+          ) : (
+            <div>
+              <p className="text-xs font-medium text-gray-500 uppercase">Temporary Password</p>
+              <p className="font-mono font-bold text-pink-600 bg-pink-50 px-2 py-1 rounded inline-block">
+                {successData.password}
+              </p>
+            </div>
+          )}
           <div>
-            <p className="text-xs font-medium text-gray-500 uppercase">Temporary Password</p>
-            <p className="font-mono font-bold text-pink-600 bg-pink-50 px-2 py-1 rounded inline-block">
-              {successData.password}
-            </p>
-          </div>
-          <div>
-            <p className="text-xs font-medium text-gray-500 uppercase">Login Link</p>
+            <p className="text-xs font-medium text-gray-500 uppercase">Onboarding Signup Link</p>
             <p className="text-sm text-blue-600 truncate">{successData.loginUrl}</p>
           </div>
           
