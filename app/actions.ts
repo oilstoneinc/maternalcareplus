@@ -367,6 +367,26 @@ export async function inviteHospital(email: string, hospitalName: string) {
     // 2. Generate a secure invitation token
     const token = `INV-${Math.random().toString(36).substring(2, 10).toUpperCase()}`
 
+    // 2.5. Send programmatic Clerk Invitation to trigger automatic email delivery
+    try {
+      const client = await clerkClient()
+      const origin = process.env.NEXT_PUBLIC_APP_URL || 'https://maternalcareplus.vercel.app'
+      await client.invitations.createInvitation({
+        emailAddress: email.trim().toLowerCase(),
+        redirectUrl: `${origin}/sign-up`,
+        publicMetadata: {
+          role: 'hospital_staff',
+          hospitalName: hospitalName.trim(),
+          token,
+        },
+        ignoreExisting: true,
+      })
+      console.log(`[inviteHospital] Programmatic Clerk Invitation successfully sent to ${email}`)
+    } catch (clerkErr: any) {
+      console.error('[inviteHospital] Warning: Clerk programmatic invitation failed:', clerkErr)
+      // We still proceed so the DB record is persisted as a reliable fallback
+    }
+
     // 3. Register the invite in the hospital_invites database table
     await db.insert(hospitalInvites).values({
       email: email.trim().toLowerCase(),
