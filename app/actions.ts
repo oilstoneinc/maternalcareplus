@@ -1,7 +1,7 @@
 'use server'
 
 import { db } from '@/lib/db'
-import { users, pregnancies, appointments, labTests, partnerAccess, messages, User, NewUser, NewPregnancy, NewMessage, hospitals, vitalSigns, previousPregnancies, deliveries, postnatalCare, children, immunizations, childGrowth, hospitalInvites } from '@/lib/db/schema'
+import { users, pregnancies, appointments, labTests, partnerAccess, messages, User, NewUser, NewPregnancy, NewMessage, hospitals, vitalSigns, previousPregnancies, deliveries, postnatalCare, children, immunizations, childGrowth, hospitalInvites, partnershipRequests } from '@/lib/db/schema'
 import { currentUser, clerkClient } from '@clerk/nextjs/server'
 import { HospitalDashboardData, DashboardData, Message } from '@/types'
 import { eq, desc, and, or, sql, ilike } from 'drizzle-orm'
@@ -307,12 +307,18 @@ export async function getAdminDashboardData() {
     orderBy: [desc(hospitalInvites.sentAt)],
   })
 
+  // Get all partnership requests
+  const allPartnershipRequests = await db.query.partnershipRequests.findMany({
+    orderBy: [desc(partnershipRequests.createdAt)],
+  })
+
   return {
     user: dbUser,
     allUsers,
     allHospitals,
     allInvites,
     userCounts,
+    allPartnershipRequests,
   }
 }
 
@@ -1106,5 +1112,74 @@ export async function searchGlobalPatients(queryText: string) {
   } catch (error) {
     console.error('searchGlobalPatients error:', error)
     return []
+  }
+}
+
+/**
+ * Submit a partnership request from a hospital seeking access
+ */
+export async function submitPartnershipRequest(data: {
+  hospitalName: string
+  email: string
+  phone: string
+  city: string
+  region: string
+  notes?: string
+}) {
+  try {
+    await db.insert(partnershipRequests).values({
+      hospitalName: data.hospitalName.trim(),
+      email: data.email.trim().toLowerCase(),
+      phone: data.phone.trim(),
+      city: data.city.trim(),
+      region: data.region.trim(),
+      notes: data.notes?.trim() || null,
+      status: 'pending',
+    })
+    return { success: true }
+  } catch (error) {
+    console.error('submitPartnershipRequest error:', error)
+    return { success: false, error: 'Failed to submit partnership request' }
+  }
+}
+
+/**
+ * Approve a partnership request and automatically send a hospital sign-up invitation
+ */
+export async function approvePartnershipRequest(requestId: string) {
+  try {
+    const user = await currentUser()
+    if (!user) throw new Error('Unauthorized')
+
+    // 1. Verify admin role
+    const dbUser = await db.query.users.findFirst({
+      where: eq(users.clerkId, user.id)
+    })
+    if (!dbUser || dbUser.role !== 'admin') {
+      throw new Error('Only administrators can approve requests')
+    }
+
+    // 2. Fetch the request
+    const request = await db.query.partnershipRequests.findFirst({
+      where: eq(partnershipRequests.id, requestId)
+    })
+    if (!request) throw new Error('Partnership request not found')
+
+    // 3. Invite the hospital using existing inviteHospital logic
+    const inviteRes = await inviteHospital(request.email, request.hospitalName)
+    if (!inviteRes.success) {
+      throw new Error(inviteRes.error || 'Failed to send registration invite')
+    }
+
+    // 4. Update the partnership request status to 'approved'
+    await db.update(partnershipRequests)
+      .set({ status: 'approved' })
+      .where(eq(partnershipRequests.id, requestId))
+
+    revalidatePath('/dashboard/admin')
+    return { success: true }
+  } catch (error: any) {
+    console.error('approvePartnershipRequest error:', error)
+    return { success: false, error: error?.message || 'Failed to approve request' }
   }
 }

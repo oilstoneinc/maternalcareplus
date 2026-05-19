@@ -2,6 +2,7 @@ import { HeartPulse, CalendarCheck, Baby, MessageCircle, Activity, ShieldCheck, 
 import Image from 'next/image'
 import { currentUser } from '@clerk/nextjs/server'
 import { redirect } from 'next/navigation'
+import PartnerCardClient from '@/components/partner-card-client'
 
 export default async function HomePage() {
   const user = await currentUser()
@@ -131,13 +132,7 @@ export default async function HomePage() {
               <p className="text-slate-600 font-medium leading-relaxed">Comprehensive tracking of gestational progress and obstetric history across your facility.</p>
             </div>
 
-            <div className="bg-slate-900 p-10 rounded-3xl flex flex-col justify-center items-center text-center shadow-2xl">
-               <h3 className="text-3xl font-black text-white mb-6">Partner with us</h3>
-               <p className="text-slate-400 font-semibold mb-8">Request institutional access for your medical facility.</p>
-               <div className="w-full bg-white/10 text-white font-black py-4 rounded-2xl border border-white/20">
-                  Access Restricted
-               </div>
-            </div>
+            <PartnerCardClient />
           </div>
         </div>
       </section>

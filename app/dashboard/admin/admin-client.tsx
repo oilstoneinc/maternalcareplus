@@ -34,7 +34,7 @@ import {
   Tooltip,
   Legend
 } from 'recharts'
-import { assignUserToHospital, inviteHospital } from '@/app/actions'
+import { assignUserToHospital, inviteHospital, approvePartnershipRequest } from '@/app/actions'
 
 interface AdminDashboardProps {
   user: any
@@ -76,6 +76,26 @@ export default function AdminDashboardClient({ user, data }: AdminDashboardProps
       alert('Error sending invitation')
     } finally {
       setIsInviting(false)
+    }
+  }
+
+  const [approvingId, setApprovingId] = useState<string | null>(null)
+
+  const handleApproveRequest = async (requestId: string) => {
+    if (!confirm('Are you sure you want to approve this partnership request and automatically issue an invitation?')) return
+    setApprovingId(requestId)
+    try {
+      const res = await approvePartnershipRequest(requestId)
+      if (res.success) {
+        alert('Partnership request approved successfully! Registration invitation sent.')
+        window.location.reload()
+      } else {
+        alert('Failed to approve request: ' + res.error)
+      }
+    } catch (err) {
+      alert('Error approving request')
+    } finally {
+      setApprovingId(null)
     }
   }
 
@@ -312,7 +332,75 @@ export default function AdminDashboardClient({ user, data }: AdminDashboardProps
                  <div className="pt-6 border-t border-slate-100">
                    <h3 className="text-sm font-bold text-slate-800 mb-3 flex items-center gap-2">
                      <Mail className="h-4 w-4 text-pink-500" />
-                     Direct Invite Logs (Neon DB)
+                     Partnership & Institutional Access Requests
+                    </h3>
+                    <div className="overflow-x-auto border border-slate-100 rounded-xl bg-white mb-8">
+                      <table className="w-full text-left border-collapse">
+                        <thead className="bg-muted/30 text-[10px] font-black text-slate-900 uppercase tracking-widest">
+                          <tr>
+                            <th className="px-6 py-4">Facility Details</th>
+                            <th className="px-6 py-4">Location</th>
+                            <th className="px-6 py-4">Notes</th>
+                            <th className="px-6 py-4">Status</th>
+                            <th className="px-6 py-4 text-right">Action</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-border/50 text-sm">
+                          {(data?.allPartnershipRequests || []).length === 0 ? (
+                            <tr>
+                              <td colSpan={5} className="px-6 py-8 text-center text-muted-foreground font-medium">
+                                No partnership requests received yet.
+                              </td>
+                            </tr>
+                          ) : (
+                            (data?.allPartnershipRequests || []).map((req: any) => (
+                              <tr key={req.id} className="hover:bg-slate-50/50 transition-colors">
+                                <td className="px-6 py-4">
+                                  <div className="flex flex-col">
+                                    <span className="font-bold text-slate-800">{req.hospitalName}</span>
+                                    <span className="text-xs text-muted-foreground font-mono">{req.email}</span>
+                                    <span className="text-[10px] text-muted-foreground">{req.phone || 'No phone'}</span>
+                                  </div>
+                                </td>
+                                <td className="px-6 py-4">
+                                  <div className="flex flex-col gap-0.5">
+                                    <span className="text-xs font-semibold flex items-center gap-1"><MapPin className="h-3 w-3" /> {req.city}</span>
+                                    <span className="text-[10px] text-muted-foreground">{req.region}</span>
+                                  </div>
+                                </td>
+                                <td className="px-6 py-4 text-xs text-slate-600 max-w-xs truncate" title={req.notes}>
+                                  {req.notes || <span className="italic text-muted-foreground">None</span>}
+                                </td>
+                                <td className="px-6 py-4">
+                                  {req.status === 'approved' ? (
+                                    <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200">Approved</Badge>
+                                  ) : (
+                                    <Badge className="bg-amber-50 text-amber-700 border-amber-200 animate-pulse">Pending</Badge>
+                                  )}
+                                </td>
+                                <td className="px-6 py-4 text-right">
+                                  {req.status === 'approved' ? (
+                                    <Badge className="bg-slate-50 text-slate-400 border-slate-200">Invited</Badge>
+                                  ) : (
+                                    <button
+                                      disabled={approvingId === req.id}
+                                      onClick={() => handleApproveRequest(req.id)}
+                                      className="px-3 py-1.5 bg-[#D48BA1] hover:bg-[#c47a90] disabled:bg-slate-100 disabled:text-slate-400 text-white font-bold rounded-lg text-xs transition-colors shadow-sm"
+                                    >
+                                      {approvingId === req.id ? 'Approving...' : 'Approve & Invite'}
+                                    </button>
+                                  )}
+                                </td>
+                              </tr>
+                            ))
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    <h3 className="text-sm font-bold text-slate-800 mb-3 flex items-center gap-2 pt-6 border-t border-slate-100">
+                      <Mail className="h-4 w-4 text-pink-500" />
+                      Direct Invite Logs (Neon DB)
                    </h3>
                    <div className="overflow-x-auto border border-slate-100 rounded-xl bg-white">
                      <table className="w-full text-left border-collapse">

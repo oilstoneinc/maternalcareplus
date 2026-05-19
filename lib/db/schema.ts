@@ -345,3 +345,19 @@ export const hospitalInvites = pgTable('hospital_invites', {
 export type HospitalInvite = typeof hospitalInvites.$inferSelect
 export type NewHospitalInvite = typeof hospitalInvites.$inferInsert
 
+// Partnership requests from hospitals seeking access
+export const partnershipRequests = pgTable('partnership_requests', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  hospitalName: text('hospital_name').notNull(),
+  email: text('email').notNull(),
+  phone: text('phone'),
+  city: text('city'),
+  region: text('region'),
+  notes: text('notes'),
+  status: text('status').default('pending'), // 'pending', 'approved', 'contacted'
+  createdAt: timestamp('created_at').defaultNow(),
+})
+
+export type PartnershipRequest = typeof partnershipRequests.$inferSelect
+export type NewPartnershipRequest = typeof partnershipRequests.$inferInsert
+
