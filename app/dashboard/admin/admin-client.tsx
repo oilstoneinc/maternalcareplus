@@ -218,7 +218,7 @@ export default function AdminDashboardClient({ user, data }: AdminDashboardProps
                           <td className="px-6 py-4">
                             <div className="space-y-1">
                               <Badge variant="outline" className="rounded-full px-3 py-0 scale-90 origin-left">
-                                {u.role === 'hospital_staff' ? 'Hospital Administrator' : u.role.replace('_', ' ')}
+                                {u.role === 'hospital_staff' ? 'Hospital Administrator' : (u.role || 'Unknown').replace('_', ' ')}
                               </Badge>
                               <div className="flex items-center gap-1.5 text-[10px] font-bold text-slate-500">
                                  <Building2 className="h-3 w-3" />
@@ -467,7 +467,7 @@ export default function AdminDashboardClient({ user, data }: AdminDashboardProps
                     ))}
                   </Pie>
                   <Tooltip />
-                  <Legend verticalAlign="bottom" align="center" formatter={(val) => <span className="text-[10px] text-muted-foreground uppercase font-bold">{val.replace('_', ' ')}</span>} />
+                  <Legend verticalAlign="bottom" align="center" formatter={(val) => <span className="text-[10px] text-muted-foreground uppercase font-bold">{(val || 'Unknown').replace('_', ' ')}</span>} />
                 </PieChart>
               </ResponsiveContainer>
             </CardContent>

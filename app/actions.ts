@@ -297,10 +297,15 @@ export async function getAdminDashboardData() {
   })
 
   // Get total counts
-  const userCounts = await db.select({
+  const rawUserCounts = await db.select({
     role: users.role,
     count: sql`count(*)`,
   }).from(users).groupBy(users.role)
+
+  const userCounts = rawUserCounts.map((uc) => ({
+    role: uc.role || 'unknown',
+    count: Number(uc.count),
+  }))
 
   // Get all hospital invites
   const allInvites = await db.query.hospitalInvites.findMany({
