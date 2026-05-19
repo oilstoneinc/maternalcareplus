@@ -177,12 +177,12 @@ export async function getHospitalDashboardData(): Promise<HospitalDashboardData 
       where: eq(hospitals.id, dbUser.hospitalId)
     }) : null;
 
-    return {
+    return JSON.parse(JSON.stringify({
       hospital,
       patients: allPatients,
       pregnancies: activePregnancies,
       appointments: todayAppointments,
-    }
+    }))
   } catch (error) {
     console.error('Error in getHospitalDashboardData:', error)
     return null
@@ -214,10 +214,10 @@ export async function getMidwifeDashboardData() {
   // Get recent messages
   // const recentMessages = ...
 
-  return {
+  return JSON.parse(JSON.stringify({
     midwife: dbUser,
     patients,
-  }
+  }))
 }
 
 
@@ -312,14 +312,14 @@ export async function getAdminDashboardData() {
     orderBy: [desc(partnershipRequests.createdAt)],
   })
 
-  return {
+  return JSON.parse(JSON.stringify({
     user: dbUser,
     allUsers,
     allHospitals,
     allInvites,
     userCounts,
     allPartnershipRequests,
-  }
+  }))
 }
 
 /**
