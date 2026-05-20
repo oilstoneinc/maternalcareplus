@@ -167,12 +167,12 @@ export default function PregnantWomanClient({ user, data }: { user: any, data: D
             <p className="text-gray-600">You're making wonderful progress on your journey.</p>
           </div>
           <div className="flex flex-wrap items-center gap-2 sm:gap-3 w-full md:w-auto">
-            <Link href="/dashboard/pregnant-woman/digital-mch-book">
-              <Button variant="outline" className="rounded-full shadow-sm bg-white border-muted w-full sm:w-auto">
+            <Button asChild variant="outline" className="rounded-full shadow-sm bg-white border-muted w-full sm:w-auto">
+              <Link href="/dashboard/pregnant-woman/digital-mch-book">
                 <BookOpen className="w-4 h-4 mr-2" />
                 MCH Book
-              </Button>
-            </Link>
+              </Link>
+            </Button>
             
             <Dialog>
               <DialogTrigger asChild>
@@ -210,12 +210,12 @@ export default function PregnantWomanClient({ user, data }: { user: any, data: D
             </Dialog>
 
             {data?.pregnancy?.midwifeId ? (
-              <Link href={`/dashboard/chat?with=${data.pregnancy.midwifeId}`} className="w-full sm:w-auto">
-                <Button className="btn-pink rounded-full shadow-md w-full">
+              <Button asChild className="btn-pink rounded-full shadow-md w-full sm:w-auto">
+                <Link href={`/dashboard/chat?with=${data.pregnancy.midwifeId}`}>
                   <MessageCircle className="w-4 h-4 mr-2" />
                   Chat Midwife
-                </Button>
-              </Link>
+                </Link>
+              </Button>
             ) : (
               <Dialog>
                 <DialogTrigger asChild>
@@ -537,13 +537,17 @@ export default function PregnantWomanClient({ user, data }: { user: any, data: D
                           </DialogDescription>
                         </DialogHeader>
                         <div className="flex gap-3 mt-4">
-                          <Link href="/dashboard/pregnant-woman/digital-mch-book" className="flex-1">
-                            <Button variant="outline" className="w-full">View MCH Book</Button>
-                          </Link>
-                          {data?.pregnancy?.midwifeId ? (
-                            <Link href={`/dashboard/chat?with=${data.pregnancy.midwifeId}`} className="flex-1">
-                              <Button className="w-full btn-pink">Message Midwife</Button>
+                          <Button asChild variant="outline" className="flex-1 w-full">
+                            <Link href="/dashboard/pregnant-woman/digital-mch-book">
+                              View MCH Book
                             </Link>
+                          </Button>
+                          {data?.pregnancy?.midwifeId ? (
+                            <Button asChild className="flex-1 w-full btn-pink">
+                              <Link href={`/dashboard/chat?with=${data.pregnancy.midwifeId}`}>
+                                Message Midwife
+                              </Link>
+                            </Button>
                           ) : null}
                         </div>
                       </DialogContent>
@@ -592,9 +596,11 @@ export default function PregnantWomanClient({ user, data }: { user: any, data: D
                 ) : (
                   <p className="text-xs text-gray-500 py-2">No recent lab results to display.</p>
                 )}
-                <Link href="/dashboard/pregnant-woman/digital-mch-book" className="block w-full">
-                  <Button variant="link" className="text-blue-600 w-full p-0 text-sm font-bold">View Medical History</Button>
-                </Link>
+                <Button asChild variant="link" className="text-blue-600 w-full p-0 text-sm font-bold block">
+                  <Link href="/dashboard/pregnant-woman/digital-mch-book">
+                    View Medical History
+                  </Link>
+                </Button>
               </CardContent>
             </Card>
           </div>
