@@ -429,10 +429,25 @@ export async function syncClerkAccount() {
     const primaryEmail = user.emailAddresses[0]?.emailAddress
     if (!primaryEmail) return { success: false, error: 'No email found in Clerk' }
 
-    // 1. Check if user exists in DB (source of truth for onboarded patients/midwives)
-    const dbUser = await db.query.users.findFirst({
+    // 1. Check if user exists in DB by Clerk ID
+    let dbUser = await db.query.users.findFirst({
       where: eq(users.clerkId, user.id)
     })
+
+    // 1.5 If not found by Clerk ID, try by email (they might have been pre-registered by a hospital)
+    if (!dbUser) {
+      dbUser = await db.query.users.findFirst({
+        where: eq(users.email, primaryEmail.toLowerCase())
+      })
+
+      if (dbUser) {
+        console.log(`Self-healing: Found pre-registered user ${dbUser.id} by email. Linking Clerk ID...`)
+        // Update the placeholder clerkId with their real Clerk ID!
+        await db.update(users)
+          .set({ clerkId: user.id, isVerified: true })
+          .where(eq(users.id, dbUser.id))
+      }
+    }
 
     // Prioritize DB role, then Clerk metadata role, then default fallback
     let role = dbUser?.role || (user.publicMetadata?.role as string) || null
@@ -445,7 +460,7 @@ export async function syncClerkAccount() {
       console.log(`Self-healing: Creating missing user record for ${user.id} with role ${role}`)
       await db.insert(users).values({
         clerkId: user.id,
-        email: primaryEmail,
+        email: primaryEmail.toLowerCase(),
         firstName: user.firstName || 'User',
         lastName: user.lastName || '',
         role: role as any,
