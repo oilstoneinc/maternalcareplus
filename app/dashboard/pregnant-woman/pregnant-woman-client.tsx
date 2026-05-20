@@ -163,7 +163,7 @@ export default function PregnantWomanClient({ user, data }: { user: any, data: D
         {/* Header Section */}
         <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Sweet Greetings, {user?.firstName} ✨</h1>
+            <h1 className="text-3xl font-bold text-gray-900">Sweet Greetings, {user?.firstName}</h1>
             <p className="text-gray-600">You're making wonderful progress on your journey.</p>
           </div>
           <div className="flex flex-wrap items-center gap-2 sm:gap-3 w-full md:w-auto">
