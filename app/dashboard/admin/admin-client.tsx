@@ -196,39 +196,34 @@ export default function AdminDashboardClient({ user, data }: AdminDashboardProps
               </div>
 
               <TabsContent value="users" className="p-0">
+                <div className="bg-slate-50 border-b p-4 text-xs font-bold text-slate-500 uppercase tracking-widest">
+                  Unassigned / System Users
+                </div>
                 <div className="overflow-x-auto">
-                  <table className="w-full text-left border-collapse">
-                    <thead className="bg-muted/30 text-[10px] font-black text-muted-foreground uppercase tracking-widest">
+                  <table className="w-full text-left border-collapse bg-white">
+                    <thead className="bg-muted/30 text-[10px] font-black text-muted-foreground uppercase tracking-widest hidden">
                       <tr>
                         <th className="px-6 py-4">Full Name</th>
-                        <th className="px-6 py-4">Role / Institution</th>
+                        <th className="px-6 py-4">Role</th>
                         <th className="px-6 py-4">Status</th>
                         <th className="px-6 py-4 text-right">Actions</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-border/50">
-                      {allUsers.map((u: any) => (
-                        <tr key={u.id} className="hover:bg-indigo-50/20 transition-colors group">
-                          <td className="px-6 py-4">
+                      {allUsers.filter((u: any) => !u.hospitalId).map((u: any) => (
+                        <tr key={u.id} className="hover:bg-slate-50 transition-colors group">
+                          <td className="px-6 py-4 w-[30%]">
                             <div className="flex flex-col">
                               <span className="text-sm font-bold">{u.firstName} {u.lastName}</span>
                               <span className="text-[10px] text-muted-foreground font-mono">{u.email}</span>
                             </div>
                           </td>
-                          <td className="px-6 py-4">
-                            <div className="space-y-1">
-                              <Badge variant="outline" className="rounded-full px-3 py-0 scale-90 origin-left">
-                                {u.role === 'hospital_staff' ? 'Hospital Administrator' : (u.role || 'Unknown').replace('_', ' ')}
-                              </Badge>
-                              <div className="flex items-center gap-1.5 text-[10px] font-bold text-slate-500">
-                                 <Building2 className="h-3 w-3" />
-                                 {allHospitals.find((h: any) => h.id === u.hospitalId)?.name || (
-                                   <span className="text-red-400">Not Assigned</span>
-                                 )}
-                              </div>
-                            </div>
+                          <td className="px-6 py-4 w-[30%]">
+                            <Badge variant="outline" className="rounded-full px-3 py-0 scale-90 origin-left">
+                              {u.role === 'hospital_staff' ? 'Hospital Administrator' : (u.role || 'Unknown').replace('_', ' ')}
+                            </Badge>
                           </td>
-                          <td className="px-6 py-4">
+                          <td className="px-6 py-4 w-[15%]">
                              {u.isActive ? (
                                <Badge className="bg-green-50 text-green-700 border-green-200">Active</Badge>
                              ) : (
@@ -242,40 +237,110 @@ export default function AdminDashboardClient({ user, data }: AdminDashboardProps
                                     className="text-[10px] border rounded p-1 bg-white"
                                     value={selectedHospital}
                                     onChange={(e) => setSelectedHospital(e.target.value)}
-                                    title="Select Hospital"
-                                    aria-label="Select Hospital for Assignment"
                                   >
                                     <option value="">Select Hospital...</option>
                                     {allHospitals.map((h: any) => (
                                       <option key={h.id} value={h.id}>{h.name}</option>
                                     ))}
                                   </select>
-                                  <button 
-                                    onClick={() => handleAssign(u.id)}
-                                    disabled={isUpdating}
-                                    className="p-1 bg-green-600 text-white rounded hover:bg-green-700"
-                                    title="Confirm Assignment"
-                                  >
+                                  <button onClick={() => handleAssign(u.id)} className="p-1 bg-green-600 text-white rounded hover:bg-green-700">
                                     <CheckCircle2 className="h-3 w-3" />
                                   </button>
-                                  <button onClick={() => setAssigningUser(null)} className="p-1 bg-slate-200 rounded" title="Cancel">
+                                  <button onClick={() => setAssigningUser(null)} className="p-1 bg-slate-200 rounded">
                                     <Trash2 className="h-3 w-3" />
                                   </button>
                                </div>
                              ) : (
-                               <button 
-                                 onClick={() => setAssigningUser(u.id)}
-                                 className="text-[10px] font-bold text-indigo-600 flex items-center gap-1 ml-auto hover:underline"
-                               >
+                               <button onClick={() => setAssigningUser(u.id)} className="text-[10px] font-bold text-indigo-600 flex items-center gap-1 ml-auto hover:underline">
                                  <LinkIcon className="h-3 w-3" /> Assign Hospital
                                </button>
                              )}
                           </td>
                         </tr>
                       ))}
+                      {allUsers.filter((u: any) => !u.hospitalId).length === 0 && (
+                        <tr><td colSpan={4} className="px-6 py-8 text-center text-sm text-slate-500">No unassigned users.</td></tr>
+                      )}
                     </tbody>
                   </table>
                 </div>
+
+                {allHospitals.map((hospital: any) => {
+                  const hospitalPatients = allUsers.filter((u: any) => u.hospitalId === hospital.id && u.role === 'pregnant_woman');
+                  const hospitalStaff = allUsers.filter((u: any) => u.hospitalId === hospital.id && u.role !== 'pregnant_woman');
+
+                  return (
+                    <div key={hospital.id} className="border-t-[4px] border-indigo-50 bg-white">
+                      <div className="p-4 bg-indigo-50/30 flex items-center gap-3 border-b">
+                         <div className="p-2 bg-indigo-100 rounded-lg">
+                            <Building2 className="h-5 w-5 text-indigo-700" />
+                         </div>
+                         <div>
+                           <h3 className="font-bold text-slate-900">{hospital.name}</h3>
+                           <p className="text-xs text-slate-500 font-mono tracking-widest">{hospital.code} • {hospitalPatients.length} Patients • {hospitalStaff.length} Staff</p>
+                         </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 lg:grid-cols-2 divide-y lg:divide-y-0 lg:divide-x divide-border/50">
+                        {/* Patients Side */}
+                        <div className="overflow-x-auto">
+                          <div className="p-3 bg-pink-50/50 text-[10px] font-black text-pink-700 uppercase tracking-widest border-b">
+                            Pregnant Women (Patients)
+                          </div>
+                          <table className="w-full text-left border-collapse">
+                            <tbody className="divide-y divide-border/50">
+                              {hospitalPatients.map((u: any) => (
+                                <tr key={u.id} className="hover:bg-pink-50/20 transition-colors">
+                                  <td className="px-4 py-3">
+                                    <div className="flex flex-col">
+                                      <span className="text-sm font-bold text-slate-800">{u.firstName} {u.lastName}</span>
+                                      <span className="text-[10px] text-muted-foreground font-mono">{u.email}</span>
+                                    </div>
+                                  </td>
+                                  <td className="px-4 py-3 text-right">
+                                     <Badge className="bg-pink-50 text-pink-600 border-pink-200">Patient</Badge>
+                                  </td>
+                                </tr>
+                              ))}
+                              {hospitalPatients.length === 0 && (
+                                <tr><td colSpan={2} className="px-4 py-6 text-center text-xs text-slate-400">No patients registered yet.</td></tr>
+                              )}
+                            </tbody>
+                          </table>
+                        </div>
+
+                        {/* Staff Side */}
+                        <div className="overflow-x-auto">
+                          <div className="p-3 bg-slate-50 text-[10px] font-black text-slate-600 uppercase tracking-widest border-b">
+                            Hospital Staff
+                          </div>
+                          <table className="w-full text-left border-collapse">
+                            <tbody className="divide-y divide-border/50">
+                              {hospitalStaff.map((u: any) => (
+                                <tr key={u.id} className="hover:bg-slate-50/50 transition-colors">
+                                  <td className="px-4 py-3">
+                                    <div className="flex flex-col">
+                                      <span className="text-sm font-bold text-slate-800">{u.firstName} {u.lastName}</span>
+                                      <span className="text-[10px] text-muted-foreground font-mono">{u.email}</span>
+                                    </div>
+                                  </td>
+                                  <td className="px-4 py-3 text-right">
+                                     <Badge variant="outline" className="text-slate-500 border-slate-200">
+                                       {u.role === 'hospital_staff' ? 'Admin' : (u.role || 'Staff')}
+                                     </Badge>
+                                  </td>
+                                </tr>
+                              ))}
+                              {hospitalStaff.length === 0 && (
+                                <tr><td colSpan={2} className="px-4 py-6 text-center text-xs text-slate-400">No staff registered yet.</td></tr>
+                              )}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })}
               </TabsContent>
 
               <TabsContent value="hospitals" className="p-6 space-y-8">
