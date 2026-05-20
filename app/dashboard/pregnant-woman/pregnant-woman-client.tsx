@@ -25,8 +25,17 @@ import {
   Check,
   Share2,
   Plus,
-  Moon
+  Moon,
+  AlertCircle
 } from 'lucide-react'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
 import ProgressChart from '@/components/dashboard/ProgressChart'
 import { generateFatherJoinCode } from '@/app/actions'
 import { pusherClient } from '@/lib/pusher-client'
@@ -51,9 +60,23 @@ interface DashboardData {
 }
 
 export default function PregnantWomanClient({ user, data }: { user: any, data: DashboardData | null }) {
-  const [gestationalAge, setGestationalAge] = useState(24) // Default/Mock for demo
-  const [progress, setProgress] = useState(60)
-  const [daysToEdd, setDaysToEdd] = useState(112)
+  // Calculate real gestational age from LMP
+  const lmp = data?.pregnancy?.lmp ? new Date(data.pregnancy.lmp) : null
+  const edd = data?.pregnancy?.edd ? new Date(data.pregnancy.edd) : null
+  const now = new Date()
+  
+  let gestationalAge = 0
+  let progress = 0
+  let daysToEdd = 0
+
+  if (lmp && edd) {
+    const diffTime = Math.abs(now.getTime() - lmp.getTime())
+    gestationalAge = Math.floor(diffTime / (1000 * 60 * 60 * 24 * 7))
+    progress = Math.min((gestationalAge / 40) * 100, 100)
+    
+    const diffDays = Math.ceil((edd.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
+    daysToEdd = Math.max(diffDays, 0)
+  }
 
   // Real weight tracking data from vitals
   const weightData = (data?.vitals || [])
@@ -106,17 +129,6 @@ export default function PregnantWomanClient({ user, data }: { user: any, data: D
 
   useEffect(() => {
     if (data?.pregnancy) {
-      // Calculate real gestational age from LMP
-      const lmp = new Date(data.pregnancy.lmp)
-      const now = new Date()
-      const diffTime = Math.abs(now.getTime() - lmp.getTime())
-      const diffWeeks = Math.floor(diffTime / (1000 * 60 * 60 * 24 * 7))
-      setGestationalAge(diffWeeks)
-      setProgress((diffWeeks / 40) * 100)
-      
-      const edd = new Date(data.pregnancy.edd)
-      const diffDays = Math.ceil((edd.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
-      setDaysToEdd(diffDays)
       setShareCode(data.pregnancy.fatherJoinCode)
     }
   }, [data])
@@ -154,24 +166,77 @@ export default function PregnantWomanClient({ user, data }: { user: any, data: D
             <h1 className="text-3xl font-bold text-gray-900">Sweet Greetings, {user?.firstName} ✨</h1>
             <p className="text-gray-600">You're making wonderful progress on your journey.</p>
           </div>
-          <div className="flex gap-3">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3 w-full md:w-auto">
             <Link href="/dashboard/pregnant-woman/digital-mch-book">
-              <Button variant="outline" className="rounded-full shadow-sm bg-white border-muted">
+              <Button variant="outline" className="rounded-full shadow-sm bg-white border-muted w-full sm:w-auto">
                 <BookOpen className="w-4 h-4 mr-2" />
                 MCH Book
               </Button>
             </Link>
-            <Button variant="outline" className="rounded-full shadow-sm bg-white border-muted">
-              <Bell className="w-4 h-4 mr-2" />
-              Notifications
-            </Button>
-            <Button 
-              className="btn-pink rounded-full shadow-md"
-              onClick={() => window.location.href = `/dashboard/chat?with=${data?.pregnancy?.midwifeId || ''}`}
-            >
-              <MessageCircle className="w-4 h-4 mr-2" />
-              Chat Midwife
-            </Button>
+            
+            <Dialog>
+              <DialogTrigger asChild>
+                <Button variant="outline" className="rounded-full shadow-sm bg-white border-muted w-full sm:w-auto">
+                  <Bell className="w-4 h-4 mr-2" />
+                  Notifications
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                  <DialogTitle>Notifications</DialogTitle>
+                  <DialogDescription>
+                    Your recent alerts and updates
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4 py-4">
+                  {realtimeNotification ? (
+                    <div className="flex items-start gap-3 p-3 bg-emerald-50 rounded-xl border border-emerald-100">
+                      <div className="bg-emerald-500 p-2 rounded-full text-white mt-0.5">
+                        <SparklesIcon className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <p className="font-semibold text-sm text-emerald-900">New Update</p>
+                        <p className="text-sm text-emerald-700">{realtimeNotification}</p>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-center py-6 text-gray-500">
+                      <Bell className="w-8 h-8 mx-auto mb-2 opacity-20" />
+                      <p className="text-sm">No new notifications</p>
+                    </div>
+                  )}
+                </div>
+              </DialogContent>
+            </Dialog>
+
+            {data?.pregnancy?.midwifeId ? (
+              <Link href={`/dashboard/chat?with=${data.pregnancy.midwifeId}`} className="w-full sm:w-auto">
+                <Button className="btn-pink rounded-full shadow-md w-full">
+                  <MessageCircle className="w-4 h-4 mr-2" />
+                  Chat Midwife
+                </Button>
+              </Link>
+            ) : (
+              <Dialog>
+                <DialogTrigger asChild>
+                  <Button className="btn-pink rounded-full shadow-md w-full sm:w-auto">
+                    <MessageCircle className="w-4 h-4 mr-2" />
+                    Chat Midwife
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle className="flex items-center gap-2 text-rose-600">
+                      <AlertCircle className="w-5 h-5" />
+                      No Midwife Assigned
+                    </DialogTitle>
+                    <DialogDescription className="pt-2">
+                      Your hospital has not yet assigned a dedicated midwife to your care plan. Please contact your hospital or wait until a midwife is assigned to begin chatting.
+                    </DialogDescription>
+                  </DialogHeader>
+                </DialogContent>
+              </Dialog>
+            )}
           </div>
         </header>
 
@@ -207,16 +272,16 @@ export default function PregnantWomanClient({ user, data }: { user: any, data: D
                 <p className="text-sm text-gray-500 mt-2">Approximately {Math.floor(gestationalAge / 4)} months along</p>
               </div>
 
-              <div className="flex flex-col justify-center border-l border-muted md:pl-8">
+              <div className="flex flex-col justify-center border-l-0 md:border-l border-muted pl-0 md:pl-8 mt-6 md:mt-0">
                 <span className="text-sm font-medium text-primary mb-1 uppercase tracking-wider">Countdown to EDD</span>
                 <div className="flex items-baseline gap-2">
                   <h2 className="text-4xl font-bold text-gray-900">{daysToEdd > 0 ? daysToEdd : 0}</h2>
                   <span className="text-gray-500 font-medium">Days left</span>
                 </div>
-                <p className="text-sm text-muted-foreground mt-2">Estimated Date: {data?.pregnancy?.edd ? new Date(data.pregnancy.edd).toLocaleDateString() : 'August 15, 2024'}</p>
+                <p className="text-sm text-muted-foreground mt-2">Estimated Date: {edd ? edd.toLocaleDateString() : 'Pending calculation'}</p>
               </div>
 
-              <div className="flex flex-col justify-center border-l border-muted lg:pl-8 lg:col-span-2">
+              <div className="flex flex-col justify-center border-l-0 lg:border-l border-muted pl-0 lg:pl-8 lg:col-span-2 mt-6 lg:mt-0">
                 <div className="bg-primary/5 rounded-2xl p-6 flex items-center gap-4 ring-1 ring-primary/10">
                   <div className="bg-primary p-3 rounded-xl shadow-lg shadow-primary/20">
                     <Heart className="w-6 h-6 text-white" />
@@ -261,18 +326,6 @@ export default function PregnantWomanClient({ user, data }: { user: any, data: D
                       title="Weight Tracking"
                       description="Your weight gain journey over time"
                       data={weightData}
-                      dataKey="weight"
-                      xAxisKey="week"
-                      unit=" kg"
-                      color="hsl(330, 81%, 60%)"
-                    />
-                  </TabsContent>
-
-                  <TabsContent value="weight" className="pt-4">
-                    <ProgressChart 
-                      title="Weight Tracking"
-                      description="Your weight gain journey over time"
-                      data={weightData.length > 0 ? weightData : [{ week: 'Start', weight: 0 }]}
                       dataKey="weight"
                       xAxisKey="week"
                       unit=" kg"
