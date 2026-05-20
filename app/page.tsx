@@ -26,27 +26,63 @@ export default async function HomePage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#F6F4F3]">
+    <div className="min-h-screen bg-[#F6F4F3] font-sans">
+      {/* Premium Header */}
+      <header className="fixed top-0 w-full z-50 bg-white/80 backdrop-blur-xl border-b border-white/40 shadow-sm transition-all duration-300">
+        <div className="container mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center h-20">
+            {/* Logo */}
+            <div className="flex-shrink-0 flex items-center gap-2 cursor-pointer">
+              <div className="w-10 h-10 bg-gradient-to-br from-[#D48BA1] to-[#e6a8bc] rounded-2xl flex items-center justify-center shadow-lg shadow-pink-100">
+                <HeartPulse className="w-5 h-5 text-white" />
+              </div>
+              <span className="text-xl font-black text-slate-800 tracking-tight">Maternal<span className="text-[#D48BA1]">Care</span>+</span>
+            </div>
+
+            {/* Desktop Navigation */}
+            <nav className="hidden md:flex space-x-8">
+              <a href="#features" className="text-sm font-bold text-slate-600 hover:text-[#D48BA1] transition-colors">Features</a>
+              <a href="#about-us" className="text-sm font-bold text-slate-600 hover:text-[#D48BA1] transition-colors">About Us</a>
+              <a href="#partners" className="text-sm font-bold text-slate-600 hover:text-[#D48BA1] transition-colors">Partner Hospitals</a>
+              <a href="#contact" className="text-sm font-bold text-slate-600 hover:text-[#D48BA1] transition-colors">Contact Us</a>
+            </nav>
+
+            {/* Action Buttons */}
+            <div className="flex items-center gap-4">
+              <a href="/sign-in" className="hidden sm:inline-flex text-sm font-bold text-slate-600 hover:text-slate-900 transition-colors">
+                Provider Login
+              </a>
+              <a 
+                href="/sign-in" 
+                className="inline-flex items-center justify-center px-6 py-2.5 border border-transparent text-sm font-black rounded-full text-white bg-slate-900 hover:bg-slate-800 shadow-md transition-all hover:scale-105"
+              >
+                Patient Portal <ArrowRight className="ml-2 w-4 h-4" />
+              </a>
+            </div>
+          </div>
+        </div>
+      </header>
+
       {/* Hero Section */}
-      <section className="pt-20 pb-24 lg:pt-32 lg:pb-32 bg-[#F6F4F3] border-b border-slate-100">
+      <section className="pt-32 pb-24 lg:pt-40 lg:pb-32 bg-gradient-to-b from-[#F6F4F3] to-white">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
           <div className="lg:grid lg:grid-cols-12 lg:gap-16 items-center">
             <div className="sm:text-center md:mx-auto lg:col-span-6 lg:text-left">
-              <div className="inline-flex items-center px-4 py-2 rounded-full bg-white text-[#D48BA1] font-bold text-sm mb-6 border border-slate-100 shadow-sm mt-8 lg:mt-0">
-                <Lock className="w-4 h-4 mr-2 text-[#D48BA1]" />
+              <div className="inline-flex items-center px-4 py-2 rounded-full bg-white text-[#D48BA1] font-bold text-xs mb-6 border border-pink-100 shadow-sm mt-8 lg:mt-0">
+                <Lock className="w-3.5 h-3.5 mr-2 text-[#D48BA1]" />
                 Healthcare Provider Access Restricted
               </div>
-              <h1 className="text-4xl tracking-tight font-black text-slate-900 sm:text-5xl md:text-6xl lg:text-5xl xl:text-7xl">
+              <h1 className="text-5xl tracking-tighter font-black text-slate-900 sm:text-6xl md:text-7xl lg:text-6xl xl:text-7xl leading-[1.1]">
                 The Standard in<br />
-                <span className="text-[#D48BA1]">Maternal Care</span>
+                <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#D48BA1] to-[#e6a8bc]">Maternal Care</span>
               </h1>
-              <p className="mt-6 text-lg text-slate-600 sm:mt-5 sm:text-xl lg:text-xl font-medium leading-relaxed max-w-xl">
+              <p className="mt-6 text-lg text-slate-500 sm:mt-8 sm:text-xl lg:text-xl font-medium leading-relaxed max-w-xl">
                 A secure, unified maternal care platform connecting hospitals, midwives, and mothers for real-time tracking, digital MCH record books, and instant messaging.
               </p>
               <div className="mt-10 sm:max-w-lg sm:mx-auto lg:mx-0 flex flex-col gap-4 mb-4">
                 <a
                   href="/sign-in"
-                  className="inline-flex items-center justify-center px-10 py-5 border border-transparent text-xl font-black rounded-3xl text-white bg-[#D48BA1] hover:bg-[#c47a90] shadow-xl shadow-pink-100 transition-all transform hover:-translate-y-1 w-full sm:w-auto"
+                  className="inline-flex items-center justify-center px-10 py-5 border border-transparent text-xl font-black rounded-3xl text-white bg-[#D48BA1] hover:bg-[#c47a90] shadow-xl shadow-pink-200/50 transition-all transform hover:-translate-y-1 w-full sm:w-auto"
                 >
                   Pregnant Woman Portal — Sign In
                   <HeartPulse className="ml-3 w-6 h-6" />
@@ -58,16 +94,16 @@ export default async function HomePage() {
                   </a>
                 </div>
               </div>
-              <p className="mt-2 text-slate-400 font-bold text-xs">
+              <p className="mt-4 text-slate-400 font-bold text-[11px] uppercase tracking-wider">
                 * Patients must be registered by their hospital first to log in.
               </p>
             </div>
-            <div className="mt-12 lg:mt-0 lg:col-span-6 flex justify-center">
-              <div className="relative w-full max-w-lg rounded-3xl overflow-hidden shadow-2xl border border-white bg-white">
-                <div className="relative aspect-[4/3] w-full bg-slate-50">
+            <div className="mt-16 lg:mt-0 lg:col-span-6 flex justify-center">
+              <div className="relative w-full max-w-lg rounded-[2rem] overflow-hidden shadow-2xl shadow-slate-200/50 border-[8px] border-white bg-white transform rotate-1 hover:rotate-0 transition-transform duration-500">
+                <div className="relative aspect-[4/3] w-full bg-slate-50 rounded-[1.5rem] overflow-hidden">
                   <Image
-                    src="/hero-graphic.png"
-                    alt="Healthcare Professional Illustration"
+                    src="/realistic_hero_family.png"
+                    alt="Happy African Family holding a newborn"
                     fill
                     className="object-cover"
                     priority
