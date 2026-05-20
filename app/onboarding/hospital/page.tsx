@@ -1,7 +1,40 @@
 import { completeHospitalProfile } from './actions'
 import { Hospital, MapPin, Phone, Building2 } from 'lucide-react'
+import { auth, clerkClient } from '@clerk/nextjs/server'
+import { redirect } from 'next/navigation'
 
-export default function HospitalOnboardingPage() {
+export default async function HospitalOnboardingPage() {
+  const { userId, sessionClaims } = await auth()
+  
+  if (!userId) {
+    redirect('/sign-in')
+  }
+
+  let role = (sessionClaims?.publicMetadata as any)?.role 
+             || (sessionClaims?.unsafeMetadata as any)?.role
+
+  if (!role) {
+    try {
+      const client = await clerkClient()
+      const clerkUser = await client.users.getUser(userId)
+      role = clerkUser.publicMetadata?.role as string
+    } catch (e) {
+      console.error('[HospitalOnboardingPage] Failed to fetch fresh Clerk metadata:', e)
+    }
+  }
+
+  // If the user is a patient (pregnant woman), midwife, or father, they do not need facility setup!
+  if (role && role !== 'hospital_staff') {
+    if (role === 'pregnant_woman') {
+      redirect('/dashboard/pregnant-woman')
+    } else if (role === 'father') {
+      redirect('/dashboard/father')
+    } else if (role === 'midwife') {
+      redirect('/dashboard/midwife')
+    } else if (role === 'admin') {
+      redirect('/dashboard/admin')
+    }
+  }
   return (
     <div className="min-h-screen bg-[#F6F4F3] flex flex-col items-center py-12 px-4">
       <div className="w-full max-w-2xl bg-white rounded-2xl shadow-xl overflow-hidden">
