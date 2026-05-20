@@ -391,23 +391,38 @@ export default function PregnantWomanClient({ user, data }: { user: any, data: D
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {[
-                  { title: "Nutrition for Week 24", icon: Heart, color: "bg-red-50 text-red-600" },
-                  { title: "Managing Back Pain", icon: Activity, color: "bg-orange-50 text-orange-600" },
-                  { title: "Safe Exercises", icon: TrendingUp, color: "bg-green-50 text-green-600" },
-                  { title: "Sleep Best Practices", icon: Moon, color: "bg-purple-50 text-purple-600" }
+                  { title: "Nutrition for Week 24", icon: Heart, color: "bg-red-50 text-red-600", content: "Focus on iron-rich foods like leafy greens, lean meats, and fortified cereals. Your baby is growing rapidly and needs extra nutrients!" },
+                  { title: "Managing Back Pain", icon: Activity, color: "bg-orange-50 text-orange-600", content: "Practice good posture, use supportive shoes, and try gentle prenatal yoga to ease lower back discomfort." },
+                  { title: "Safe Exercises", icon: TrendingUp, color: "bg-green-50 text-green-600", content: "Walking, swimming, and stationary cycling are excellent low-impact exercises. Always consult your midwife before starting a new routine." },
+                  { title: "Sleep Best Practices", icon: Moon, color: "bg-purple-50 text-purple-600", content: "Sleep on your left side to improve blood flow. Use a pregnancy pillow for added support behind your back and between your knees." }
                 ].map((item, i) => (
-                  <Card key={i} className="border-none shadow-sm hover:shadow-md transition-shadow cursor-pointer group">
-                    <CardContent className="p-4 flex items-center gap-4">
-                      <div className={`p-3 rounded-xl ${item.color}`}>
-                        <item.icon className="w-5 h-5" />
-                      </div>
-                      <div className="flex-1">
-                        <h4 className="font-semibold text-gray-900">{item.title}</h4>
-                        <p className="text-xs text-gray-500">5 min read • Expert advice</p>
-                      </div>
-                      <ChevronRight className="w-4 h-4 text-gray-300 group-hover:text-secondary transition-colors" />
-                    </CardContent>
-                  </Card>
+                  <Dialog key={i}>
+                    <DialogTrigger asChild>
+                      <Card className="border-none shadow-sm hover:shadow-md transition-shadow cursor-pointer group">
+                        <CardContent className="p-4 flex items-center gap-4">
+                          <div className={`p-3 rounded-xl ${item.color}`}>
+                            <item.icon className="w-5 h-5" />
+                          </div>
+                          <div className="flex-1 text-left">
+                            <h4 className="font-semibold text-gray-900">{item.title}</h4>
+                            <p className="text-xs text-gray-500">5 min read • Expert advice</p>
+                          </div>
+                          <ChevronRight className="w-4 h-4 text-gray-300 group-hover:text-secondary transition-colors" />
+                        </CardContent>
+                      </Card>
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader>
+                        <div className={`w-12 h-12 rounded-xl flex items-center justify-center mb-4 ${item.color}`}>
+                          <item.icon className="w-6 h-6" />
+                        </div>
+                        <DialogTitle>{item.title}</DialogTitle>
+                        <DialogDescription className="text-base text-gray-700 pt-4 leading-relaxed">
+                          {item.content}
+                        </DialogDescription>
+                      </DialogHeader>
+                    </DialogContent>
+                  </Dialog>
                 ))}
               </div>
             </div>
@@ -510,7 +525,29 @@ export default function PregnantWomanClient({ user, data }: { user: any, data: D
                       <Calendar className="text-secondary" />
                     </div>
                     <p className="text-sm text-gray-500">No scheduled appointments</p>
-                    <Button variant="outline" size="sm" className="mt-4">Book Now</Button>
+                    <Dialog>
+                      <DialogTrigger asChild>
+                        <Button variant="outline" size="sm" className="mt-4">Book Now</Button>
+                      </DialogTrigger>
+                      <DialogContent>
+                        <DialogHeader>
+                          <DialogTitle>Book an Appointment</DialogTitle>
+                          <DialogDescription className="pt-2">
+                            To schedule your next antenatal visit, please contact your assigned midwife directly through the messaging portal, or review your schedule in your MCH book.
+                          </DialogDescription>
+                        </DialogHeader>
+                        <div className="flex gap-3 mt-4">
+                          <Link href="/dashboard/pregnant-woman/digital-mch-book" className="flex-1">
+                            <Button variant="outline" className="w-full">View MCH Book</Button>
+                          </Link>
+                          {data?.pregnancy?.midwifeId ? (
+                            <Link href={`/dashboard/chat?with=${data.pregnancy.midwifeId}`} className="flex-1">
+                              <Button className="w-full btn-pink">Message Midwife</Button>
+                            </Link>
+                          ) : null}
+                        </div>
+                      </DialogContent>
+                    </Dialog>
                   </div>
                 )}
               </CardContent>
@@ -520,13 +557,13 @@ export default function PregnantWomanClient({ user, data }: { user: any, data: D
             <Card className="border-none shadow-lg bg-secondary text-white ring-1 ring-secondary/20">
               <CardContent className="p-6">
                 <h3 className="text-lg font-bold mb-4">Emergency Support</h3>
-                <p className="text-pink-100 text-sm mb-6">Need immediate medical advice or have an emergency?</p>
+                <p className="text-pink-50 text-sm mb-6 font-medium">Need immediate medical advice or have an emergency?</p>
                 <div className="space-y-3">
-                  <Button className="w-full bg-white text-secondary hover:bg-secondary-foreground hover:text-white font-bold transition-all duration-300">
+                  <Button className="w-full bg-white text-secondary hover:bg-slate-50 hover:text-secondary font-bold transition-all duration-300 shadow-sm border border-transparent">
                     <Phone className="w-4 h-4 mr-2" />
                     Call Nurse Line
                   </Button>
-                  <Button variant="outline" className="w-full border-pink-400 text-white hover:bg-pink-500">
+                  <Button variant="outline" className="w-full border-white/50 bg-transparent text-white hover:bg-white hover:text-secondary font-bold shadow-sm transition-all duration-300">
                     Find Nearest Hospital
                   </Button>
                 </div>
@@ -555,7 +592,9 @@ export default function PregnantWomanClient({ user, data }: { user: any, data: D
                 ) : (
                   <p className="text-xs text-gray-500 py-2">No recent lab results to display.</p>
                 )}
-                <Button variant="link" className="text-blue-600 w-full p-0 text-sm">View Medical History</Button>
+                <Link href="/dashboard/pregnant-woman/digital-mch-book" className="block w-full">
+                  <Button variant="link" className="text-blue-600 w-full p-0 text-sm font-bold">View Medical History</Button>
+                </Link>
               </CardContent>
             </Card>
           </div>
