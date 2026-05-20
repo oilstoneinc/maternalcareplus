@@ -1270,3 +1270,32 @@ export async function approvePartnershipRequest(requestId: string) {
     return { success: false, error: error?.message || 'Failed to approve request' }
   }
 }
+
+// --- MCH Book Extra Checklists ---
+export async function updateMCHChecklists(pregnancyId: string, mchDataUpdate: any) {
+  try {
+    const user = await currentUser()
+    if (!user) return { success: false, error: 'Unauthorized' }
+
+    const existing = await db.query.pregnancies.findFirst({
+      where: eq(pregnancies.id, pregnancyId)
+    })
+    
+    if (!existing) return { success: false, error: 'Pregnancy not found' }
+
+    const currentMchData = existing.mchData || {}
+    const newMchData = { ...currentMchData, ...mchDataUpdate }
+
+    await db.update(pregnancies)
+      .set({ mchData: newMchData })
+      .where(eq(pregnancies.id, pregnancyId))
+
+    revalidatePath(`/dashboard/hospital/patients/${pregnancyId}`)
+    revalidatePath(`/dashboard/hospital/patients/${pregnancyId}/mch-book`)
+    
+    return { success: true }
+  } catch (err: any) {
+    console.error('Failed to update MCH Checklists:', err)
+    return { success: false, error: err.message }
+  }
+}

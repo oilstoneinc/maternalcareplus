@@ -73,6 +73,7 @@ export const pregnancies = pgTable('pregnancies', {
   iptpDoses: integer('iptp_doses').default(0), // Malaria prevention doses
   ttDoses: integer('tt_doses').default(0), // Tetanus Toxoid doses
   itnDistributed: boolean('itn_distributed').default(false), // Mosquito net
+  mchData: json('mch_data').$type<any>(), // MCH Book counselling checklists and extra data
   isActive: boolean('is_active').default(true),
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow(),
