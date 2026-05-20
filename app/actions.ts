@@ -523,37 +523,80 @@ export async function onboardPatient(formData: any) {
     const origin = process.env.NEXT_PUBLIC_APP_URL || 'https://maternalcareplus.vercel.app'
     const emailLower = formData.email.trim().toLowerCase()
     
-    // 1. Generate invitation token and temporary placeholders
-    const inviteToken = `INV-PW-${Math.random().toString(36).substring(2, 10).toUpperCase()}`
-    
-    // 2. Register patient directly in our DB immediately (so hospital sees it instantly!)
-    const [newUser] = await db.insert(users).values({
-      clerkId: inviteToken, // placeholder invitation token
-      email: emailLower,
-      firstName: formData.firstName.trim(),
-      lastName: formData.lastName.trim(),
-      phone: formData.phone || null,
-      role: formData.role || 'pregnant_woman',
-      address: formData.address || null,
-      isVerified: false,
-    }).returning()
+    // Check if the user is already registered in our database
+    let existingUser = await db.query.users.findFirst({
+      where: eq(users.email, emailLower)
+    })
 
-    // 3. Create Pregnancy record if applicable
+    let newUser;
+    if (existingUser) {
+      newUser = existingUser
+      // Update their profile details if needed
+      await db.update(users)
+        .set({
+          firstName: formData.firstName.trim(),
+          lastName: formData.lastName.trim(),
+          phone: formData.phone || existingUser.phone,
+          address: formData.address || existingUser.address,
+          updatedAt: new Date(),
+        })
+        .where(eq(users.id, existingUser.id))
+      console.log(`[onboardPatient] Reusing and updating existing user record ${existingUser.id} for email ${emailLower}`)
+    } else {
+      // 1. Generate invitation token and temporary placeholders
+      const inviteToken = `INV-PW-${Math.random().toString(36).substring(2, 10).toUpperCase()}`
+      
+      // 2. Register patient directly in our DB immediately (so hospital sees it instantly!)
+      const [inserted] = await db.insert(users).values({
+        clerkId: inviteToken, // placeholder invitation token
+        email: emailLower,
+        firstName: formData.firstName.trim(),
+        lastName: formData.lastName.trim(),
+        phone: formData.phone || null,
+        role: formData.role || 'pregnant_woman',
+        address: formData.address || null,
+        isVerified: false,
+      }).returning()
+      newUser = inserted
+      console.log(`[onboardPatient] Created new patient record ${newUser.id} in DB`)
+    }
+
+    // 3. Create or update Pregnancy record if applicable
     if ((formData.role || 'pregnant_woman') === 'pregnant_woman' && formData.lmp) {
       let hospitalId = dbUser.hospitalId;
       if (!hospitalId) {
         throw new Error('You must be assigned to a hospital to onboard a patient.')
       }
 
-      await db.insert(pregnancies).values({
-        userId: newUser.id,
-        hospitalId: formData.hospitalId || hospitalId,
-        gravidity: parseInt(formData.gravidity) || 1,
-        parity: parseInt(formData.parity) || 0,
-        lmp: new Date(formData.lmp),
-        edd: new Date(new Date(formData.lmp).setDate(new Date(formData.lmp).getDate() + 280)), // Rule of thumb
-        status: 'active',
+      // Check if pregnancy record already exists for this patient
+      const existingPregnancy = await db.query.pregnancies.findFirst({
+        where: eq(pregnancies.userId, newUser.id)
       })
+
+      if (!existingPregnancy) {
+        await db.insert(pregnancies).values({
+          userId: newUser.id,
+          hospitalId: formData.hospitalId || hospitalId,
+          gravidity: parseInt(formData.gravidity) || 1,
+          parity: parseInt(formData.parity) || 0,
+          lmp: new Date(formData.lmp),
+          edd: new Date(new Date(formData.lmp).setDate(new Date(formData.lmp).getDate() + 280)), // Rule of thumb
+          status: 'active',
+        })
+        console.log(`[onboardPatient] Instantiated new pregnancy record for user ${newUser.id}`)
+      } else {
+        // Update existing pregnancy record
+        await db.update(pregnancies)
+          .set({
+            hospitalId: formData.hospitalId || hospitalId,
+            gravidity: parseInt(formData.gravidity) || existingPregnancy.gravidity,
+            parity: parseInt(formData.parity) || existingPregnancy.parity,
+            lmp: new Date(formData.lmp),
+            edd: new Date(new Date(formData.lmp).setDate(new Date(formData.lmp).getDate() + 280)),
+          })
+          .where(eq(pregnancies.id, existingPregnancy.id))
+        console.log(`[onboardPatient] Updated existing pregnancy record ${existingPregnancy.id} for user ${newUser.id}`)
+      }
     }
 
     // 4. Send programmatic Clerk Invitation to trigger automatic email delivery
@@ -569,7 +612,7 @@ export async function onboardPatient(formData: any) {
         },
         ignoreExisting: true,
       })
-      console.log(`[onboardPatient] Programmatic Clerk Invitation successfully sent to pregnant woman ${emailLower}`)
+      console.log(`[onboardPatient] Programmatic Clerk Invitation successfully sent/resent to pregnant woman ${emailLower}`)
     } catch (clerkErr: any) {
       console.error('[onboardPatient] Warning: Clerk programmatic invitation failed:', clerkErr)
       // We still proceed so the DB record is persisted
