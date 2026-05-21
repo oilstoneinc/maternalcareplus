@@ -5,8 +5,11 @@ import { db } from '@/lib/db'
 import { 
   users, 
   pregnancies, 
+  previousPregnancies,
   appointments, 
+  labTests,
   deliveries, 
+  postnatalCare,
   children,
   immunizations,
   childGrowth
@@ -63,20 +66,35 @@ export default async function DigitalMCHBookPage() {
   }
 
   // Fetch related records for the woman's view
+  const prevPregnancies = await db.query.previousPregnancies.findMany({
+    where: eq(previousPregnancies.userId, dbUser.id),
+    orderBy: [desc(previousPregnancies.year)]
+  })
+
   const ancVisits = await db.query.appointments.findMany({
     where: eq(appointments.pregnancyId, pregnancyData.id),
     orderBy: [asc(appointments.scheduledDate)]
+  })
+
+  const labs = await db.query.labTests.findMany({
+    where: eq(labTests.pregnancyId, pregnancyData.id),
+    orderBy: [desc(labTests.resultDate)]
   })
 
   const deliveryRecord = await db.query.deliveries.findFirst({
     where: eq(deliveries.pregnancyId, pregnancyData.id)
   })
 
-  const childRecord = await db.query.children.findFirst({
+  const pncRecords = await db.query.postnatalCare.findMany({
+    where: eq(postnatalCare.pregnancyId, pregnancyData.id),
+    orderBy: [desc(postnatalCare.visitDate)]
+  })
+
+  const childRecords = await db.query.children.findMany({
     where: eq(children.pregnancyId, pregnancyData.id)
   })
 
-  let childId = childRecord?.id
+  let childId = childRecords[0]?.id
   let immunizationsData: any[] = []
   let growthData: any[] = []
 
@@ -94,10 +112,13 @@ export default async function DigitalMCHBookPage() {
 
   const safeData = JSON.parse(JSON.stringify({
     pregnancy: pregnancyData,
-    user: dbUser,
+    mother: dbUser,
+    previousPregnancies: prevPregnancies,
     ancVisits,
+    labs,
     delivery: deliveryRecord,
-    child: childRecord,
+    postnatalCare: pncRecords,
+    children: childRecords,
     immunizations: immunizationsData,
     growth: growthData
   }))
