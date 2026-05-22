@@ -21,7 +21,6 @@ export default function SignInPage() {
         <SignIn 
           routing="path" 
           path="/sign-in" 
-          signUpUrl="/sign-up"
           fallbackRedirectUrl="/dashboard"
           appearance={{
             elements: {
@@ -32,6 +31,7 @@ export default function SignInPage() {
               formButtonPrimary: "bg-[#D48BA1] hover:bg-[#c47a90] text-sm font-bold py-3 rounded-xl transition-all shadow-md",
               formFieldLabel: "text-slate-700 font-bold",
               formFieldInput: "border-slate-200 focus:border-[#D48BA1] focus:ring-[#D48BA1] rounded-xl py-2.5",
+              footerAction: "hidden",
               footerActionLink: "text-[#D48BA1] hover:text-[#c47a90] font-bold",
               identityPreviewTextPrimary: "text-slate-900",
               dividerLine: "bg-slate-100",
