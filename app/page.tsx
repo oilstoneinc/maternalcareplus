@@ -50,12 +50,12 @@ export default async function HomePage() {
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-20">
             {/* Logo */}
-            <div className="flex-shrink-0 flex items-center gap-2 cursor-pointer" onClick={() => window.scrollTo(0,0)}>
+            <a href="/" className="flex-shrink-0 flex items-center gap-2 cursor-pointer">
               <div className="w-10 h-10 bg-gradient-to-br from-[#D48BA1] to-[#e6a8bc] rounded-2xl flex items-center justify-center shadow-lg shadow-pink-100">
                 <HeartPulse className="w-5 h-5 text-white" />
               </div>
               <span className="text-xl font-black text-slate-800 tracking-tight">Maternal<span className="text-[#D48BA1]">Care</span>+</span>
-            </div>
+            </a>
 
             {/* Desktop Navigation */}
             <nav className="hidden md:flex space-x-8">
