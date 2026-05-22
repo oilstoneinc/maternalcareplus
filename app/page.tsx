@@ -10,7 +10,12 @@ import PartnerCardClient from '@/components/partner-card-client'
 import ContactFormClient from '@/components/contact-form-client'
 
 export default async function HomePage() {
-  const user = await currentUser()
+  let user = null
+  try {
+    user = await currentUser()
+  } catch (error) {
+    console.error("Clerk Auth Error:", error)
+  }
   
   if (user) {
     const role = user.publicMetadata?.role as string
@@ -31,10 +36,15 @@ export default async function HomePage() {
   }
 
   // Fetch active partner hospitals
-  const partnerHospitalsList = await db.query.hospitals.findMany({
-    where: eq(hospitals.isActive, true),
-    orderBy: (hospitals, { asc }) => [asc(hospitals.name)]
-  })
+  let partnerHospitalsList: any[] = []
+  try {
+    partnerHospitalsList = await db.query.hospitals.findMany({
+      where: eq(hospitals.isActive, true),
+      orderBy: (hospitals, { asc }) => [asc(hospitals.name)]
+    })
+  } catch (error) {
+    console.error("Database Error fetching hospitals:", error)
+  }
 
   return (
     <div className="min-h-screen bg-[#F6F4F3] font-sans scroll-smooth">
