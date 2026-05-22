@@ -51,6 +51,7 @@ export const pregnancies = pgTable('pregnancies', {
   id: uuid('id').defaultRandom().primaryKey(),
   userId: uuid('user_id').references(() => users.id).notNull(),
   hospitalId: uuid('hospital_id').references(() => hospitals.id).notNull(),
+  midwifeId: uuid('midwife_id').references(() => users.id), // Assigned primary midwife
   gravidity: integer('gravidity').notNull(), // Number of pregnancies
   parity: integer('parity').notNull(), // Number of births
   lmp: timestamp('lmp').notNull(), // Last menstrual period

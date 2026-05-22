@@ -723,6 +723,11 @@ export async function recordAntenatalVisit(formData: any) {
       })
     }
 
+    // Trigger pusher update for patient side!
+    await pusherServer.trigger(`pregnancy-${pregnancyId}`, 'mch-update', { 
+      message: 'A new Antenatal Clinic (ANC) checkup was recorded by your hospital.' 
+    })
+
     revalidatePath('/dashboard/hospital')
     revalidatePath('/dashboard/midwife')
     revalidatePath('/dashboard/pregnant-woman')
@@ -1299,3 +1304,22 @@ export async function updateMCHChecklists(pregnancyId: string, mchDataUpdate: an
     return { success: false, error: err.message }
   }
 }
+
+// --- Midwife Assignment ---
+export async function assignMidwifeToPregnancy(pregnancyId: string, midwifeId: string) {
+  try {
+    const user = await currentUser()
+    if (!user) return { success: false, error: 'Unauthorized' }
+
+    await db.update(pregnancies)
+      .set({ midwifeId })
+      .where(eq(pregnancies.id, pregnancyId))
+
+    revalidatePath(`/dashboard/hospital/patients/${pregnancyId}`)
+    return { success: true }
+  } catch (err: any) {
+    console.error('Failed to assign midwife:', err)
+    return { success: false, error: err.message }
+  }
+}
+

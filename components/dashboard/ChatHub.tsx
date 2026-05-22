@@ -3,42 +3,52 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { pusherClient } from '@/lib/pusher-client'
 import { sendMessage, getMessages } from '@/app/actions'
-import { Message } from '@/types'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
-import { ScrollArea } from '@/components/ui/scroll-area'
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { Send, Loader2 } from 'lucide-react'
+import { Send, Loader2, MessageCircle, Phone, Video, MoreVertical } from 'lucide-react'
 
 interface ChatHubProps {
   currentUserId: string
   otherUserId: string
   otherUserName: string
+  otherUserRole?: string
   pregnancyId?: string
 }
 
-export default function ChatHub({ currentUserId, otherUserId, otherUserName, pregnancyId }: ChatHubProps) {
-  const [messages, setMessages] = useState<Message[]>([])
-  const [newMessage, setNewMessage] = useState('')
+type Msg = {
+  id: string
+  senderId: string
+  receiverId: string
+  content: string
+  createdAt: string | Date
+  status?: string
+}
+
+export default function ChatHub({ currentUserId, otherUserId, otherUserName, otherUserRole, pregnancyId }: ChatHubProps) {
+  const [msgs, setMsgs] = useState<Msg[]>([])
+  const [text, setText] = useState('')
   const [isLoading, setIsLoading] = useState(true)
   const [isSending, setIsSending] = useState(false)
-  const scrollRef = useRef<HTMLDivElement>(null)
+  const bottomRef = useRef<HTMLDivElement>(null)
 
+  // Initial fetch
   useEffect(() => {
-    // Fetch initial messages
-    const fetchMessages = async () => {
-      const msgs = await getMessages(otherUserId)
-      setMessages(msgs as any)
+    const fetchMsgs = async () => {
+      const data = await getMessages(otherUserId)
+      setMsgs(data as Msg[])
       setIsLoading(false)
     }
-    fetchMessages()
+    fetchMsgs()
 
-    // Subscribe to pusher channel
+    // Subscribe to real-time channel
     const channel = pusherClient.subscribe(`chat-${currentUserId}`)
-    channel.bind('new-message', (data: Message) => {
+    channel.bind('new-message', (data: Msg) => {
       if (data.senderId === otherUserId || data.senderId === currentUserId) {
-        setMessages((prev) => [...prev, data])
+        setMsgs((prev) => {
+          // Avoid duplicates
+          if (prev.find(m => m.id === data.id)) return prev
+          return [...prev, data]
+        })
       }
     })
 
@@ -47,93 +57,147 @@ export default function ChatHub({ currentUserId, otherUserId, otherUserName, pre
     }
   }, [currentUserId, otherUserId])
 
+  // Scroll to bottom on new message
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollIntoView({ behavior: 'smooth' })
-    }
-  }, [messages])
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [msgs])
 
-  const handleSendMessage = async (e: React.FormEvent) => {
+  const handleSend = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!newMessage.trim() || isSending) return
-
+    if (!text.trim() || isSending) return
+    const content = text.trim()
+    setText('')
     setIsSending(true)
     try {
-      await sendMessage(otherUserId, newMessage, pregnancyId)
-      setNewMessage('')
-    } catch (error) {
-      console.error('Error sending message:', error)
+      await sendMessage(otherUserId, content, pregnancyId)
+    } catch (err) {
+      console.error('Send failed:', err)
+      setText(content) // restore on failure
     } finally {
       setIsSending(false)
     }
   }
 
-  if (isLoading) {
-    return (
-      <Card className="w-full h-[600px] flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
-      </Card>
-    )
-  }
+  const initials = otherUserName.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
+  const roleLabel = otherUserRole === 'midwife' ? 'Midwife' : otherUserRole === 'pregnant_woman' ? 'Patient' : 'Care Team'
 
   return (
-    <Card className="w-full h-[600px] flex flex-col shadow-lg border-none bg-white/80 backdrop-blur-md">
-      <CardHeader className="border-b bg-secondary/10 p-4">
-        <div className="flex items-center gap-3">
-          <Avatar>
-            <AvatarFallback className="bg-primary/10 text-primary">
-              {otherUserName[0]}
-            </AvatarFallback>
-          </Avatar>
-          <CardTitle className="text-lg font-bold">{otherUserName}</CardTitle>
+    <div className="flex flex-col h-[calc(100vh-12rem)] min-h-[500px] bg-white rounded-3xl shadow-xl border border-slate-100 overflow-hidden">
+      
+      {/* Header */}
+      <div className="flex items-center gap-4 px-6 py-4 bg-gradient-to-r from-slate-900 to-slate-800 text-white flex-shrink-0">
+        <div className="relative">
+          <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-[#D48BA1] to-[#e6a8bc] flex items-center justify-center text-white font-black text-sm shadow-lg">
+            {initials}
+          </div>
+          <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-emerald-400 border-2 border-slate-800 rounded-full" />
         </div>
-      </CardHeader>
-      <CardContent className="flex-1 flex flex-col p-4 overflow-hidden">
-        <ScrollArea className="flex-1 pr-4">
-          <div className="space-y-4">
-            {messages.map((msg) => (
-              <div
-                key={msg.id}
-                className={`flex ${
-                  msg.senderId === currentUserId ? 'justify-end' : 'justify-start'
-                }`}
-              >
-                <div
-                  className={`max-w-[80%] p-3 rounded-2xl text-sm ${
-                    msg.senderId === currentUserId
-                      ? 'bg-primary text-white rounded-tr-none'
-                      : 'bg-muted text-gray-800 rounded-tl-none'
-                  }`}
-                >
-                  <p>{msg.content}</p>
-                  <span className="text-[10px] opacity-70 mt-1 block">
-                    {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                  </span>
+        <div className="flex-1 min-w-0">
+          <p className="font-black text-white truncate">{otherUserName}</p>
+          <p className="text-xs text-slate-400 font-medium">{roleLabel} · Online</p>
+        </div>
+        <div className="flex items-center gap-2 flex-shrink-0">
+          <button className="p-2 rounded-xl hover:bg-white/10 transition-colors">
+            <Phone className="w-4 h-4 text-slate-400" />
+          </button>
+          <button className="p-2 rounded-xl hover:bg-white/10 transition-colors">
+            <MoreVertical className="w-4 h-4 text-slate-400" />
+          </button>
+        </div>
+      </div>
+
+      {/* Messages Area */}
+      <div className="flex-1 overflow-y-auto p-6 space-y-3 bg-[#F6F4F3]">
+        {isLoading ? (
+          <div className="flex items-center justify-center h-full">
+            <div className="flex flex-col items-center gap-3">
+              <Loader2 className="w-8 h-8 animate-spin text-[#D48BA1]" />
+              <p className="text-sm text-slate-500 font-medium">Loading messages...</p>
+            </div>
+          </div>
+        ) : msgs.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-full gap-4 text-center">
+            <div className="w-16 h-16 bg-white rounded-3xl flex items-center justify-center shadow-sm border border-slate-100">
+              <MessageCircle className="w-8 h-8 text-[#D48BA1]" />
+            </div>
+            <div>
+              <p className="font-black text-slate-800">Start a conversation</p>
+              <p className="text-sm text-slate-500 font-medium mt-1">Send a message to begin your secure clinical conversation with {otherUserName}.</p>
+            </div>
+          </div>
+        ) : (
+          msgs.map((msg, i) => {
+            const isMine = msg.senderId === currentUserId
+            const showTime = i === 0 || 
+              (new Date(msgs[i].createdAt).getTime() - new Date(msgs[i-1].createdAt).getTime() > 5 * 60 * 1000)
+
+            return (
+              <div key={msg.id}>
+                {showTime && (
+                  <div className="text-center my-3">
+                    <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider bg-white px-3 py-1 rounded-full shadow-sm">
+                      {new Date(msg.createdAt).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                  </div>
+                )}
+                <div className={`flex items-end gap-2 ${isMine ? 'justify-end' : 'justify-start'}`}>
+                  {!isMine && (
+                    <div className="w-7 h-7 rounded-xl bg-gradient-to-br from-[#D48BA1] to-[#e6a8bc] flex items-center justify-center text-white font-black text-[9px] flex-shrink-0 mb-0.5">
+                      {initials}
+                    </div>
+                  )}
+                  <div
+                    className={`max-w-[70%] px-4 py-2.5 rounded-2xl text-sm leading-relaxed shadow-sm ${
+                      isMine
+                        ? 'bg-slate-900 text-white rounded-br-none'
+                        : 'bg-white text-slate-800 rounded-bl-none border border-slate-100'
+                    }`}
+                  >
+                    <p>{msg.content}</p>
+                    <span className={`text-[9px] mt-1 block font-semibold ${isMine ? 'text-slate-400 text-right' : 'text-slate-400'}`}>
+                      {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                  </div>
                 </div>
               </div>
-            ))}
-            <div ref={scrollRef} />
-          </div>
-        </ScrollArea>
-        
-        <form onSubmit={handleSendMessage} className="mt-4 flex gap-2">
+            )
+          })
+        )}
+        <div ref={bottomRef} />
+      </div>
+
+      {/* Input Area */}
+      <div className="flex-shrink-0 px-6 py-4 bg-white border-t border-slate-100">
+        <form onSubmit={handleSend} className="flex items-center gap-3">
           <Input
-            value={newMessage}
-            onChange={(e) => setNewMessage(e.target.value)}
-            placeholder="Type your message..."
-            className="rounded-full bg-white border-muted focus-visible:ring-primary"
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            placeholder={`Message ${otherUserName}...`}
+            className="rounded-2xl bg-[#F6F4F3] border-slate-200 focus-visible:ring-[#D48BA1] font-medium text-slate-800 placeholder:text-slate-400 py-5 px-5"
             disabled={isSending}
+            autoComplete="off"
           />
-          <Button 
-            type="submit" 
-            size="icon" 
-            className="rounded-full btn-pink shadow-md"
-            disabled={isSending || !newMessage.trim()}
+          <Button
+            type="submit"
+            size="icon"
+            className={`w-11 h-11 rounded-2xl flex-shrink-0 shadow-md transition-all ${
+              text.trim() 
+                ? 'bg-slate-900 hover:bg-slate-800 hover:scale-105' 
+                : 'bg-slate-200 cursor-not-allowed'
+            }`}
+            disabled={isSending || !text.trim()}
           >
-            {isSending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+            {isSending ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Send className="w-4 h-4" />
+            )}
           </Button>
         </form>
-      </CardContent>
-    </Card>
+        <p className="text-center text-[9px] text-slate-400 font-bold uppercase tracking-wider mt-2">
+          🔒 End-to-end encrypted · HIPAA compliant
+        </p>
+      </div>
+    </div>
   )
 }

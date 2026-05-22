@@ -66,6 +66,14 @@ export default async function PatientProfilePage({ params }: { params: Promise<{
       orderBy: [desc(labTests.resultDate)]
     })
 
+    // Fetch available midwives for this hospital
+    const availableMidwives = await db.query.users.findMany({
+      where: and(
+        eq(users.role, 'midwife'),
+        eq(users.hospitalId, dbUser.hospitalId)
+      )
+    })
+
     // Prepare safe data
     const safeData = JSON.parse(JSON.stringify({
       pregnancy,
@@ -74,7 +82,8 @@ export default async function PatientProfilePage({ params }: { params: Promise<{
       appointments: allAppointments,
       labs,
       onboardingHospital,
-      currentHospitalId: dbUser.hospitalId
+      currentHospitalId: dbUser.hospitalId,
+      availableMidwives
     }))
 
     return <PatientProfileClient data={safeData} />

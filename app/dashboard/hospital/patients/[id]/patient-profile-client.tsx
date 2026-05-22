@@ -5,14 +5,15 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { ArrowLeft, Activity, Calendar as CalendarIcon, FileText, Plus, BookOpen } from 'lucide-react'
+import { ArrowLeft, Activity, Calendar as CalendarIcon, FileText, Plus, BookOpen, Users } from 'lucide-react'
 import Link from 'next/link'
-import { recordAntenatalVisit } from '@/app/actions' // We will use this to record vitals and schedule
+import { recordAntenatalVisit, assignMidwifeToPregnancy } from '@/app/actions' // We will use this to record vitals and schedule
 
 export default function PatientProfileClient({ data }: { data: any }) {
-  const { patient, pregnancy, vitals, appointments, labs, onboardingHospital, currentHospitalId } = data
+  const { patient, pregnancy, vitals, appointments, labs, onboardingHospital, currentHospitalId, availableMidwives } = data
   const [activeTab, setActiveTab] = useState('overview')
   const [showVitalForm, setShowVitalForm] = useState(false)
+  const [assigningMidwife, setAssigningMidwife] = useState(false)
 
   const patientName = `${patient.firstName} ${patient.lastName}`.trim()
   const age = patient.dateOfBirth ? Math.floor((new Date().getTime() - new Date(patient.dateOfBirth).getTime()) / 3.15576e+10) : 'N/A'
@@ -21,6 +22,21 @@ export default function PatientProfileClient({ data }: { data: any }) {
     if (!date) return 'N/A'
     return new Date(date).toLocaleDateString()
   }
+
+  const handleAssignMidwife = async (midwifeId: string) => {
+    setAssigningMidwife(true)
+    try {
+      const res = await assignMidwifeToPregnancy(pregnancy.id, midwifeId)
+      if (!res.success) alert(res.error || 'Failed to assign midwife')
+    } catch (err) {
+      console.error(err)
+      alert('An error occurred')
+    } finally {
+      setAssigningMidwife(false)
+    }
+  }
+
+  const assignedMidwife = availableMidwives?.find((m: any) => m.id === pregnancy.midwifeId)
 
   return (
     <div className="min-h-screen bg-[#F6F4F3] p-4 md:p-6">
@@ -98,6 +114,43 @@ export default function PatientProfileClient({ data }: { data: any }) {
           </TabsList>
 
           <TabsContent value="overview" className="mt-6 space-y-6">
+            <Card>
+              <CardHeader className="bg-indigo-50/50 border-b border-indigo-50/50 rounded-t-xl">
+                <CardTitle className="flex items-center gap-2">
+                  <Users className="w-5 h-5 text-indigo-600" />
+                  Primary Care Team
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="pt-6">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                  <div>
+                    <h4 className="font-semibold text-slate-800">Assigned Midwife / Nurse</h4>
+                    <p className="text-sm text-slate-600">
+                      {assignedMidwife ? `${assignedMidwife.firstName} ${assignedMidwife.lastName}` : 'No primary midwife assigned to this pregnancy.'}
+                    </p>
+                  </div>
+                  {availableMidwives && availableMidwives.length > 0 && (
+                    <div className="flex items-center gap-2">
+                      <select 
+                        disabled={assigningMidwife}
+                        onChange={(e) => {
+                          if (e.target.value) handleAssignMidwife(e.target.value)
+                        }}
+                        className="text-sm border border-slate-200 rounded-lg p-2.5 bg-white font-medium text-slate-700 shadow-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none"
+                        value={pregnancy.midwifeId || ''}
+                      >
+                        <option value="" disabled>Select Staff to Assign...</option>
+                        {availableMidwives.map((m: any) => (
+                          <option key={m.id} value={m.id}>{m.firstName} {m.lastName}</option>
+                        ))}
+                      </select>
+                      {assigningMidwife && <span className="text-xs font-bold text-indigo-500 animate-pulse ml-2">Assigning...</span>}
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
