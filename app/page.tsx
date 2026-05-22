@@ -9,13 +9,10 @@ import { eq } from 'drizzle-orm'
 import PartnerCardClient from '@/components/partner-card-client'
 import ContactFormClient from '@/components/contact-form-client'
 
+export const dynamic = 'force-dynamic'
+
 export default async function HomePage() {
-  let user = null
-  try {
-    user = await currentUser()
-  } catch (error) {
-    console.error("Clerk Auth Error:", error)
-  }
+  const user = await currentUser()
   
   if (user) {
     const role = user.publicMetadata?.role as string
