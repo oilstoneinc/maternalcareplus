@@ -134,11 +134,24 @@ export async function getHospitalDashboardData(): Promise<HospitalDashboardData 
       return null
     }
 
+    // SAFE GUARD: If hospital staff has no hospitalId yet, return a minimal
+    // pending state that signals to the server page to redirect to /onboarding/hospital
+    // instead of crashing the Drizzle query with eq(column, null).
+    if (!dbUser.hospitalId) {
+      console.warn(`getHospitalDashboardData: User ${user.id} has hospital_staff role but no hospitalId. Returning pending setup state.`)
+      return JSON.parse(JSON.stringify({
+        hospital: { name: 'Pending Setup', id: null },
+        patients: [],
+        pregnancies: [],
+        appointments: [],
+      }))
+    }
+
     // Get all patients linked to this hospital
     const allPatients = await db.query.users.findMany({
       where: and(
         eq(users.role, 'pregnant_woman'),
-        eq(users.hospitalId, dbUser.hospitalId!)
+        eq(users.hospitalId, dbUser.hospitalId)
       ),
       limit: 50,
     })
@@ -147,7 +160,7 @@ export async function getHospitalDashboardData(): Promise<HospitalDashboardData 
     const activePregnanciesRaw = await db.query.pregnancies.findMany({
       where: and(
         eq(pregnancies.status, 'active'),
-        eq(pregnancies.hospitalId, dbUser.hospitalId!)
+        eq(pregnancies.hospitalId, dbUser.hospitalId)
       ),
       limit: 50,
     })
@@ -167,15 +180,15 @@ export async function getHospitalDashboardData(): Promise<HospitalDashboardData 
     const todayAppointments = await db.query.appointments.findMany({
       where: and(
         sql`DATE(${appointments.scheduledDate}) = CURRENT_DATE`,
-        eq(appointments.hospitalId, dbUser.hospitalId!)
+        eq(appointments.hospitalId, dbUser.hospitalId)
       ),
       limit: 20,
     })
 
     // Get hospital details
-    const hospital = dbUser.hospitalId ? await db.query.hospitals.findFirst({
+    const hospital = await db.query.hospitals.findFirst({
       where: eq(hospitals.id, dbUser.hospitalId)
-    }) : null;
+    })
 
     return JSON.parse(JSON.stringify({
       hospital,
@@ -428,23 +441,25 @@ export async function syncClerkAccount() {
 
     const primaryEmail = user.emailAddresses[0]?.emailAddress
     if (!primaryEmail) return { success: false, error: 'No email found in Clerk' }
+    const normalizedEmail = primaryEmail.trim().toLowerCase()
 
     // 1. Check if user exists in DB by Clerk ID
     let dbUser = await db.query.users.findFirst({
       where: eq(users.clerkId, user.id)
     })
 
-    // 1.5 If not found by Clerk ID, try by email (they might have been pre-registered by a hospital)
+    // 1.5 If not found by Clerk ID, try by email using case-insensitive search
+    // (handles email casing mismatches between hospital pre-registration and Clerk)
     if (!dbUser) {
       dbUser = await db.query.users.findFirst({
-        where: eq(users.email, primaryEmail.toLowerCase())
+        where: ilike(users.email, normalizedEmail)
       })
 
       if (dbUser) {
         console.log(`Self-healing: Found pre-registered user ${dbUser.id} by email. Linking Clerk ID...`)
         // Update the placeholder clerkId with their real Clerk ID!
         await db.update(users)
-          .set({ clerkId: user.id, isVerified: true })
+          .set({ clerkId: user.id, isVerified: true, email: normalizedEmail })
           .where(eq(users.id, dbUser.id))
       }
     }
@@ -458,48 +473,75 @@ export async function syncClerkAccount() {
 
     if (!dbUser) {
       console.log(`Self-healing: Creating missing user record for ${user.id} with role ${role}`)
-      await db.insert(users).values({
+      const [insertedUser] = await db.insert(users).values({
         clerkId: user.id,
-        email: primaryEmail.toLowerCase(),
+        email: normalizedEmail,
         firstName: user.firstName || 'User',
         lastName: user.lastName || '',
         role: role as any,
         isVerified: true,
         isActive: true,
-      })
+      }).returning()
+      dbUser = insertedUser
     } else if (dbUser.role !== role) {
        // DB is source of truth, synchronize Clerk metadata if they disagree
        console.log(`Self-healing: Clerk/DB mismatch. Database role is ${dbUser.role}, Clerk is ${role}. Syncing Clerk.`)
        role = dbUser.role
     }
 
-    // Ensure Clerk is updated
+    // Ensure Clerk metadata is up to date
     if (user.publicMetadata?.role !== role) {
       await (await clerkClient()).users.updateUserMetadata(user.id, {
         publicMetadata: { role: role }
       })
     }
 
-    // 2. If it's a hospital staff role, ensure they have a valid invite or pre-registered hospital entry
+    // 2. Hospital staff specific logic: ensure they have a valid invite or a pre-registered hospital
     if (role === 'hospital_staff') {
+      // Case-insensitive email lookup for hospital record
       const existingHospital = await db.query.hospitals.findFirst({
-        where: eq(hospitals.email, primaryEmail)
+        where: ilike(hospitals.email, normalizedEmail)
       })
 
+      // Case-insensitive email lookup for invite record
       const invite = await db.query.hospitalInvites.findFirst({
-        where: eq(hospitalInvites.email, primaryEmail)
+        where: ilike(hospitalInvites.email, normalizedEmail)
       })
 
       if (!invite && !existingHospital) {
-        console.warn(`Blocked signup for ${primaryEmail}: No invite or hospital pre-registered. Invite only lockdown is active.`)
-        return { success: false, error: 'Access denied: Hospital registration is invite-only.' }
-      }
+        // SELF-HEALING: If the user was directly assigned hospital_staff in Clerk
+        // by an admin but has no DB record, auto-provision a placeholder hospital for them.
+        // This handles the "Method B" direct Clerk creation workflow.
+        const clerkMeta = user.publicMetadata as any
+        const hospitalName = clerkMeta?.hospitalName || `${user.firstName || ''} ${user.lastName || ''}`.trim() + "'s Hospital" || 'New Hospital'
+        
+        console.log(`Self-healing: No invite or hospital found for ${normalizedEmail}. Auto-provisioning placeholder hospital: '${hospitalName}'.`)
+        
+        const hospitalCode = `HSP-${Math.random().toString(36).substring(2, 8).toUpperCase()}`
+        const [newHospital] = await db.insert(hospitals).values({
+          name: hospitalName,
+          code: hospitalCode,
+          address: 'Pending Setup',
+          region: 'Pending',
+          city: 'Pending',
+          phone: '0000000000',
+          email: normalizedEmail,
+          type: 'Hospital',
+          isVerified: false,
+        }).returning()
 
-      // Automatically link user to pre-created hospital
-      if (existingHospital) {
+        // Link the user to the newly provisioned hospital
+        if (newHospital && dbUser) {
+          await db.update(users)
+            .set({ hospitalId: newHospital.id })
+            .where(eq(users.clerkId, user.id))
+        }
+      } else if (existingHospital && dbUser && !dbUser.hospitalId) {
+        // Link user to their pre-created hospital record if not yet linked
         await db.update(users)
           .set({ hospitalId: existingHospital.id })
           .where(eq(users.clerkId, user.id))
+        console.log(`Self-healing: Linked user ${user.id} to hospital ${existingHospital.id}`)
       }
     }
 
