@@ -60,7 +60,6 @@ export default async function HomePage() {
             {/* Desktop Navigation */}
             <nav className="hidden md:flex space-x-8">
               <a href="#features" className="text-sm font-bold text-slate-600 hover:text-[#D48BA1] transition-colors">Features</a>
-              <a href="#about-us" className="text-sm font-bold text-slate-600 hover:text-[#D48BA1] transition-colors">About Us</a>
               <a href="#partners" className="text-sm font-bold text-slate-600 hover:text-[#D48BA1] transition-colors">Partner Hospitals</a>
               <a href="#contact" className="text-sm font-bold text-slate-600 hover:text-[#D48BA1] transition-colors">Contact Us</a>
             </nav>
@@ -197,44 +196,6 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* About Us Section */}
-      <section id="about-us" className="py-24 bg-gradient-to-b from-white to-[#F6F4F3]">
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="lg:grid lg:grid-cols-2 gap-16 items-center">
-            <div className="relative rounded-[2rem] overflow-hidden shadow-2xl h-[500px] border-8 border-white">
-              <Image 
-                src="/hero-graphic.png" 
-                alt="About MaternalCare Plus"
-                fill
-                className="object-cover"
-              />
-            </div>
-            <div className="mt-10 lg:mt-0 space-y-6">
-              <span className="inline-flex items-center px-3 py-1 rounded-full bg-[#D48BA1]/10 text-[#D48BA1] border border-[#D48BA1]/20 font-bold text-[10px] uppercase tracking-widest">
-                Our Mission
-              </span>
-              <h2 className="text-4xl font-black text-slate-900 tracking-tight sm:text-5xl">
-                Empowering Maternal Health Through Technology
-              </h2>
-              <p className="text-lg text-slate-600 leading-relaxed font-medium">
-                MaternalCare Plus was founded with a singular vision: to drastically reduce maternal and neonatal mortality by bridging the communication and data gap between expectant mothers and clinical professionals.
-              </p>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 pt-6">
-                <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
-                  <Target className="w-8 h-8 text-[#D48BA1] mb-3" />
-                  <h4 className="font-black text-slate-900 mb-2">Our Goal</h4>
-                  <p className="text-sm text-slate-500 font-medium">To provide every mother with a comprehensive, secure digital record of her journey.</p>
-                </div>
-                <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
-                  <Users className="w-8 h-8 text-[#D48BA1] mb-3" />
-                  <h4 className="font-black text-slate-900 mb-2">Our Team</h4>
-                  <p className="text-sm text-slate-500 font-medium">Built in collaboration with leading obstetricians, midwives, and public health experts.</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
 
       {/* Partner Hospitals Section */}
       <section id="partners" className="py-24 bg-[#F6F4F3]">
