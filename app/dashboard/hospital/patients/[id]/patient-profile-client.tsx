@@ -1,20 +1,48 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { ArrowLeft, Activity, Calendar as CalendarIcon, FileText, Plus, BookOpen, Users, FlaskConical, MessageCircle } from 'lucide-react'
+import { ArrowLeft, Activity, Calendar as CalendarIcon, FileText, Plus, BookOpen, Users, FlaskConical, MessageCircle, Pencil, Check, X } from 'lucide-react'
 import Link from 'next/link'
-import { recordAntenatalVisit, recordVitals, recordLabOrScan, assignMidwifeToPregnancy, scheduleNextVisit } from '@/app/actions'
+import { recordAntenatalVisit, recordVitals, recordLabOrScan, assignMidwifeToPregnancy, scheduleNextVisit, updatePregnancyBloodType, updatePatientAge } from '@/app/actions'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 
 const clinicalFieldClass =
   'bg-white border-slate-300 text-slate-900 shadow-sm focus-visible:ring-[#D48BA1] focus-visible:border-[#D48BA1]'
+
+const BLOOD_TYPE_OPTIONS = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'] as const
+
+function formatBloodTypeDisplay(p: { bloodType?: string | null; rhesusFactor?: string | null }) {
+  const bt = p.bloodType?.trim()
+  if (!bt) return null
+  if (/^(A|B|AB|O)[+-]$/.test(bt)) return bt
+  if (p.rhesusFactor === 'Positive') return `${bt}+`
+  if (p.rhesusFactor === 'Negative') return `${bt}-`
+  return bt
+}
+
+function toCombinedBloodType(p: { bloodType?: string | null; rhesusFactor?: string | null }) {
+  return formatBloodTypeDisplay(p) || ''
+}
+
+function calcAgeYears(dateOfBirth: string | Date | null | undefined): number | null {
+  if (!dateOfBirth) return null
+  const dob = new Date(dateOfBirth)
+  if (Number.isNaN(dob.getTime())) return null
+  const today = new Date()
+  let age = today.getFullYear() - dob.getFullYear()
+  const monthDiff = today.getMonth() - dob.getMonth()
+  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < dob.getDate())) {
+    age -= 1
+  }
+  return age
+}
 
 export default function PatientProfileClient({ data }: { data: any }) {
   const { patient, pregnancy, vitals, appointments, labs, onboardingHospital, currentHospitalId, availableMidwives } = data
@@ -24,9 +52,24 @@ export default function PatientProfileClient({ data }: { data: any }) {
   const [showQuickVitals, setShowQuickVitals] = useState(false)
   const [showLabForm, setShowLabForm] = useState(false)
   const [assigningMidwife, setAssigningMidwife] = useState(false)
+  const [editingBloodType, setEditingBloodType] = useState(false)
+  const [bloodTypeValue, setBloodTypeValue] = useState(() => toCombinedBloodType(pregnancy))
+  const [bloodTypeDisplay, setBloodTypeDisplay] = useState(
+    () => formatBloodTypeDisplay(pregnancy) || 'Unknown'
+  )
+  const [savingBloodType, setSavingBloodType] = useState(false)
+  const [editingAge, setEditingAge] = useState(false)
+  const [ageValue, setAgeValue] = useState(() => {
+    const years = calcAgeYears(patient.dateOfBirth)
+    return years != null ? String(years) : ''
+  })
+  const [ageDisplay, setAgeDisplay] = useState(() => {
+    const years = calcAgeYears(patient.dateOfBirth)
+    return years != null ? String(years) : null
+  })
+  const [savingAge, setSavingAge] = useState(false)
 
   const patientName = `${patient.firstName} ${patient.lastName}`.trim()
-  const age = patient.dateOfBirth ? Math.floor((new Date().getTime() - new Date(patient.dateOfBirth).getTime()) / 3.15576e+10) : 'N/A'
 
   const formatDate = (date: any) => {
     if (!date) return 'N/A'
@@ -48,6 +91,73 @@ export default function PatientProfileClient({ data }: { data: any }) {
 
   const assignedMidwife = availableMidwives?.find((m: any) => m.id === pregnancy.midwifeId)
 
+  const handleSaveBloodType = async () => {
+    if (!bloodTypeValue) {
+      alert('Please select a blood type.')
+      return
+    }
+    setSavingBloodType(true)
+    try {
+      const res = await updatePregnancyBloodType(pregnancy.id, bloodTypeValue)
+      if (res.success) {
+        setBloodTypeDisplay(res.display || bloodTypeValue)
+        setEditingBloodType(false)
+        router.refresh()
+      } else {
+        alert(res.error || 'Could not update blood type')
+      }
+    } finally {
+      setSavingBloodType(false)
+    }
+  }
+
+  const handleCancelBloodType = () => {
+    setBloodTypeValue(toCombinedBloodType(pregnancy))
+    setEditingBloodType(false)
+  }
+
+  const handleSaveAge = async () => {
+    const parsed = parseInt(ageValue, 10)
+    if (Number.isNaN(parsed)) {
+      alert('Please enter a valid age in years.')
+      return
+    }
+    setSavingAge(true)
+    try {
+      const res = await updatePatientAge(patient.id, parsed)
+      if (res.success) {
+        setAgeDisplay(String(res.age))
+        setEditingAge(false)
+        router.refresh()
+      } else {
+        alert(res.error || 'Could not update age')
+      }
+    } finally {
+      setSavingAge(false)
+    }
+  }
+
+  const handleCancelAge = () => {
+    const years = calcAgeYears(patient.dateOfBirth)
+    setAgeValue(years != null ? String(years) : '')
+    setEditingAge(false)
+  }
+
+  useEffect(() => {
+    setBloodTypeDisplay(formatBloodTypeDisplay(pregnancy) || 'Unknown')
+    if (!editingBloodType) {
+      setBloodTypeValue(toCombinedBloodType(pregnancy))
+    }
+  }, [pregnancy.bloodType, pregnancy.rhesusFactor, editingBloodType])
+
+  useEffect(() => {
+    if (!editingAge) {
+      const years = calcAgeYears(patient.dateOfBirth)
+      setAgeDisplay(years != null ? String(years) : null)
+      setAgeValue(years != null ? String(years) : '')
+    }
+  }, [patient.dateOfBirth, editingAge])
+
   return (
     <div className="min-h-screen bg-[#F6F4F3] p-4 md:p-6">
       <div className="max-w-7xl mx-auto space-y-6">
@@ -61,7 +171,66 @@ export default function PatientProfileClient({ data }: { data: any }) {
           <div>
             <h1 className="text-3xl font-black text-slate-900 tracking-tight">{patientName}</h1>
             <div className="flex flex-wrap items-center gap-2 mt-1">
-              <p className="text-slate-500 font-medium">Age: {age} • ID: {patient.id.substring(0,8).toUpperCase()}</p>
+              <div className="flex flex-wrap items-center gap-2 text-slate-500 font-medium">
+                {editingAge ? (
+                  <div className="flex items-center gap-2">
+                    <Label htmlFor="patient-age" className="sr-only">
+                      Age in years
+                    </Label>
+                    <Input
+                      id="patient-age"
+                      type="number"
+                      min={10}
+                      max={60}
+                      value={ageValue}
+                      onChange={(e) => setAgeValue(e.target.value)}
+                      className={`w-20 h-9 text-sm font-bold ${clinicalFieldClass}`}
+                      disabled={savingAge}
+                      placeholder="Age"
+                    />
+                    <span className="text-sm">years</span>
+                    <Button
+                      type="button"
+                      size="sm"
+                      className="h-8 bg-[#D48BA1] hover:bg-[#c47a90] font-bold px-2"
+                      disabled={savingAge || !ageValue}
+                      onClick={handleSaveAge}
+                    >
+                      {savingAge ? '…' : <Check className="w-3.5 h-3.5" />}
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      className="h-8 px-2"
+                      disabled={savingAge}
+                      onClick={handleCancelAge}
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </Button>
+                  </div>
+                ) : (
+                  <>
+                    <span>Age: {ageDisplay != null ? `${ageDisplay} years` : 'Not set'}</span>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 px-1.5 text-slate-400 hover:text-[#D48BA1]"
+                      onClick={() => {
+                        const years = calcAgeYears(patient.dateOfBirth)
+                        setAgeValue(years != null ? String(years) : '')
+                        setEditingAge(true)
+                      }}
+                      aria-label="Edit age"
+                    >
+                      <Pencil className="w-3.5 h-3.5" />
+                    </Button>
+                  </>
+                )}
+                <span className="text-slate-300">•</span>
+                <span>ID: {patient.id.substring(0, 8).toUpperCase()}</span>
+              </div>
               {onboardingHospital && (
                 <>
                   <span className="text-slate-300">•</span>
@@ -115,9 +284,69 @@ export default function PatientProfileClient({ data }: { data: any }) {
             </CardContent>
           </Card>
           <Card className="bg-white">
-            <CardContent className="p-4 flex flex-col justify-center">
-              <p className="text-sm text-slate-500 font-medium">Blood Type</p>
-              <p className="text-2xl font-bold text-slate-900">{pregnancy.bloodType || 'Unknown'}</p>
+            <CardContent className="p-4 flex flex-col justify-center gap-2">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-sm text-slate-500 font-medium">Blood Type</p>
+                {!editingBloodType && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 px-2 text-slate-500 hover:text-[#D48BA1]"
+                    onClick={() => {
+                      setBloodTypeValue(toCombinedBloodType(pregnancy) || '')
+                      setEditingBloodType(true)
+                    }}
+                    aria-label="Edit blood type"
+                  >
+                    <Pencil className="w-3.5 h-3.5" />
+                  </Button>
+                )}
+              </div>
+              {editingBloodType ? (
+                <div className="space-y-2">
+                  <select
+                    value={bloodTypeValue}
+                    onChange={(e) => setBloodTypeValue(e.target.value)}
+                    className={`w-full h-10 rounded-md px-3 text-sm font-bold ${clinicalFieldClass}`}
+                    disabled={savingBloodType}
+                  >
+                    <option value="">Select blood type</option>
+                    {BLOOD_TYPE_OPTIONS.map((bt) => (
+                      <option key={bt} value={bt}>
+                        {bt}
+                      </option>
+                    ))}
+                  </select>
+                  <div className="flex gap-2">
+                    <Button
+                      type="button"
+                      size="sm"
+                      className="flex-1 bg-[#D48BA1] hover:bg-[#c47a90] font-bold"
+                      disabled={savingBloodType || !bloodTypeValue}
+                      onClick={handleSaveBloodType}
+                    >
+                      {savingBloodType ? 'Saving…' : (
+                        <>
+                          <Check className="w-3.5 h-3.5 mr-1" />
+                          Save
+                        </>
+                      )}
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      disabled={savingBloodType}
+                      onClick={handleCancelBloodType}
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-2xl font-bold text-slate-900">{bloodTypeDisplay}</p>
+              )}
             </CardContent>
           </Card>
         </div>

@@ -884,6 +884,7 @@ function PatientOnboardingForm({ onSuccess }: { onSuccess: () => void }) {
     email: '',
     phone: '',
     dateOfBirth: '',
+    age: '',
     address: '',
     emergencyContact: '',
     emergencyPhone: '',
@@ -1040,6 +1041,20 @@ function PatientOnboardingForm({ onSuccess }: { onSuccess: () => void }) {
             value={formData.phone}
             onChange={(e) => setFormData({...formData, phone: e.target.value})}
             placeholder="+233XXXXXXXXX"
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#D48BA1] focus:border-transparent"
+          />
+        </div>
+
+        <div>
+          <label htmlFor="age" className="block text-sm font-medium text-gray-700 mb-2">Age (years)</label>
+          <input
+            type="number"
+            id="age"
+            min={10}
+            max={60}
+            value={formData.age}
+            onChange={(e) => setFormData({ ...formData, age: e.target.value })}
+            placeholder="e.g. 28"
             className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#D48BA1] focus:border-transparent"
           />
         </div>

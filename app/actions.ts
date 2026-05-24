@@ -40,6 +40,13 @@ function revalidatePregnancyPaths(pregnancyId: string) {
   revalidatePath(`/dashboard/hospital/patients/${pregnancyId}/mch-book`)
 }
 
+function dateOfBirthFromAge(ageYears: number): Date {
+  const dob = new Date()
+  dob.setHours(12, 0, 0, 0)
+  dob.setFullYear(dob.getFullYear() - ageYears)
+  return dob
+}
+
 async function requireClinicalStaff() {
   const user = await currentUser()
   if (!user) throw new Error('Unauthorized')
@@ -743,6 +750,16 @@ export async function onboardPatient(formData: any) {
     if (existingUser) {
       newUser = existingUser
       // Update their profile details if needed
+      const existingDobUpdate: Partial<typeof users.$inferInsert> = {}
+      if (formData.dateOfBirth) {
+        existingDobUpdate.dateOfBirth = new Date(formData.dateOfBirth)
+      } else if (formData.age != null && formData.age !== '') {
+        const ageNum = parseInt(String(formData.age), 10)
+        if (!Number.isNaN(ageNum) && ageNum >= 10 && ageNum <= 60) {
+          existingDobUpdate.dateOfBirth = dateOfBirthFromAge(ageNum)
+        }
+      }
+
       await db.update(users)
         .set({
           firstName: formData.firstName.trim(),
@@ -751,6 +768,7 @@ export async function onboardPatient(formData: any) {
           address: formData.address || existingUser.address,
           hospitalId: dbUser.hospitalId || existingUser.hospitalId,
           updatedAt: new Date(),
+          ...existingDobUpdate,
         })
         .where(eq(users.id, existingUser.id))
       console.log(`[onboardPatient] Reusing and updating existing user record ${existingUser.id} for email ${emailLower}`)
@@ -759,6 +777,16 @@ export async function onboardPatient(formData: any) {
       const inviteToken = `INV-PW-${Math.random().toString(36).substring(2, 10).toUpperCase()}`
       
       // 2. Register patient directly in our DB immediately (so hospital sees it instantly!)
+      let newUserDob: Date | undefined
+      if (formData.dateOfBirth) {
+        newUserDob = new Date(formData.dateOfBirth)
+      } else if (formData.age != null && formData.age !== '') {
+        const ageNum = parseInt(String(formData.age), 10)
+        if (!Number.isNaN(ageNum) && ageNum >= 10 && ageNum <= 60) {
+          newUserDob = dateOfBirthFromAge(ageNum)
+        }
+      }
+
       const [inserted] = await db.insert(users).values({
         clerkId: inviteToken, // placeholder invitation token
         email: emailLower,
@@ -768,6 +796,7 @@ export async function onboardPatient(formData: any) {
         role: formData.role || 'pregnant_woman',
         address: formData.address || null,
         hospitalId: dbUser.hospitalId,
+        dateOfBirth: newUserDob,
         isVerified: false,
       }).returning()
       newUser = inserted
@@ -1630,6 +1659,123 @@ export async function updateMCHChecklists(pregnancyId: string, mchDataUpdate: an
   } catch (err: unknown) {
     console.error('Failed to update MCH Checklists:', err)
     const message = err instanceof Error ? err.message : 'Update failed'
+    return { success: false, error: message }
+  }
+}
+
+const VALID_BLOOD_TYPES = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'] as const
+
+function parseCombinedBloodType(combined: string): {
+  bloodType: string
+  rhesusFactor: 'Positive' | 'Negative' | null
+} {
+  const match = combined.match(/^(A|B|AB|O)(\+|-)$/)
+  if (match) {
+    return {
+      bloodType: match[1],
+      rhesusFactor: match[2] === '+' ? 'Positive' : 'Negative',
+    }
+  }
+  return { bloodType: combined, rhesusFactor: null }
+}
+
+/** Update patient blood type and Rh factor on the active pregnancy record */
+export async function updatePregnancyBloodType(pregnancyId: string, combinedBloodType: string) {
+  try {
+    const { dbUser } = await requireClinicalStaff()
+    await ensureMCHSchema()
+
+    const trimmed = combinedBloodType.trim()
+    if (!trimmed || !VALID_BLOOD_TYPES.includes(trimmed as (typeof VALID_BLOOD_TYPES)[number])) {
+      return { success: false, error: 'Please select a valid blood type (A+, O-, etc.).' }
+    }
+
+    const pregnancy = await db.query.pregnancies.findFirst({
+      where: eq(pregnancies.id, pregnancyId),
+    })
+    if (!pregnancy) return { success: false, error: 'Pregnancy not found' }
+
+    if (dbUser.role !== 'admin' && pregnancy.hospitalId !== dbUser.hospitalId) {
+      return { success: false, error: 'Not authorized for this patient' }
+    }
+
+    const { bloodType, rhesusFactor } = parseCombinedBloodType(trimmed)
+
+    await db
+      .update(pregnancies)
+      .set({
+        bloodType,
+        rhesusFactor,
+        updatedAt: new Date(),
+      })
+      .where(eq(pregnancies.id, pregnancyId))
+
+    await notifyPregnancyUpdate(
+      pregnancyId,
+      `Your blood type was updated to ${trimmed} in your medical record.`,
+      'mch-update'
+    )
+    revalidatePregnancyPaths(pregnancyId)
+    revalidatePath('/dashboard/hospital')
+
+    return { success: true, bloodType, rhesusFactor, display: trimmed }
+  } catch (err: unknown) {
+    console.error('updatePregnancyBloodType error:', err)
+    const message = err instanceof Error ? err.message : 'Failed to update blood type'
+    return { success: false, error: message }
+  }
+}
+
+/** Update patient age (stored as date of birth on the user record) */
+export async function updatePatientAge(patientUserId: string, ageYears: number) {
+  try {
+    const { dbUser } = await requireClinicalStaff()
+    await ensureMCHSchema()
+
+    const age = Math.floor(Number(ageYears))
+    if (Number.isNaN(age) || age < 10 || age > 60) {
+      return { success: false, error: 'Please enter a valid age between 10 and 60 years.' }
+    }
+
+    const patient = await db.query.users.findFirst({
+      where: eq(users.id, patientUserId),
+    })
+    if (!patient) return { success: false, error: 'Patient not found' }
+
+    const pregnancy = await db.query.pregnancies.findFirst({
+      where: and(eq(pregnancies.userId, patientUserId), eq(pregnancies.status, 'active')),
+    })
+    if (!pregnancy) {
+      return { success: false, error: 'No active pregnancy record for this patient.' }
+    }
+
+    if (dbUser.role !== 'admin' && pregnancy.hospitalId !== dbUser.hospitalId) {
+      return { success: false, error: 'Not authorized for this patient' }
+    }
+
+    const dateOfBirth = dateOfBirthFromAge(age)
+
+    await db
+      .update(users)
+      .set({
+        dateOfBirth,
+        updatedAt: new Date(),
+      })
+      .where(eq(users.id, patientUserId))
+
+    await notifyPatientForPregnancy(
+      pregnancy.id,
+      `Your age on file was updated to ${age} years.`,
+      'clinical_update',
+      'mch-update'
+    )
+    revalidatePregnancyPaths(pregnancy.id)
+    revalidatePath('/dashboard/hospital')
+
+    return { success: true, age, dateOfBirth: dateOfBirth.toISOString() }
+  } catch (err: unknown) {
+    console.error('updatePatientAge error:', err)
+    const message = err instanceof Error ? err.message : 'Failed to update age'
     return { success: false, error: message }
   }
 }
