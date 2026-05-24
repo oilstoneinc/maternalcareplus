@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
+import { cn } from '@/lib/utils'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -40,12 +41,56 @@ export default function DigitalMCHBookClient({ data }: { data: any }) {
     immunizations,
     growth,
   } = data
+
+  const chapters = [
+    { id: 'family-id', label: '1. Family Identification', icon: UserCheck },
+    { id: 'pregnancy', label: '2. Pregnancy Records', icon: History },
+    { id: 'delivery', label: '3. Delivery Records', icon: Baby },
+    { id: 'postnatal-mother', label: '4. Postnatal (Mother)', icon: Activity },
+    { id: 'child-id', label: '5. Child Identification', icon: FileText },
+    { id: 'postnatal-child', label: '6. Postnatal (Child)', icon: Activity },
+    { id: 'health-messages', label: '7. Health Messages', icon: CheckCircle2 },
+    { id: 'child-growth', label: '8. Child Growth & Dev', icon: Activity },
+    { id: 'nutrition', label: '9. Nutrition Counselling', icon: BookOpen },
+    { id: 'respectful-care', label: '10. Respectful Care', icon: HeartPulse },
+    { id: 'signs', label: '11. Look Out for Signs', icon: AlertCircle },
+    { id: 'milestones', label: '12. Stages of Growth', icon: Activity },
+    { id: 'memories', label: '13. Sweet Memories', icon: Camera },
+    { id: 'coc', label: '14. MCH CoC Card', icon: Award },
+  ]
   
   const mchData = pregnancy.mchData || {}
   const [activeChapter, setActiveChapter] = useState('family-id')
+  /** Mobile: false = chapter list, true = full-width chapter content */
+  const [showMobileContent, setShowMobileContent] = useState(false)
+  const contentRef = useRef<HTMLDivElement>(null)
   const { toast } = useToast()
   const [loading, setLoading] = useState(false)
   const router = useRouter()
+
+  const activeChapterMeta = chapters.find((c) => c.id === activeChapter)
+
+  const selectChapter = useCallback((chapterId: string) => {
+    setActiveChapter(chapterId)
+    const isMobile = typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches
+    if (isMobile) {
+      setShowMobileContent(true)
+      requestAnimationFrame(() => {
+        window.scrollTo({ top: 0, behavior: 'instant' })
+        contentRef.current?.scrollIntoView({ block: 'start', behavior: 'instant' })
+      })
+    }
+  }, [])
+
+  const backToChapterList = useCallback(() => {
+    setShowMobileContent(false)
+    requestAnimationFrame(() => window.scrollTo({ top: 0, behavior: 'instant' }))
+  }, [])
+
+  useEffect(() => {
+    if (!showMobileContent) return
+    window.scrollTo({ top: 0, behavior: 'instant' })
+  }, [activeChapter, showMobileContent])
 
   const motherName = `${mother.firstName} ${mother.lastName}`.trim()
   const formatDate = (date: any) => date ? new Date(date).toLocaleDateString() : 'N/A'
@@ -77,23 +122,6 @@ export default function DigitalMCHBookClient({ data }: { data: any }) {
       pusherClient.unsubscribe(channelName)
     }
   }, [pregnancy.id, router, toast])
-
-  const chapters = [
-    { id: 'family-id', label: '1. Family Identification', icon: UserCheck },
-    { id: 'pregnancy', label: '2. Pregnancy Records', icon: History },
-    { id: 'delivery', label: '3. Delivery Records', icon: Baby },
-    { id: 'postnatal-mother', label: '4. Postnatal (Mother)', icon: Activity },
-    { id: 'child-id', label: '5. Child Identification', icon: FileText },
-    { id: 'postnatal-child', label: '6. Postnatal (Child)', icon: Activity },
-    { id: 'health-messages', label: '7. Health Messages', icon: CheckCircle2 },
-    { id: 'child-growth', label: '8. Child Growth & Dev', icon: Activity },
-    { id: 'nutrition', label: '9. Nutrition Counselling', icon: BookOpen },
-    { id: 'respectful-care', label: '10. Respectful Care', icon: HeartPulse },
-    { id: 'signs', label: '11. Look Out for Signs', icon: AlertCircle },
-    { id: 'milestones', label: '12. Stages of Growth', icon: Activity },
-    { id: 'memories', label: '13. Sweet Memories', icon: Camera },
-    { id: 'coc', label: '14. MCH CoC Card', icon: Award }
-  ]
 
   const handleSaveSweetMemories = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -170,7 +198,12 @@ export default function DigitalMCHBookClient({ data }: { data: any }) {
             <h1 className="text-2xl font-black text-slate-900 tracking-tight mt-1">{motherName}</h1>
           </div>
         </div>
-        <div className="bg-slate-50 p-2.5 rounded-2xl border border-slate-200 flex items-center gap-6 shadow-inner">
+        <div
+          className={cn(
+            'bg-slate-50 p-2.5 rounded-2xl border border-slate-200 flex items-center gap-6 shadow-inner',
+            showMobileContent && 'hidden md:flex'
+          )}
+        >
           <div className="text-center px-4 border-r border-slate-200">
             <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Gravidity</p>
             <p className="text-xl font-black text-slate-900">{pregnancy.gravidity}</p>
@@ -183,36 +216,73 @@ export default function DigitalMCHBookClient({ data }: { data: any }) {
       </div>
 
       <div className="flex flex-col md:flex-row max-w-[1600px] mx-auto p-4 md:p-8 gap-8">
-        {/* Vertical Sidebar */}
-        <div className="w-full md:w-72 lg:w-80 flex-shrink-0 space-y-1">
-          <div className="bg-white rounded-3xl p-3 shadow-sm border border-slate-100 sticky top-28">
-            <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest px-4 py-3 mb-2">Book Chapters</h3>
-            {chapters.map(chapter => {
+        {/* Chapter list — full screen on mobile until a chapter is chosen */}
+        <div
+          className={cn(
+            'w-full md:w-72 lg:w-80 flex-shrink-0',
+            showMobileContent && 'hidden md:block'
+          )}
+        >
+          <div className="bg-white rounded-3xl p-3 shadow-sm border border-slate-100 md:sticky md:top-28 max-h-[calc(100dvh-8rem)] md:max-h-none overflow-y-auto overscroll-contain">
+            <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest px-4 py-3 mb-2 sticky top-0 bg-white z-10">
+              Book Chapters
+            </h3>
+            <p className="md:hidden px-4 pb-3 text-xs text-slate-500 font-medium">
+              Tap a chapter to open your records
+            </p>
+            {chapters.map((chapter) => {
               const Icon = chapter.icon
               const isActive = activeChapter === chapter.id
               return (
                 <button
                   key={chapter.id}
-                  onClick={() => setActiveChapter(chapter.id)}
-                  className={`w-full flex items-center justify-between px-4 py-3 rounded-2xl text-sm font-bold transition-all mb-1 ${
-                    isActive 
-                      ? 'bg-slate-900 text-white shadow-md transform scale-[1.02]' 
+                  type="button"
+                  onClick={() => selectChapter(chapter.id)}
+                  className={cn(
+                    'w-full flex items-center justify-between px-4 py-3.5 rounded-2xl text-sm font-bold transition-all mb-1 active:scale-[0.98]',
+                    isActive && !showMobileContent
+                      ? 'bg-slate-900 text-white shadow-md'
                       : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
-                  }`}
+                  )}
                 >
-                  <div className="flex items-center gap-3">
-                    <Icon className={`w-4 h-4 ${isActive ? 'text-pink-400' : 'text-slate-400'}`} />
-                    {chapter.label}
+                  <div className="flex items-center gap-3 text-left">
+                    <Icon className={cn('w-4 h-4 flex-shrink-0', isActive && !showMobileContent ? 'text-pink-400' : 'text-slate-400')} />
+                    <span>{chapter.label}</span>
                   </div>
-                  {isActive && <ChevronRight className="w-4 h-4 text-slate-400" />}
+                  <ChevronRight className={cn('w-4 h-4 flex-shrink-0', isActive && !showMobileContent ? 'text-pink-300' : 'text-slate-300')} />
                 </button>
               )
             })}
           </div>
         </div>
 
-        {/* Main Content Area */}
-        <div className="flex-1 min-w-0 pb-20">
+        {/* Chapter content — full width on mobile after selection */}
+        <div
+          ref={contentRef}
+          id="mch-chapter-content"
+          className={cn(
+            'flex-1 min-w-0 pb-20 scroll-mt-4',
+            !showMobileContent && 'hidden md:block'
+          )}
+        >
+          {/* Mobile: sticky back bar + chapter title */}
+          <div className="md:hidden sticky top-0 z-20 -mx-4 px-4 py-3 mb-4 bg-[#F6F4F3]/95 backdrop-blur-md border-b border-slate-200/80">
+            <div className="flex items-center gap-3">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={backToChapterList}
+                className="rounded-full font-bold shrink-0 h-10 px-4 bg-white shadow-sm"
+              >
+                <ArrowLeft className="w-4 h-4 mr-1.5" />
+                Chapters
+              </Button>
+              <p className="font-black text-slate-900 text-sm leading-tight truncate flex-1">
+                {activeChapterMeta?.label}
+              </p>
+            </div>
+          </div>
           
           {/* 1. Family Identification */}
           {activeChapter === 'family-id' && (
