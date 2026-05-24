@@ -924,6 +924,102 @@ export async function recordVitals(formData: {
   }
 }
 
+function parseCommaList(value?: string | null): string[] {
+  if (!value) return []
+  return String(value)
+    .split(/[,;\n]/)
+    .map((s) => s.trim())
+    .filter(Boolean)
+}
+
+function mergeUniqueList(
+  existing: string[] | null | undefined,
+  added: string[]
+): string[] {
+  const seen = new Set<string>()
+  const out: string[] = []
+  for (const item of [...(existing || []), ...added]) {
+    const key = item.trim()
+    if (!key) continue
+    const lower = key.toLowerCase()
+    if (seen.has(lower)) continue
+    seen.add(lower)
+    out.push(key)
+  }
+  return out
+}
+
+/** Update allergies, medications, and medical history on the pregnancy record */
+export async function updatePregnancyMedicalInfo(
+  pregnancyId: string,
+  data: {
+    medicalHistory?: string
+    allergies?: string
+    medications?: string
+    addMedications?: string
+  }
+) {
+  try {
+    const { dbUser } = await requireClinicalStaff()
+    await ensureMCHSchema()
+
+    const pregnancy = await db.query.pregnancies.findFirst({
+      where: eq(pregnancies.id, pregnancyId),
+    })
+    if (!pregnancy) return { success: false, error: 'Pregnancy not found' }
+
+    if (dbUser.role !== 'admin' && pregnancy.hospitalId !== dbUser.hospitalId) {
+      return { success: false, error: 'Not authorized for this patient' }
+    }
+
+    const update: Partial<typeof pregnancies.$inferInsert> = {
+      updatedAt: new Date(),
+    }
+
+    if (data.medicalHistory !== undefined) {
+      update.medicalHistory = data.medicalHistory.trim() || null
+    }
+    if (data.allergies !== undefined) {
+      update.allergies = parseCommaList(data.allergies)
+    }
+
+    let medsChanged = false
+    if (data.medications !== undefined) {
+      update.medications = parseCommaList(data.medications)
+      medsChanged = true
+    } else if (data.addMedications) {
+      const added = parseCommaList(data.addMedications)
+      if (added.length > 0) {
+        update.medications = mergeUniqueList(pregnancy.medications, added)
+        medsChanged = true
+      }
+    }
+
+    await db.update(pregnancies).set(update).where(eq(pregnancies.id, pregnancyId))
+
+    if (medsChanged) {
+      await notifyPatientForPregnancy(
+        pregnancyId,
+        'Your clinic updated your current medications. Please review them in your dashboard.',
+        'clinical_update',
+        'mch-update'
+      )
+    } else {
+      await notifyPregnancyUpdate(
+        pregnancyId,
+        'Your medical history and allergy information was updated by your clinic.'
+      )
+    }
+
+    revalidatePregnancyPaths(pregnancyId)
+    return { success: true }
+  } catch (err: unknown) {
+    console.error('updatePregnancyMedicalInfo error:', err)
+    const message = err instanceof Error ? err.message : 'Failed to update medical information'
+    return { success: false, error: message }
+  }
+}
+
 /** Full ANC visit: vitals + clinical findings + optional follow-up appointment */
 export async function recordAntenatalVisit(formData: any) {
   try {
@@ -938,19 +1034,22 @@ export async function recordAntenatalVisit(formData: any) {
     const fhr = parseIntOrNull(formData.fhr)
     const heartRate = parseIntOrNull(formData.heartRate)
 
+    const existingPregnancy = await db.query.pregnancies.findFirst({
+      where: eq(pregnancies.id, pregnancyId),
+    })
+
     const pregnancyUpdate: Partial<typeof pregnancies.$inferInsert> = {}
     if (formData.medicalHistory) pregnancyUpdate.medicalHistory = formData.medicalHistory
     if (formData.allergies) {
-      pregnancyUpdate.allergies = String(formData.allergies)
-        .split(',')
-        .map((s: string) => s.trim())
-        .filter(Boolean)
+      pregnancyUpdate.allergies = parseCommaList(formData.allergies)
     }
     if (formData.medications) {
-      pregnancyUpdate.medications = String(formData.medications)
-        .split(',')
-        .map((s: string) => s.trim())
-        .filter(Boolean)
+      pregnancyUpdate.medications = parseCommaList(formData.medications)
+    } else if (formData.prescribedMedications && existingPregnancy) {
+      const added = parseCommaList(formData.prescribedMedications)
+      if (added.length > 0) {
+        pregnancyUpdate.medications = mergeUniqueList(existingPregnancy.medications, added)
+      }
     }
     if (formData.bloodType) pregnancyUpdate.bloodType = formData.bloodType
     if (formData.rhesusFactor) pregnancyUpdate.rhesusFactor = formData.rhesusFactor
@@ -1008,10 +1107,11 @@ export async function recordAntenatalVisit(formData: any) {
       })
     }
 
-    await notifyPregnancyUpdate(
-      pregnancyId,
-      'A new Antenatal Clinic (ANC) checkup was recorded by your hospital.'
-    )
+    const notifyParts = ['A new Antenatal Clinic (ANC) checkup was recorded by your hospital.']
+    if (pregnancyUpdate.medications) {
+      notifyParts.push('Your prescribed medications list was updated.')
+    }
+    await notifyPregnancyUpdate(pregnancyId, notifyParts.join(' '))
     revalidatePregnancyPaths(pregnancyId)
     return { success: true }
   } catch (error: unknown) {

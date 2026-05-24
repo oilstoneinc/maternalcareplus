@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { ArrowLeft, Activity, Calendar as CalendarIcon, FileText, Plus, BookOpen, Users, FlaskConical, MessageCircle, Pencil, Check, X } from 'lucide-react'
 import Link from 'next/link'
-import { recordAntenatalVisit, recordVitals, recordLabOrScan, assignMidwifeToPregnancy, scheduleNextVisit, updatePregnancyBloodType, updatePatientAge } from '@/app/actions'
+import { recordAntenatalVisit, recordVitals, recordLabOrScan, assignMidwifeToPregnancy, scheduleNextVisit, updatePregnancyBloodType, updatePatientAge, updatePregnancyMedicalInfo } from '@/app/actions'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
@@ -398,40 +398,7 @@ export default function PatientProfileClient({ data }: { data: any }) {
               </CardContent>
             </Card>
 
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <FileText className="w-5 h-5 text-[#D48BA1]" />
-                  Medical History & Notes
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div>
-                  <h4 className="font-semibold text-slate-800 mb-1">General Medical History</h4>
-                  <p className="text-slate-600 bg-slate-50 p-3 rounded-lg border border-slate-100">
-                    {pregnancy.medicalHistory || 'No medical history recorded.'}
-                  </p>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <h4 className="font-semibold text-slate-800 mb-1">Allergies</h4>
-                    <div className="flex flex-wrap gap-2">
-                      {pregnancy.allergies?.length ? pregnancy.allergies.map((a: string, i: number) => (
-                        <Badge key={i} variant="outline" className="bg-orange-50 text-orange-700 border-orange-200">{a}</Badge>
-                      )) : <span className="text-slate-500 italic text-sm">None recorded</span>}
-                    </div>
-                  </div>
-                  <div>
-                    <h4 className="font-semibold text-slate-800 mb-1">Current Medications</h4>
-                    <div className="flex flex-wrap gap-2">
-                      {pregnancy.medications?.length ? pregnancy.medications.map((m: string, i: number) => (
-                        <Badge key={i} variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">{m}</Badge>
-                      )) : <span className="text-slate-500 italic text-sm">None recorded</span>}
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+            <MedicalHistoryEditor pregnancy={pregnancy} onSaved={() => router.refresh()} />
           </TabsContent>
 
           <TabsContent value="vitals" className="mt-6 space-y-6">
@@ -477,7 +444,7 @@ export default function PatientProfileClient({ data }: { data: any }) {
                   </div>
                 </CardHeader>
                 <CardContent className="p-6">
-                   <VitalForm pregnancyId={pregnancy.id} hospitalId={currentHospitalId || pregnancy.hospitalId} onComplete={() => { setShowVitalForm(false); router.refresh() }} />
+                   <VitalForm pregnancyId={pregnancy.id} hospitalId={currentHospitalId || pregnancy.hospitalId} pregnancy={pregnancy} onComplete={() => { setShowVitalForm(false); router.refresh() }} />
                 </CardContent>
               </Card>
             )}
@@ -798,7 +765,164 @@ function LabScanForm({ pregnancyId, onComplete }: { pregnancyId: string; onCompl
   )
 }
 
-function VitalForm({ pregnancyId, hospitalId, onComplete }: { pregnancyId: string, hospitalId: string, onComplete: () => void }) {
+function listToComma(arr?: string[] | null) {
+  return (arr || []).join(', ')
+}
+
+function MedicalHistoryEditor({
+  pregnancy,
+  onSaved,
+}: {
+  pregnancy: any
+  onSaved: () => void
+}) {
+  const [editing, setEditing] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [form, setForm] = useState({
+    medicalHistory: pregnancy.medicalHistory || '',
+    allergies: listToComma(pregnancy.allergies),
+    medications: listToComma(pregnancy.medications),
+  })
+
+  useEffect(() => {
+    if (!editing) {
+      setForm({
+        medicalHistory: pregnancy.medicalHistory || '',
+        allergies: listToComma(pregnancy.allergies),
+        medications: listToComma(pregnancy.medications),
+      })
+    }
+  }, [pregnancy.medicalHistory, pregnancy.allergies, pregnancy.medications, editing])
+
+  const handleSave = async () => {
+    setSaving(true)
+    try {
+      const res = await updatePregnancyMedicalInfo(pregnancy.id, form)
+      if (res.success) {
+        setEditing(false)
+        onSaved()
+      } else {
+        alert(res.error || 'Could not save')
+      }
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <Card>
+      <CardHeader className="flex flex-row items-start justify-between gap-4">
+        <div>
+          <CardTitle className="flex items-center gap-2">
+            <FileText className="w-5 h-5 text-[#D48BA1]" />
+            Medical History & Notes
+          </CardTitle>
+          <CardDescription className="mt-1">
+            Saved here appears on the patient&apos;s dashboard and digital MCH book.
+          </CardDescription>
+        </div>
+        {!editing ? (
+          <Button type="button" variant="outline" size="sm" className="font-bold shrink-0" onClick={() => setEditing(true)}>
+            <Pencil className="w-3.5 h-3.5 mr-1.5" />
+            Edit
+          </Button>
+        ) : null}
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {editing ? (
+          <>
+            <div className="space-y-1.5">
+              <Label htmlFor="medicalHistory">General medical history</Label>
+              <Textarea
+                id="medicalHistory"
+                value={form.medicalHistory}
+                onChange={(e) => setForm({ ...form, medicalHistory: e.target.value })}
+                placeholder="Previous conditions, surgeries, chronic illness..."
+                className={`min-h-[100px] ${clinicalFieldClass}`}
+              />
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label htmlFor="allergies">Allergies</Label>
+                <Input
+                  id="allergies"
+                  value={form.allergies}
+                  onChange={(e) => setForm({ ...form, allergies: e.target.value })}
+                  placeholder="Penicillin, peanuts (comma-separated)"
+                  className={clinicalFieldClass}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="medications">Current medications</Label>
+                <Input
+                  id="medications"
+                  value={form.medications}
+                  onChange={(e) => setForm({ ...form, medications: e.target.value })}
+                  placeholder="Folic acid, iron, paracetamol (comma-separated)"
+                  className={clinicalFieldClass}
+                />
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                className="bg-[#D48BA1] hover:bg-[#c47a90] font-bold"
+                disabled={saving}
+                onClick={handleSave}
+              >
+                {saving ? 'Saving…' : 'Save to patient record'}
+              </Button>
+              <Button type="button" variant="outline" disabled={saving} onClick={() => setEditing(false)}>
+                Cancel
+              </Button>
+            </div>
+          </>
+        ) : (
+          <>
+            <div>
+              <h4 className="font-semibold text-slate-800 mb-1">General Medical History</h4>
+              <p className="text-slate-600 bg-slate-50 p-3 rounded-lg border border-slate-100">
+                {pregnancy.medicalHistory || 'No medical history recorded.'}
+              </p>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <h4 className="font-semibold text-slate-800 mb-1">Allergies</h4>
+                <div className="flex flex-wrap gap-2">
+                  {pregnancy.allergies?.length ? (
+                    pregnancy.allergies.map((a: string, i: number) => (
+                      <Badge key={i} variant="outline" className="bg-orange-50 text-orange-700 border-orange-200">
+                        {a}
+                      </Badge>
+                    ))
+                  ) : (
+                    <span className="text-slate-500 italic text-sm">None recorded</span>
+                  )}
+                </div>
+              </div>
+              <div>
+                <h4 className="font-semibold text-slate-800 mb-1">Current Medications</h4>
+                <div className="flex flex-wrap gap-2">
+                  {pregnancy.medications?.length ? (
+                    pregnancy.medications.map((m: string, i: number) => (
+                      <Badge key={i} variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+                        {m}
+                      </Badge>
+                    ))
+                  ) : (
+                    <span className="text-slate-500 italic text-sm">None recorded</span>
+                  )}
+                </div>
+              </div>
+            </div>
+          </>
+        )}
+      </CardContent>
+    </Card>
+  )
+}
+
+function VitalForm({ pregnancyId, hospitalId, onComplete, pregnancy }: { pregnancyId: string, hospitalId: string, onComplete: () => void, pregnancy?: any }) {
   const [loading, setLoading] = useState(false)
   const [formData, setFormData] = useState({
     pregnancyId,
@@ -816,6 +940,10 @@ function VitalForm({ pregnancyId, hospitalId, onComplete }: { pregnancyId: strin
     edema: '',
     findings: '',
     recommendations: '',
+    prescribedMedications: '',
+    allergies: listToComma(pregnancy?.allergies),
+    medications: listToComma(pregnancy?.medications),
+    medicalHistory: pregnancy?.medicalHistory || '',
     notes: '',
     nextVisitDate: ''
   })
@@ -978,6 +1106,52 @@ function VitalForm({ pregnancyId, hospitalId, onComplete }: { pregnancyId: strin
               className={`min-h-[88px] ${clinicalFieldClass}`}
             />
           </div>
+        </div>
+      </div>
+
+      <div className="border-t border-slate-200 pt-5">
+        <h4 className="font-semibold mb-4 text-slate-800">Allergies & medications (updates patient app)</h4>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+          <div className="space-y-1.5">
+            <Label htmlFor="anc-allergies">Allergies</Label>
+            <Input
+              id="anc-allergies"
+              value={formData.allergies}
+              onChange={(e) => setFormData({ ...formData, allergies: e.target.value })}
+              placeholder="Comma-separated"
+              className={clinicalFieldClass}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="anc-medications">Full medication list</Label>
+            <Input
+              id="anc-medications"
+              value={formData.medications}
+              onChange={(e) => setFormData({ ...formData, medications: e.target.value })}
+              placeholder="Replaces list if filled"
+              className={clinicalFieldClass}
+            />
+          </div>
+        </div>
+        <div className="space-y-1.5 mb-4">
+          <Label htmlFor="prescribedMedications">Medications prescribed this visit</Label>
+          <Input
+            id="prescribedMedications"
+            value={formData.prescribedMedications}
+            onChange={(e) => setFormData({ ...formData, prescribedMedications: e.target.value })}
+            placeholder="e.g. Folic acid 5mg, Ferrous sulphate (added to patient list)"
+            className={clinicalFieldClass}
+          />
+          <p className="text-xs text-slate-500">New entries are added to the patient&apos;s medication list without removing existing ones.</p>
+        </div>
+        <div className="space-y-1.5 mb-4">
+          <Label htmlFor="anc-medicalHistory">Medical history note</Label>
+          <Textarea
+            id="anc-medicalHistory"
+            value={formData.medicalHistory}
+            onChange={(e) => setFormData({ ...formData, medicalHistory: e.target.value })}
+            className={`min-h-[72px] ${clinicalFieldClass}`}
+          />
         </div>
       </div>
 

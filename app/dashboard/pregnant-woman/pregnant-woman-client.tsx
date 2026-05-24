@@ -20,6 +20,7 @@ import {
   ChevronRight,
   Bell,
   Activity,
+  FileText,
   UserPlus,
   Copy,
   Check,
@@ -726,6 +727,57 @@ export default function PregnantWomanClient({ user, data }: { user: any, data: D
                     }
                   />
                 </div>
+              </CardContent>
+            </Card>
+
+            {/* Clinic-recorded allergies & medications */}
+            <Card className="border-none shadow-lg ring-1 ring-[#D48BA1]/10">
+              <CardHeader>
+                <CardTitle className="text-sm font-bold flex items-center gap-2">
+                  <FileText className="w-4 h-4 text-[#D48BA1]" />
+                  Your clinic health record
+                </CardTitle>
+                <CardDescription className="text-xs">
+                  Recorded by your hospital, doctor, or midwife
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Allergies</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {data?.pregnancy?.allergies?.length ? (
+                      data.pregnancy.allergies.map((a: string, i: number) => (
+                        <Badge key={i} className="bg-orange-50 text-orange-800 border-orange-200 text-xs">
+                          {a}
+                        </Badge>
+                      ))
+                    ) : (
+                      <p className="text-sm text-slate-500">None recorded yet</p>
+                    )}
+                  </div>
+                </div>
+                <div>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Current medications</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {data?.pregnancy?.medications?.length ? (
+                      data.pregnancy.medications.map((m: string, i: number) => (
+                        <Badge key={i} className="bg-blue-50 text-blue-800 border-blue-200 text-xs">
+                          {m}
+                        </Badge>
+                      ))
+                    ) : (
+                      <p className="text-sm text-slate-500">No medications on file yet</p>
+                    )}
+                  </div>
+                </div>
+                {data?.pregnancy?.medicalHistory && (
+                  <div>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Medical history</p>
+                    <p className="text-sm text-slate-600 bg-slate-50 rounded-lg p-2.5 border border-slate-100">
+                      {data.pregnancy.medicalHistory}
+                    </p>
+                  </div>
+                )}
               </CardContent>
             </Card>
 

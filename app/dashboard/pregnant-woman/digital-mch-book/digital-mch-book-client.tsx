@@ -338,6 +338,52 @@ export default function DigitalMCHBookClient({ data }: { data: any }) {
                   )}
                 </CardContent>
               </Card>
+              <Card className="border-none shadow-sm rounded-3xl md:col-span-2">
+                <CardHeader>
+                  <CardTitle>Allergies & medications (from your clinic)</CardTitle>
+                  <CardDescription>Entered by your hospital, doctor, or midwife</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <p className="text-xs font-bold text-slate-400 uppercase mb-2">Allergies</p>
+                      <div className="flex flex-wrap gap-2">
+                        {pregnancy.allergies?.length ? (
+                          pregnancy.allergies.map((a: string, i: number) => (
+                            <Badge key={i} variant="outline" className="bg-orange-50 text-orange-800 border-orange-200">
+                              {a}
+                            </Badge>
+                          ))
+                        ) : (
+                          <span className="text-sm text-slate-500">None recorded</span>
+                        )}
+                      </div>
+                    </div>
+                    <div>
+                      <p className="text-xs font-bold text-slate-400 uppercase mb-2">Current medications</p>
+                      <div className="flex flex-wrap gap-2">
+                        {pregnancy.medications?.length ? (
+                          pregnancy.medications.map((m: string, i: number) => (
+                            <Badge key={i} variant="outline" className="bg-blue-50 text-blue-800 border-blue-200">
+                              {m}
+                            </Badge>
+                          ))
+                        ) : (
+                          <span className="text-sm text-slate-500">None recorded</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  {pregnancy.medicalHistory && (
+                    <div>
+                      <p className="text-xs font-bold text-slate-400 uppercase mb-2">Medical history</p>
+                      <p className="text-sm text-slate-700 bg-slate-50 rounded-xl p-4 border border-slate-100">
+                        {pregnancy.medicalHistory}
+                      </p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
             </div>
           )}
 
