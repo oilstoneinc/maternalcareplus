@@ -4,7 +4,7 @@ import { db } from '@/lib/db'
 import { users, pregnancies, appointments, labTests, partnerAccess, messages, User, NewUser, NewPregnancy, NewMessage, hospitals, vitalSigns, previousPregnancies, deliveries, postnatalCare, children, immunizations, childGrowth, hospitalInvites, partnershipRequests } from '@/lib/db/schema'
 import { currentUser, clerkClient } from '@clerk/nextjs/server'
 import { HospitalDashboardData, DashboardData, Message } from '@/types'
-import { eq, desc, and, or, sql, ilike } from 'drizzle-orm'
+import { eq, desc, asc, and, or, sql, ilike, inArray } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 import { notifyPregnancyUpdate } from '@/lib/pusher-notify'
 import { pusherServer } from '@/lib/pusher-server'
@@ -19,6 +19,14 @@ function parseIntOrNull(value: unknown): number | null {
 function parseDecimalOrNull(value: unknown): string | null {
   if (value === null || value === undefined || value === '') return null
   return String(value)
+}
+
+function calcGestationalAgeWeeks(lmp: Date | string | null | undefined): number {
+  if (!lmp) return 0
+  const lmpDate = new Date(lmp)
+  if (Number.isNaN(lmpDate.getTime())) return 0
+  const diffMs = Date.now() - lmpDate.getTime()
+  return Math.max(0, Math.floor(diffMs / (1000 * 60 * 60 * 24 * 7)))
 }
 
 function revalidatePregnancyPaths(pregnancyId: string) {
@@ -109,19 +117,31 @@ export async function getPatientDashboardData(): Promise<DashboardData | null> {
       console.error('Error fetching recent vitals:', e)
     }
 
-    // Get upcoming appointments
+    // Get upcoming scheduled visits (nearest first)
     let upcomingAppointments: any[] = []
     try {
       upcomingAppointments = await db.query.appointments.findMany({
         where: and(
           eq(appointments.pregnancyId, pregnancy.id),
+          eq(appointments.status, 'scheduled'),
           sql`${appointments.scheduledDate} >= NOW()`
         ),
-        orderBy: [desc(appointments.scheduledDate)],
-        limit: 5,
+        orderBy: [asc(appointments.scheduledDate)],
+        limit: 10,
       })
     } catch (e) {
       console.error('Error fetching upcoming appointments:', e)
+    }
+
+    let careContact: typeof users.$inferSelect | null = null
+    if (pregnancy.midwifeId) {
+      try {
+        careContact = await db.query.users.findFirst({
+          where: eq(users.id, pregnancy.midwifeId),
+        }) ?? null
+      } catch (e) {
+        console.error('Error fetching care contact:', e)
+      }
     }
 
     // Get recent lab results
@@ -138,10 +158,15 @@ export async function getPatientDashboardData(): Promise<DashboardData | null> {
 
     return {
       user: dbUser,
-      pregnancy: pregnancyWithHospital,
+      pregnancy: {
+        ...pregnancyWithHospital,
+        gestationalAge:
+          pregnancy.gestationalAge ?? calcGestationalAgeWeeks(pregnancy.lmp),
+      },
       appointments: upcomingAppointments,
       labs: recentLabs,
       vitals: recentVitals,
+      careContact,
     }
   } catch (err) {
     console.error('CRITICAL ERROR in getPatientDashboardData:', err)
@@ -189,16 +214,7 @@ export async function getHospitalDashboardData(): Promise<HospitalDashboardData 
       }))
     }
 
-    // Get all patients linked to this hospital
-    const allPatients = await db.query.users.findMany({
-      where: and(
-        eq(users.role, 'pregnant_woman'),
-        eq(users.hospitalId, dbUser.hospitalId)
-      ),
-      limit: 50,
-    })
-
-    // Get active pregnancies for this hospital
+    // Active pregnancies at this hospital
     const activePregnanciesRaw = await db.query.pregnancies.findMany({
       where: and(
         eq(pregnancies.status, 'active'),
@@ -207,18 +223,78 @@ export async function getHospitalDashboardData(): Promise<HospitalDashboardData 
       limit: 50,
     })
 
-    // Map pregnancies to include patient name
-    const activePregnancies = activePregnanciesRaw.map(p => {
-      const patient = allPatients.find(u => u.id === p.userId)
-      return {
-        ...p,
-        patientName: patient ? `${patient.firstName} ${patient.lastName}`.trim() : 'Unknown Patient',
-        nextVisit: 'Not scheduled', // This could be fetched from appointments
-        riskLevel: p.riskFactors?.length ? 'high' : 'low'
-      }
+    const patientUserIds = [...new Set(activePregnanciesRaw.map((p) => p.userId))]
+    const patientsForPregnancies =
+      patientUserIds.length > 0
+        ? await db.query.users.findMany({
+            where: inArray(users.id, patientUserIds),
+          })
+        : []
+    const patientById = new Map(patientsForPregnancies.map((u) => [u.id, u]))
+
+    const activePregnancies = await Promise.all(
+      activePregnanciesRaw.map(async (p) => {
+        const patient = patientById.get(p.userId)
+        const nextAppt = await db.query.appointments.findFirst({
+          where: and(
+            eq(appointments.pregnancyId, p.id),
+            eq(appointments.status, 'scheduled'),
+            sql`${appointments.scheduledDate} >= NOW()`
+          ),
+          orderBy: [asc(appointments.scheduledDate)],
+        })
+
+        let assignedStaffName: string | null = null
+        if (p.midwifeId) {
+          const staff = await db.query.users.findFirst({
+            where: eq(users.id, p.midwifeId),
+          })
+          if (staff) {
+            assignedStaffName = `${staff.firstName} ${staff.lastName}`.trim()
+          }
+        }
+
+        const ga = p.gestationalAge ?? calcGestationalAgeWeeks(p.lmp)
+
+        return {
+          ...p,
+          patientUserId: p.userId,
+          patientName: patient
+            ? `${patient.firstName} ${patient.lastName}`.trim() || patient.email
+            : 'Unknown Patient',
+          patientPhone: patient?.phone ?? null,
+          patientEmail: patient?.email ?? null,
+          gestationalAge: ga,
+          nextVisit: nextAppt
+            ? new Date(nextAppt.scheduledDate).toLocaleDateString()
+            : 'Not scheduled',
+          nextVisitDate: nextAppt?.scheduledDate ?? null,
+          nextVisitId: nextAppt?.id ?? null,
+          assignedStaffId: p.midwifeId,
+          assignedStaffName,
+          riskLevel: p.riskFactors?.length ? 'high' : 'low',
+        }
+      })
+    )
+
+    const byHospitalId = await db.query.users.findMany({
+      where: and(
+        eq(users.role, 'pregnant_woman'),
+        eq(users.hospitalId, dbUser.hospitalId)
+      ),
+      limit: 50,
+    })
+    const allPatientsMap = new Map<string, (typeof patientsForPregnancies)[0]>()
+    ;[...byHospitalId, ...patientsForPregnancies].forEach((u) => allPatientsMap.set(u.id, u))
+    const allPatients = Array.from(allPatientsMap.values())
+
+    const careStaff = await db.query.users.findMany({
+      where: and(
+        eq(users.hospitalId, dbUser.hospitalId),
+        or(eq(users.role, 'midwife'), eq(users.role, 'hospital_staff'))
+      ),
     })
 
-    // Get today's appointments for this hospital
     const todayAppointments = await db.query.appointments.findMany({
       where: and(
         sql`DATE(${appointments.scheduledDate}) = CURRENT_DATE`,
@@ -226,6 +302,27 @@ export async function getHospitalDashboardData(): Promise<HospitalDashboardData 
       ),
       limit: 20,
     })
+
+    const upcomingHospitalAppointments = await db.query.appointments.findMany({
+      where: and(
+        eq(appointments.hospitalId, dbUser.hospitalId),
+        eq(appointments.status, 'scheduled'),
+        sql`${appointments.scheduledDate} >= NOW()`
+      ),
+      orderBy: [asc(appointments.scheduledDate)],
+      limit: 50,
+    })
+
+    const enrichedAppointments = await Promise.all(
+      upcomingHospitalAppointments.map(async (apt) => {
+        const preg = activePregnancies.find((p) => p.id === apt.pregnancyId)
+        return {
+          ...apt,
+          patientName: preg?.patientName ?? 'Patient',
+          patientUserId: preg?.patientUserId,
+        }
+      })
+    )
 
     // Get hospital details
     const hospital = await db.query.hospitals.findFirst({
@@ -236,7 +333,9 @@ export async function getHospitalDashboardData(): Promise<HospitalDashboardData 
       hospital,
       patients: allPatients,
       pregnancies: activePregnancies,
+      careStaff,
       appointments: todayAppointments,
+      upcomingAppointments: enrichedAppointments,
     }))
   } catch (error) {
     console.error('Error in getHospitalDashboardData:', error)
@@ -637,6 +736,7 @@ export async function onboardPatient(formData: any) {
           lastName: formData.lastName.trim(),
           phone: formData.phone || existingUser.phone,
           address: formData.address || existingUser.address,
+          hospitalId: dbUser.hospitalId || existingUser.hospitalId,
           updatedAt: new Date(),
         })
         .where(eq(users.id, existingUser.id))
@@ -654,6 +754,7 @@ export async function onboardPatient(formData: any) {
         phone: formData.phone || null,
         role: formData.role || 'pregnant_woman',
         address: formData.address || null,
+        hospitalId: dbUser.hospitalId,
         isVerified: false,
       }).returning()
       newUser = inserted
@@ -1501,21 +1602,86 @@ export async function updateMCHChecklists(pregnancyId: string, mchDataUpdate: an
   }
 }
 
-// --- Midwife Assignment ---
-export async function assignMidwifeToPregnancy(pregnancyId: string, midwifeId: string) {
+/** Assign midwife or hospital staff as primary care contact (chat + coordination) */
+export async function assignMidwifeToPregnancy(pregnancyId: string, staffId: string) {
   try {
-    const user = await currentUser()
-    if (!user) return { success: false, error: 'Unauthorized' }
+    const { dbUser } = await requireClinicalStaff()
 
-    await db.update(pregnancies)
-      .set({ midwifeId })
-      .where(eq(pregnancies.id, pregnancyId))
+    const pregnancy = await db.query.pregnancies.findFirst({
+      where: eq(pregnancies.id, pregnancyId),
+    })
+    if (!pregnancy) return { success: false, error: 'Pregnancy not found' }
 
-    revalidatePath(`/dashboard/hospital/patients/${pregnancyId}`)
+    const staff = await db.query.users.findFirst({
+      where: eq(users.id, staffId),
+    })
+    if (
+      !staff ||
+      (staff.role !== 'midwife' && staff.role !== 'hospital_staff') ||
+      (staff.hospitalId && staff.hospitalId !== dbUser.hospitalId && dbUser.role !== 'admin')
+    ) {
+      return { success: false, error: 'Invalid care team member' }
+    }
+
+    await db.update(pregnancies).set({ midwifeId: staffId }).where(eq(pregnancies.id, pregnancyId))
+
+    await notifyPregnancyUpdate(
+      pregnancyId,
+      `${staff.firstName} ${staff.lastName} is now your primary care contact for messages.`
+    )
+    revalidatePregnancyPaths(pregnancyId)
+    revalidatePath('/dashboard/hospital')
     return { success: true }
-  } catch (err: any) {
-    console.error('Failed to assign midwife:', err)
-    return { success: false, error: err.message }
+  } catch (err: unknown) {
+    console.error('Failed to assign care staff:', err)
+    const message = err instanceof Error ? err.message : 'Assignment failed'
+    return { success: false, error: message }
+  }
+}
+
+/** Schedule a future antenatal visit for a patient */
+export async function scheduleNextVisit(
+  pregnancyId: string,
+  scheduledDate: string,
+  notes?: string
+) {
+  try {
+    const { dbUser } = await requireClinicalStaff()
+
+    const pregnancy = await db.query.pregnancies.findFirst({
+      where: eq(pregnancies.id, pregnancyId),
+    })
+    if (!pregnancy) return { success: false, error: 'Pregnancy not found' }
+
+    if (dbUser.role !== 'admin' && pregnancy.hospitalId !== dbUser.hospitalId) {
+      return { success: false, error: 'Not authorized for this patient' }
+    }
+
+    const visitDate = new Date(scheduledDate)
+    if (Number.isNaN(visitDate.getTime())) {
+      return { success: false, error: 'Invalid date' }
+    }
+
+    const [created] = await db.insert(appointments).values({
+      pregnancyId,
+      hospitalId: pregnancy.hospitalId,
+      midwifeId: pregnancy.midwifeId ?? dbUser.id,
+      scheduledDate: visitDate,
+      status: 'scheduled',
+      notes: notes?.trim() || 'Scheduled by hospital',
+    }).returning()
+
+    await notifyPregnancyUpdate(
+      pregnancyId,
+      `Your next clinic visit is scheduled for ${visitDate.toLocaleDateString()}.`
+    )
+    revalidatePregnancyPaths(pregnancyId)
+    revalidatePath('/dashboard/hospital')
+
+    return { success: true, appointment: created }
+  } catch (err: unknown) {
+    console.error('scheduleNextVisit error:', err)
+    return { success: false, error: 'Failed to schedule visit' }
   }
 }
 

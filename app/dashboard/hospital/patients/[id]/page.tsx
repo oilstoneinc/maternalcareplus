@@ -4,7 +4,7 @@ import { requireRole } from '@/lib/clerk'
 import { db } from '@/lib/db'
 import { ensureMCHSchema } from '@/lib/db/ensure-mch-schema'
 import { users, pregnancies, appointments, vitalSigns, labTests, hospitals } from '@/lib/db/schema'
-import { eq, and, desc } from 'drizzle-orm'
+import { eq, and, or, desc } from 'drizzle-orm'
 import PatientProfileClient from './patient-profile-client'
 
 export default async function PatientProfilePage({ params }: { params: Promise<{ id: string }> }) {
@@ -71,9 +71,9 @@ export default async function PatientProfilePage({ params }: { params: Promise<{
     // Fetch available midwives for this hospital
     const availableMidwives = await db.query.users.findMany({
       where: and(
-        eq(users.role, 'midwife'),
-        eq(users.hospitalId, dbUser.hospitalId)
-      )
+        eq(users.hospitalId, dbUser.hospitalId),
+        or(eq(users.role, 'midwife'), eq(users.role, 'hospital_staff'))
+      ),
     })
 
     // Prepare safe data

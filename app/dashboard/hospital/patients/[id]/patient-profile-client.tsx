@@ -6,9 +6,9 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { ArrowLeft, Activity, Calendar as CalendarIcon, FileText, Plus, BookOpen, Users, FlaskConical } from 'lucide-react'
+import { ArrowLeft, Activity, Calendar as CalendarIcon, FileText, Plus, BookOpen, Users, FlaskConical, MessageCircle } from 'lucide-react'
 import Link from 'next/link'
-import { recordAntenatalVisit, recordVitals, recordLabOrScan, assignMidwifeToPregnancy } from '@/app/actions'
+import { recordAntenatalVisit, recordVitals, recordLabOrScan, assignMidwifeToPregnancy, scheduleNextVisit } from '@/app/actions'
 
 export default function PatientProfileClient({ data }: { data: any }) {
   const { patient, pregnancy, vitals, appointments, labs, onboardingHospital, currentHospitalId, availableMidwives } = data
@@ -66,7 +66,15 @@ export default function PatientProfileClient({ data }: { data: any }) {
               )}
             </div>
           </div>
-          <div className="ml-auto">
+          <div className="ml-auto flex flex-wrap gap-2">
+            {patient?.id && (
+              <Link href={`/dashboard/chat?with=${patient.id}`}>
+                <Button variant="outline" className="rounded-xl font-bold">
+                  <MessageCircle className="w-4 h-4 mr-2" />
+                  Message Patient
+                </Button>
+              </Link>
+            )}
             <Link href={`/dashboard/hospital/patients/${pregnancy.id}/mch-book`}>
               <Button className="bg-slate-900 hover:bg-slate-800 text-white rounded-xl shadow-lg flex items-center gap-2">
                 <BookOpen className="w-4 h-4" />
@@ -128,9 +136,9 @@ export default function PatientProfileClient({ data }: { data: any }) {
               <CardContent className="pt-6">
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                   <div>
-                    <h4 className="font-semibold text-slate-800">Assigned Midwife / Nurse</h4>
+                    <h4 className="font-semibold text-slate-800">Assigned care contact (messages)</h4>
                     <p className="text-sm text-slate-600">
-                      {assignedMidwife ? `${assignedMidwife.firstName} ${assignedMidwife.lastName}` : 'No primary midwife assigned to this pregnancy.'}
+                      {assignedMidwife ? `${assignedMidwife.firstName} ${assignedMidwife.lastName}` : 'No staff assigned — patient cannot message until you assign someone.'}
                     </p>
                   </div>
                   {availableMidwives && availableMidwives.length > 0 && (
@@ -279,12 +287,19 @@ export default function PatientProfileClient({ data }: { data: any }) {
             </div>
           </TabsContent>
 
-          <TabsContent value="appointments" className="mt-6">
+          <TabsContent value="appointments" className="mt-6 space-y-6">
+            <Card className="border-2 border-[#D48BA1]/30">
+              <CardHeader className="bg-pink-50/50">
+                <CardTitle>Schedule next visit</CardTitle>
+                <CardDescription>Patient will see this on her dashboard immediately</CardDescription>
+              </CardHeader>
+              <CardContent className="pt-6">
+                <ScheduleVisitForm pregnancyId={pregnancy.id} onComplete={() => router.refresh()} />
+              </CardContent>
+            </Card>
              <Card>
               <CardHeader>
-                <div className="flex justify-between items-center">
-                  <CardTitle>Appointment Schedule</CardTitle>
-                </div>
+                <CardTitle>Appointment history</CardTitle>
               </CardHeader>
               <CardContent>
                 {appointments.length === 0 ? (
@@ -298,6 +313,7 @@ export default function PatientProfileClient({ data }: { data: any }) {
                           <div>
                             <p className="font-bold text-slate-800">{formatDate(apt.scheduledDate)}</p>
                             <p className="text-sm text-slate-500 capitalize">Status: {apt.status}</p>
+                            {apt.notes && <p className="text-xs text-slate-400 mt-1">{apt.notes}</p>}
                           </div>
                         </div>
                         <Badge variant="outline" className={apt.status === 'scheduled' ? 'border-blue-200 text-blue-700 bg-blue-50' : 'border-green-200 text-green-700 bg-green-50'}>
@@ -367,6 +383,53 @@ export default function PatientProfileClient({ data }: { data: any }) {
         </Tabs>
       </div>
     </div>
+  )
+}
+
+function ScheduleVisitForm({ pregnancyId, onComplete }: { pregnancyId: string; onComplete: () => void }) {
+  const [date, setDate] = useState('')
+  const [notes, setNotes] = useState('')
+  const [loading, setLoading] = useState(false)
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!date) return
+    setLoading(true)
+    try {
+      const res = await scheduleNextVisit(pregnancyId, date, notes)
+      if (res.success) {
+        setDate('')
+        setNotes('')
+        onComplete()
+      } else {
+        alert(res.error || 'Failed to schedule')
+      }
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="flex flex-col sm:flex-row gap-3">
+      <input
+        type="date"
+        required
+        value={date}
+        onChange={(e) => setDate(e.target.value)}
+        min={new Date().toISOString().split('T')[0]}
+        className="flex-1 border border-slate-200 rounded-lg p-2.5"
+      />
+      <input
+        type="text"
+        placeholder="Visit notes (optional)"
+        value={notes}
+        onChange={(e) => setNotes(e.target.value)}
+        className="flex-[2] border border-slate-200 rounded-lg p-2.5"
+      />
+      <Button type="submit" disabled={loading} className="bg-[#D48BA1] hover:bg-[#c47a90] font-bold shrink-0">
+        {loading ? 'Saving...' : 'Schedule'}
+      </Button>
+    </form>
   )
 }
 

@@ -59,11 +59,14 @@ export default async function ChatPage({
   }
 
   // Determine back URL based on current user's role
-  const backUrl = dbUser.role === 'pregnant_woman'
-    ? '/dashboard/pregnant-woman'
-    : dbUser.role === 'midwife'
-    ? '/dashboard/midwife'
-    : '/dashboard/hospital'
+  const backUrl =
+    dbUser.role === 'pregnant_woman'
+      ? '/dashboard/pregnant-woman'
+      : dbUser.role === 'midwife'
+        ? '/dashboard/midwife'
+        : dbUser.role === 'father'
+          ? '/dashboard/father'
+          : '/dashboard/hospital'
 
   return (
     <div className="min-h-screen bg-[#F6F4F3]">

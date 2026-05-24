@@ -7,28 +7,36 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import Link from 'next/link'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
-import { searchGlobalPatients } from '@/app/actions'
+import { searchGlobalPatients, scheduleNextVisit, assignMidwifeToPregnancy } from '@/app/actions'
+import { useRouter } from 'next/navigation'
 import { 
   Users, 
   Calendar, 
   Baby, 
-  Phone, 
+  Phone,
+  MessageCircle,
   Plus, 
   Search,
   Filter,
   Download,
   TrendingUp,
   AlertTriangle,
-  HeartPulse
+  HeartPulse,
+  UserCog
 } from 'lucide-react'
 
 interface Pregnancy {
   id: string
+  patientUserId: string
   patientName: string
+  patientPhone?: string | null
   gestationalAge: number
   edd: string
   lastVisit: string
   nextVisit: string
+  nextVisitDate?: string | null
+  assignedStaffId?: string | null
+  assignedStaffName?: string | null
   riskLevel: 'low' | 'medium' | 'high'
   status: 'active' | 'completed' | 'complicated'
 }
@@ -44,7 +52,10 @@ interface Patient {
 }
 
 export default function HospitalDashboardClient({ user, data }: { user: any, data: any }) {
+  const router = useRouter()
   const [activeTab, setActiveTab] = useState('overview')
+  const careStaff: { id: string; firstName: string; lastName: string; role: string }[] =
+    data?.careStaff || []
 
   const formatDate = (date: any) => {
     if (!date) return 'N/A'
@@ -65,16 +76,24 @@ export default function HospitalDashboardClient({ user, data }: { user: any, dat
     lastVisit: formatDate(p.updatedAt)
   })) || [])
   
-  const [pregnancies, setPregnancies] = useState<Pregnancy[]>(data?.pregnancies?.map((p: any) => ({
-    id: p.id,
-    patientName: p.patientName || "Unknown Patient",
-    gestationalAge: p.gestationalAge || 0,
-    edd: formatDate(p.edd),
-    lastVisit: 'N/A', // Could be added to backend
-    nextVisit: p.nextVisit || 'Not scheduled',
-    riskLevel: p.riskLevel || 'low',
-    status: p.status
-  })) || [])
+  const mapPregnancies = (list: any[]): Pregnancy[] =>
+    (list || []).map((p: any) => ({
+      id: p.id,
+      patientUserId: p.patientUserId || p.userId,
+      patientName: p.patientName || 'Unknown Patient',
+      patientPhone: p.patientPhone,
+      gestationalAge: p.gestationalAge || 0,
+      edd: formatDate(p.edd),
+      lastVisit: 'N/A',
+      nextVisit: p.nextVisit || 'Not scheduled',
+      nextVisitDate: p.nextVisitDate,
+      assignedStaffId: p.assignedStaffId ?? p.midwifeId,
+      assignedStaffName: p.assignedStaffName,
+      riskLevel: p.riskLevel || 'low',
+      status: p.status,
+    }))
+
+  const [pregnancies, setPregnancies] = useState<Pregnancy[]>(mapPregnancies(data?.pregnancies))
   const [searchTerm, setSearchTerm] = useState('')
   const [showOnboarding, setShowOnboarding] = useState(false)
 
@@ -101,22 +120,34 @@ export default function HospitalDashboardClient({ user, data }: { user: any, dat
   }
 
   useEffect(() => {
-    // - [x] Implement the Admin Dashboard
-    // - [x] `/dashboard/admin/page.tsx`
-    // - [x] `/dashboard/admin/admin-client.tsx`
-    // - [/] Implement foundational UI components if needed (e.g., Progress charts)
-    // - [/] Verify functionality and role-based access
-    if (data) {
-      // Data is now handled in initial state, but can be updated here if data prop changes
+    if (data?.patients) {
+      setPatients(
+        data.patients.map((p: any) => ({
+          id: p.id,
+          name: `${p.firstName || ''} ${p.lastName || ''}`.trim() || p.email || 'Patient',
+          email: p.email,
+          phone: p.phone,
+          pregnancies: 1,
+          status: p.isActive ? 'active' : 'inactive',
+          lastVisit: formatDate(p.updatedAt),
+        }))
+      )
+    }
+    if (data?.pregnancies) {
+      setPregnancies(mapPregnancies(data.pregnancies))
     }
   }, [data])
 
+  const upcomingAppointmentsList = data?.upcomingAppointments || []
+
   const stats = {
     totalPatients: patients.length,
-    activePregnancies: pregnancies.filter(p => p.status === 'active').length,
-    highRiskPregnancies: pregnancies.filter(p => p.riskLevel === 'high').length,
-    upcomingAppointments: 12
+    activePregnancies: pregnancies.filter((p) => p.status === 'active').length,
+    highRiskPregnancies: pregnancies.filter((p) => p.riskLevel === 'high').length,
+    upcomingAppointments: upcomingAppointmentsList.length,
   }
+
+  const refreshDashboard = () => router.refresh()
 
   const getRiskColor = (level: string) => {
     switch (level) {
@@ -442,7 +473,7 @@ export default function HospitalDashboardClient({ user, data }: { user: any, dat
                     <Card key={pregnancy.id}>
                       <CardContent className="p-4">
                         <div className="flex justify-between items-start mb-3">
-                          <h3 className="font-semibold">{pregnancy.patientName}</h3>
+                          <h3 className="font-semibold text-slate-900">{pregnancy.patientName}</h3>
                           <Badge className={getRiskColor(pregnancy.riskLevel)}>
                             {pregnancy.riskLevel}
                           </Badge>
@@ -458,18 +489,33 @@ export default function HospitalDashboardClient({ user, data }: { user: any, dat
                           </div>
                           <div className="flex justify-between">
                             <span className="text-gray-600">Next Visit:</span>
-                            <span className="font-medium">{pregnancy.nextVisit}</span>
+                            <span className="font-medium text-[#D48BA1]">{pregnancy.nextVisit}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-gray-600">Care contact:</span>
+                            <span className="font-medium text-xs text-right max-w-[55%]">
+                              {pregnancy.assignedStaffName || 'Not assigned'}
+                            </span>
                           </div>
                         </div>
-                        <div className="mt-4 flex gap-2">
+                        <PregnancyQuickActions
+                          pregnancy={pregnancy}
+                          careStaff={careStaff}
+                          onUpdated={refreshDashboard}
+                        />
+                        <div className="mt-3 flex gap-2">
                           <Link href={`/dashboard/hospital/patients/${pregnancy.id}`} className="flex-1">
-                            <Button size="sm" className="w-full">
+                            <Button size="sm" className="w-full bg-[#D48BA1] hover:bg-[#c47a90]">
                               View Details
                             </Button>
                           </Link>
-                          <Button variant="outline" size="sm" aria-label="Call Patient">
-                            <Phone className="w-4 h-4" />
-                          </Button>
+                          {pregnancy.patientUserId && (
+                            <Link href={`/dashboard/chat?with=${pregnancy.patientUserId}`}>
+                              <Button variant="outline" size="sm" aria-label="Message patient" title="Send message">
+                                <MessageCircle className="w-4 h-4" />
+                              </Button>
+                            </Link>
+                          )}
                         </div>
                       </CardContent>
                     </Card>
@@ -482,14 +528,46 @@ export default function HospitalDashboardClient({ user, data }: { user: any, dat
           <TabsContent value="appointments" className="space-y-6">
             <Card>
               <CardHeader>
-                <CardTitle>Appointment Schedule</CardTitle>
-                <CardDescription>Manage and view upcoming appointments</CardDescription>
+                <CardTitle>Upcoming Visits</CardTitle>
+                <CardDescription>Scheduled antenatal appointments at your facility</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="text-center py-8 text-gray-500">
-                  <Calendar className="w-12 h-12 mx-auto mb-4 text-gray-300" />
-                  <p>Calendar integration coming soon</p>
-                </div>
+                {upcomingAppointmentsList.length === 0 ? (
+                  <div className="text-center py-8 text-gray-500">
+                    <Calendar className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+                    <p>No upcoming appointments scheduled</p>
+                    <p className="text-xs mt-2">Schedule visits from the Pregnancies tab</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {upcomingAppointmentsList.map((apt: any) => (
+                      <div
+                        key={apt.id}
+                        className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 bg-slate-50 rounded-xl border border-slate-100"
+                      >
+                        <div>
+                          <p className="font-bold text-slate-900">{apt.patientName}</p>
+                          <p className="text-sm text-slate-600">
+                            {formatDate(apt.scheduledDate)}
+                            {apt.notes ? ` · ${apt.notes}` : ''}
+                          </p>
+                        </div>
+                        <div className="flex gap-2">
+                          <Link href={`/dashboard/hospital/patients/${apt.pregnancyId}`}>
+                            <Button size="sm" variant="outline">Profile</Button>
+                          </Link>
+                          {apt.patientUserId && (
+                            <Link href={`/dashboard/chat?with=${apt.patientUserId}`}>
+                              <Button size="sm" className="bg-slate-900">
+                                <MessageCircle className="w-4 h-4" />
+                              </Button>
+                            </Link>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
@@ -510,7 +588,7 @@ export default function HospitalDashboardClient({ user, data }: { user: any, dat
             <PatientOnboardingForm 
               onSuccess={() => {
                 setShowOnboarding(false)
-                // Refresh patient list
+                refreshDashboard()
               }}
             />
           </div>
@@ -522,6 +600,119 @@ export default function HospitalDashboardClient({ user, data }: { user: any, dat
 
 import { onboardPatient } from '@/app/actions'
 import { Check, Copy } from 'lucide-react'
+
+function PregnancyQuickActions({
+  pregnancy,
+  careStaff,
+  onUpdated,
+}: {
+  pregnancy: Pregnancy
+  careStaff: { id: string; firstName: string; lastName: string; role: string }[]
+  onUpdated: () => void
+}) {
+  const [visitDate, setVisitDate] = useState('')
+  const [visitNotes, setVisitNotes] = useState('')
+  const [staffId, setStaffId] = useState(pregnancy.assignedStaffId || '')
+  const [savingVisit, setSavingVisit] = useState(false)
+  const [savingStaff, setSavingStaff] = useState(false)
+
+  const handleSchedule = async () => {
+    if (!visitDate) {
+      alert('Please choose a visit date')
+      return
+    }
+    setSavingVisit(true)
+    try {
+      const res = await scheduleNextVisit(pregnancy.id, visitDate, visitNotes)
+      if (res.success) {
+        setVisitDate('')
+        setVisitNotes('')
+        onUpdated()
+      } else {
+        alert(res.error || 'Could not schedule visit')
+      }
+    } finally {
+      setSavingVisit(false)
+    }
+  }
+
+  const handleAssignStaff = async () => {
+    if (!staffId) return
+    setSavingStaff(true)
+    try {
+      const res = await assignMidwifeToPregnancy(pregnancy.id, staffId)
+      if (res.success) onUpdated()
+      else alert(res.error || 'Could not assign staff')
+    } finally {
+      setSavingStaff(false)
+    }
+  }
+
+  return (
+    <div className="mt-4 pt-4 border-t border-slate-100 space-y-3">
+      <div>
+        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Schedule next visit</p>
+        <div className="flex flex-col gap-2">
+          <input
+            type="date"
+            value={visitDate}
+            onChange={(e) => setVisitDate(e.target.value)}
+            className="w-full border border-slate-200 rounded-lg p-2 text-sm"
+            min={new Date().toISOString().split('T')[0]}
+          />
+          <input
+            type="text"
+            placeholder="Notes (optional)"
+            value={visitNotes}
+            onChange={(e) => setVisitNotes(e.target.value)}
+            className="w-full border border-slate-200 rounded-lg p-2 text-sm"
+          />
+          <Button
+            type="button"
+            size="sm"
+            disabled={savingVisit}
+            onClick={handleSchedule}
+            className="w-full bg-slate-900 hover:bg-slate-800 font-bold"
+          >
+            <Calendar className="w-4 h-4 mr-2" />
+            {savingVisit ? 'Scheduling...' : 'Schedule visit'}
+          </Button>
+        </div>
+      </div>
+      {careStaff.length > 0 && (
+        <div>
+          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2 flex items-center gap-1">
+            <UserCog className="w-3 h-3" /> Assign chat contact
+          </p>
+          <div className="flex gap-2">
+            <select
+              value={staffId}
+              onChange={(e) => setStaffId(e.target.value)}
+              className="flex-1 text-sm border border-slate-200 rounded-lg p-2 bg-white"
+            >
+              <option value="">Select staff...</option>
+              {careStaff.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.firstName} {s.lastName} ({s.role.replace('_', ' ')})
+                </option>
+              ))}
+            </select>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              disabled={savingStaff || !staffId}
+              onClick={handleAssignStaff}
+              className="font-bold shrink-0"
+            >
+              {savingStaff ? '...' : 'Assign'}
+            </Button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
 
 // Patient Onboarding Form Component
 function PatientOnboardingForm({ onSuccess }: { onSuccess: () => void }) {

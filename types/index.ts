@@ -4,6 +4,7 @@ export interface DashboardData {
   appointments: any[]
   labs: any[]
   vitals: any[]
+  careContact?: any
 }
 
 export interface HospitalDashboardData {
@@ -11,6 +12,8 @@ export interface HospitalDashboardData {
   patients: any[]
   pregnancies: any[]
   appointments: any[]
+  careStaff?: any[]
+  upcomingAppointments?: any[]
 }
 
 /**

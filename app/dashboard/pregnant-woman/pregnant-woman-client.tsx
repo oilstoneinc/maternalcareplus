@@ -57,6 +57,7 @@ interface DashboardData {
   appointments: any[]
   labs: any[]
   vitals: any[]
+  careContact?: any
 }
 
 export default function PregnantWomanClient({ user, data }: { user: any, data: DashboardData | null }) {
@@ -222,7 +223,7 @@ export default function PregnantWomanClient({ user, data }: { user: any, data: D
               <Button asChild className="btn-pink rounded-full shadow-md w-full sm:w-auto">
                 <Link href={`/dashboard/chat?with=${data.pregnancy.midwifeId}`}>
                   <MessageCircle className="w-4 h-4 mr-2" />
-                  Chat Midwife
+                  Message {data?.careContact ? `${data.careContact.firstName}` : 'Care Team'}
                 </Link>
               </Button>
             ) : (
@@ -230,17 +231,17 @@ export default function PregnantWomanClient({ user, data }: { user: any, data: D
                 <DialogTrigger asChild>
                   <Button className="btn-pink rounded-full shadow-md w-full sm:w-auto">
                     <MessageCircle className="w-4 h-4 mr-2" />
-                    Chat Midwife
+                    Message Care Team
                   </Button>
                 </DialogTrigger>
                 <DialogContent>
                   <DialogHeader>
                     <DialogTitle className="flex items-center gap-2 text-rose-600">
                       <AlertCircle className="w-5 h-5" />
-                      No Midwife Assigned
+                      No care contact assigned
                     </DialogTitle>
                     <DialogDescription className="pt-2">
-                      Your hospital has not yet assigned a dedicated midwife to your care plan. Please contact your hospital or wait until a midwife is assigned to begin chatting.
+                      Your hospital has not yet assigned a nurse or midwife for messaging. Please contact your clinic or wait until staff is assigned.
                     </DialogDescription>
                   </DialogHeader>
                 </DialogContent>
@@ -510,7 +511,7 @@ export default function PregnantWomanClient({ user, data }: { user: any, data: D
               <CardContent className="space-y-6">
                 {(data?.appointments?.length ?? 0) > 0 ? (
                   data?.appointments.map((apt, i) => (
-                    <div key={i} className="flex gap-4 relative">
+                    <div key={apt.id || i} className="flex gap-4 relative">
                       {i < (data?.appointments?.length ?? 0) - 1 && (
                         <div className="absolute left-6 top-10 bottom-0 w-[2px] bg-gray-100" />
                       )}
@@ -518,13 +519,23 @@ export default function PregnantWomanClient({ user, data }: { user: any, data: D
                         <Calendar className="w-6 h-6" />
                       </div>
                       <div>
-                        <p className="font-bold text-gray-900">{new Date(apt.scheduledDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</p>
-                        <div className="flex items-center text-sm text-gray-500 mt-1">
-                          <Clock className="w-3 h-3 mr-1" />
-                          9:00 AM
-                        </div>
-                        <p className="text-sm font-medium text-secondary mt-2">Routine Checkup</p>
-                        <p className="text-xs text-gray-400">Ridge Hospital, Accra</p>
+                        <p className="font-bold text-gray-900">
+                          {new Date(apt.scheduledDate).toLocaleDateString(undefined, {
+                            weekday: 'short',
+                            month: 'short',
+                            day: 'numeric',
+                            year: 'numeric',
+                          })}
+                        </p>
+                        <p className="text-sm font-medium text-secondary mt-2">
+                          {apt.notes || 'Antenatal clinic visit'}
+                        </p>
+                        <p className="text-xs text-gray-400 mt-1">
+                          {data?.pregnancy?.hospital?.name || 'Your registered hospital'}
+                        </p>
+                        <Badge variant="outline" className="mt-2 text-[10px] capitalize">
+                          {apt.status || 'scheduled'}
+                        </Badge>
                       </div>
                     </div>
                   ))
