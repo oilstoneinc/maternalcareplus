@@ -6,13 +6,55 @@ import { currentUser, clerkClient } from '@clerk/nextjs/server'
 import { HospitalDashboardData, DashboardData, Message } from '@/types'
 import { eq, desc, and, or, sql, ilike } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
+import { notifyPregnancyUpdate } from '@/lib/pusher-notify'
 import { pusherServer } from '@/lib/pusher-server'
+import { ensureMCHSchema } from '@/lib/db/ensure-mch-schema'
+
+function parseIntOrNull(value: unknown): number | null {
+  if (value === null || value === undefined || value === '') return null
+  const n = parseInt(String(value), 10)
+  return Number.isFinite(n) ? n : null
+}
+
+function parseDecimalOrNull(value: unknown): string | null {
+  if (value === null || value === undefined || value === '') return null
+  return String(value)
+}
+
+function revalidatePregnancyPaths(pregnancyId: string) {
+  revalidatePath('/dashboard/pregnant-woman')
+  revalidatePath('/dashboard/pregnant-woman/digital-mch-book')
+  revalidatePath('/dashboard/father')
+  revalidatePath('/dashboard/hospital')
+  revalidatePath('/dashboard/midwife')
+  revalidatePath(`/dashboard/hospital/patients/${pregnancyId}`)
+  revalidatePath(`/dashboard/hospital/patients/${pregnancyId}/mch-book`)
+}
+
+async function requireClinicalStaff() {
+  const user = await currentUser()
+  if (!user) throw new Error('Unauthorized')
+
+  const dbUser = await db.query.users.findFirst({
+    where: eq(users.clerkId, user.id),
+  })
+
+  if (
+    !dbUser ||
+    (dbUser.role !== 'midwife' && dbUser.role !== 'hospital_staff' && dbUser.role !== 'admin')
+  ) {
+    throw new Error('Not authorized')
+  }
+
+  return { user, dbUser }
+}
 
 /**
  * Get data for the Patient (Pregnant Woman) Dashboard
  */
 export async function getPatientDashboardData(): Promise<DashboardData | null> {
   try {
+    await ensureMCHSchema()
     const user = await currentUser()
     if (!user) throw new Error('Unauthorized')
 
@@ -61,7 +103,7 @@ export async function getPatientDashboardData(): Promise<DashboardData | null> {
       recentVitals = await db.query.vitalSigns.findMany({
         where: eq(vitalSigns.pregnancyId, pregnancy.id),
         orderBy: [desc(vitalSigns.recordedDate)],
-        limit: 10,
+        limit: 30,
       })
     } catch (e) {
       console.error('Error fetching recent vitals:', e)
@@ -88,7 +130,7 @@ export async function getPatientDashboardData(): Promise<DashboardData | null> {
       recentLabs = await db.query.labTests.findMany({
         where: eq(labTests.pregnancyId, pregnancy.id),
         orderBy: [desc(labTests.resultDate)],
-        limit: 3,
+        limit: 15,
       })
     } catch (e) {
       console.error('Error fetching recent lab tests:', e)
@@ -693,90 +735,200 @@ export async function onboardPatient(formData: any) {
 /**
  * Record an antenatal visit (midwife dashboard)
  */
-export async function recordAntenatalVisit(formData: any) {
-  const user = await currentUser()
-  if (!user) throw new Error('Unauthorized')
-
-  // Verify midwife role
-  const dbUser = await db.query.users.findFirst({
-    where: eq(users.clerkId, user.id)
-  })
-  if (!dbUser || (dbUser.role !== 'midwife' && dbUser.role !== 'hospital_staff' && dbUser.role !== 'admin')) {
-    throw new Error('Not authorized to record visits')
-  }
-
+/** Record vitals only (nurse triage / quick check) */
+export async function recordVitals(formData: {
+  pregnancyId: string
+  weight?: string
+  bpSystolic?: string
+  bpDiastolic?: string
+  heartRate?: string
+  temperature?: string
+  notes?: string
+}) {
   try {
+    const { dbUser } = await requireClinicalStaff()
+    await ensureMCHSchema()
+
     const pregnancyId = formData.pregnancyId
-    const hospitalId = formData.hospitalId
+    const bpSys = parseIntOrNull(formData.bpSystolic)
+    const bpDia = parseIntOrNull(formData.bpDiastolic)
 
-    // 1. Update Pregnancy clinical history if provided
-    if (formData.medicalHistory || formData.allergies || formData.medications || formData.bloodType) {
-      await db.update(pregnancies)
-        .set({
-          medicalHistory: formData.medicalHistory || undefined,
-          allergies: formData.allergies ? formData.allergies.split(',').map((s: string) => s.trim()) : undefined,
-          medications: formData.medications ? formData.medications.split(',').map((s: string) => s.trim()) : undefined,
-          bloodType: formData.bloodType || undefined,
-          rhesusFactor: formData.rhesusFactor || undefined,
-        })
-        .where(eq(pregnancies.id, pregnancyId))
-    }
-
-    // 2. Record Vital Signs
     await db.insert(vitalSigns).values({
-      pregnancyId: pregnancyId,
+      pregnancyId,
       recordedDate: new Date(),
-      weight: formData.weight,
-      bloodPressureSystolic: parseInt(formData.bpSystolic),
-      bloodPressureDiastolic: parseInt(formData.bpDiastolic),
-      heartRate: parseInt(formData.heartRate),
+      weight: parseDecimalOrNull(formData.weight),
+      bloodPressureSystolic: bpSys,
+      bloodPressureDiastolic: bpDia,
+      heartRate: parseIntOrNull(formData.heartRate),
+      temperature: parseDecimalOrNull(formData.temperature),
       recordedBy: dbUser.id,
-      notes: formData.notes
+      notes: formData.notes || 'Vitals recorded at clinic',
     })
 
-    // 3. Create or Update Appointment
-    // If there is an existing appointment for today, we might want to update it.
-    // For now, we'll just insert a completed one.
+    await notifyPregnancyUpdate(
+      pregnancyId,
+      'Your clinic has recorded new vital signs.',
+      'vitals-update'
+    )
+    revalidatePregnancyPaths(pregnancyId)
+    return { success: true }
+  } catch (error: unknown) {
+    console.error('recordVitals error:', error)
+    return { success: false, error: 'Failed to save vitals' }
+  }
+}
+
+/** Full ANC visit: vitals + clinical findings + optional follow-up appointment */
+export async function recordAntenatalVisit(formData: any) {
+  try {
+    const { dbUser } = await requireClinicalStaff()
+    await ensureMCHSchema()
+
+    const pregnancyId = formData.pregnancyId as string
+    const hospitalId = formData.hospitalId as string
+    const gestationalAge = parseIntOrNull(formData.gestationalAge)
+    const bpSys = parseIntOrNull(formData.bpSystolic)
+    const bpDia = parseIntOrNull(formData.bpDiastolic)
+    const fhr = parseIntOrNull(formData.fhr)
+    const heartRate = parseIntOrNull(formData.heartRate)
+
+    const pregnancyUpdate: Partial<typeof pregnancies.$inferInsert> = {}
+    if (formData.medicalHistory) pregnancyUpdate.medicalHistory = formData.medicalHistory
+    if (formData.allergies) {
+      pregnancyUpdate.allergies = String(formData.allergies)
+        .split(',')
+        .map((s: string) => s.trim())
+        .filter(Boolean)
+    }
+    if (formData.medications) {
+      pregnancyUpdate.medications = String(formData.medications)
+        .split(',')
+        .map((s: string) => s.trim())
+        .filter(Boolean)
+    }
+    if (formData.bloodType) pregnancyUpdate.bloodType = formData.bloodType
+    if (formData.rhesusFactor) pregnancyUpdate.rhesusFactor = formData.rhesusFactor
+    if (gestationalAge !== null) pregnancyUpdate.gestationalAge = gestationalAge
+
+    if (Object.keys(pregnancyUpdate).length > 0) {
+      await db.update(pregnancies).set(pregnancyUpdate).where(eq(pregnancies.id, pregnancyId))
+    }
+
+    await db.insert(vitalSigns).values({
+      pregnancyId,
+      recordedDate: new Date(),
+      weight: parseDecimalOrNull(formData.weight),
+      bloodPressureSystolic: bpSys,
+      bloodPressureDiastolic: bpDia,
+      heartRate: heartRate ?? fhr,
+      recordedBy: dbUser.id,
+      notes: formData.notes || 'ANC clinic visit',
+    })
+
+    const bpText =
+      bpSys !== null && bpDia !== null ? `${bpSys}/${bpDia}` : formData.bpSystolic && formData.bpDiastolic
+        ? `${formData.bpSystolic}/${formData.bpDiastolic}`
+        : null
+
     await db.insert(appointments).values({
-      pregnancyId: pregnancyId,
-      hospitalId: hospitalId,
+      pregnancyId,
+      hospitalId,
       midwifeId: dbUser.id,
       scheduledDate: new Date(),
       actualDate: new Date(),
-      gestationalAge: parseInt(formData.gestationalAge),
-      weight: formData.weight,
-      bloodPressure: `${formData.bpSystolic}/${formData.bpDiastolic}`,
-      fundalHeight: formData.fundalHeight,
-      fetalHeartRate: parseInt(formData.fhr),
-      presentation: formData.presentation,
-      findings: formData.findings,
-      recommendations: formData.recommendations,
+      gestationalAge: gestationalAge ?? undefined,
+      weight: parseDecimalOrNull(formData.weight),
+      bloodPressure: bpText,
+      fundalHeight: parseDecimalOrNull(formData.fundalHeight),
+      fetalHeartRate: fhr ?? undefined,
+      presentation: formData.presentation || null,
+      findings: formData.findings || null,
+      recommendations: formData.recommendations || null,
+      hemoglobin: parseDecimalOrNull(formData.hemoglobin),
+      proteinuria: formData.proteinuria || null,
+      edema: formData.edema || null,
       nextVisitDate: formData.nextVisitDate ? new Date(formData.nextVisitDate) : null,
-      status: 'completed'
+      status: 'completed',
+      notes: formData.notes || null,
     })
 
     if (formData.nextVisitDate) {
       await db.insert(appointments).values({
-        pregnancyId: pregnancyId,
-        hospitalId: hospitalId,
+        pregnancyId,
+        hospitalId,
         midwifeId: dbUser.id,
         scheduledDate: new Date(formData.nextVisitDate),
-        status: 'scheduled'
+        status: 'scheduled',
       })
     }
 
-    // Trigger pusher update for patient side!
-    await pusherServer.trigger(`pregnancy-${pregnancyId}`, 'mch-update', { 
-      message: 'A new Antenatal Clinic (ANC) checkup was recorded by your hospital.' 
-    })
-
-    revalidatePath('/dashboard/hospital')
-    revalidatePath('/dashboard/midwife')
-    revalidatePath('/dashboard/pregnant-woman')
+    await notifyPregnancyUpdate(
+      pregnancyId,
+      'A new Antenatal Clinic (ANC) checkup was recorded by your hospital.'
+    )
+    revalidatePregnancyPaths(pregnancyId)
     return { success: true }
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Record visit error:', error)
     return { success: false, error: 'Failed to record visit details' }
+  }
+}
+
+/** Record lab test or imaging scan result for a pregnancy */
+export async function recordLabOrScan(formData: {
+  pregnancyId: string
+  testName: string
+  testType?: 'lab' | 'scan'
+  resultValue?: string
+  normalRange?: string
+  interpretation?: string
+  status?: 'pending' | 'completed' | 'abnormal' | 'critical'
+  sampleDate?: string
+  resultDate?: string
+}) {
+  try {
+    const { dbUser } = await requireClinicalStaff()
+    await ensureMCHSchema()
+
+    const pregnancyId = formData.pregnancyId
+    const isScan = formData.testType === 'scan'
+    const testName = formData.testName?.trim()
+    if (!testName) return { success: false, error: 'Test or scan name is required' }
+
+    const status = formData.status || (formData.resultValue ? 'completed' : 'pending')
+    const now = new Date()
+
+    await db.insert(labTests).values({
+      pregnancyId,
+      testName: isScan ? `Scan: ${testName}` : testName,
+      testCode: isScan ? 'SCAN' : 'LAB',
+      orderedDate: now,
+      sampleDate: formData.sampleDate ? new Date(formData.sampleDate) : now,
+      resultDate: formData.resultDate
+        ? new Date(formData.resultDate)
+        : formData.resultValue
+          ? now
+          : null,
+      resultValue: formData.resultValue || null,
+      normalRange: formData.normalRange || null,
+      interpretation: formData.interpretation || null,
+      status,
+      orderedBy: dbUser.id,
+      performedBy: dbUser.id,
+    })
+
+    await notifyPregnancyUpdate(
+      pregnancyId,
+      isScan
+        ? 'A new ultrasound/imaging scan was added to your record.'
+        : 'New lab results were added to your record.',
+      'labs-update'
+    )
+    revalidatePregnancyPaths(pregnancyId)
+    return { success: true }
+  } catch (error: unknown) {
+    console.error('recordLabOrScan error:', error)
+    return { success: false, error: 'Failed to save lab or scan record' }
   }
 }
 
@@ -1321,6 +1473,7 @@ export async function approvePartnershipRequest(requestId: string) {
 // --- MCH Book Extra Checklists ---
 export async function updateMCHChecklists(pregnancyId: string, mchDataUpdate: any) {
   try {
+    await ensureMCHSchema()
     const user = await currentUser()
     if (!user) return { success: false, error: 'Unauthorized' }
 
@@ -1337,13 +1490,14 @@ export async function updateMCHChecklists(pregnancyId: string, mchDataUpdate: an
       .set({ mchData: newMchData })
       .where(eq(pregnancies.id, pregnancyId))
 
-    revalidatePath(`/dashboard/hospital/patients/${pregnancyId}`)
-    revalidatePath(`/dashboard/hospital/patients/${pregnancyId}/mch-book`)
-    
+    await notifyPregnancyUpdate(pregnancyId, 'Your MCH record book was updated by your care team.')
+    revalidatePregnancyPaths(pregnancyId)
+
     return { success: true }
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error('Failed to update MCH Checklists:', err)
-    return { success: false, error: err.message }
+    const message = err instanceof Error ? err.message : 'Update failed'
+    return { success: false, error: message }
   }
 }
 

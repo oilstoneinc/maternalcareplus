@@ -2,13 +2,15 @@ import { currentUser } from '@clerk/nextjs/server'
 import { redirect } from 'next/navigation'
 import { requireRole } from '@/lib/clerk'
 import { db } from '@/lib/db'
+import { ensureMCHSchema } from '@/lib/db/ensure-mch-schema'
 import { users, pregnancies, appointments, vitalSigns, labTests, hospitals } from '@/lib/db/schema'
 import { eq, and, desc } from 'drizzle-orm'
 import PatientProfileClient from './patient-profile-client'
 
 export default async function PatientProfilePage({ params }: { params: Promise<{ id: string }> }) {
   try {
-    await requireRole(['hospital_staff', 'admin'])
+    await ensureMCHSchema()
+    await requireRole(['hospital_staff', 'admin', 'midwife'])
     const user = await currentUser()
     
     // Resolve the promise for params in Next.js 15+

@@ -26,8 +26,19 @@ import {
 } from 'recharts'
 
 export default function DigitalMCHBookClient({ data }: { data: any }) {
-  const { 
-    pregnancy, mother, previousPregnancies, ancVisits, labs, delivery, postnatalCare, children, immunizations, growth 
+  const {
+    pregnancy,
+    mother,
+    hospital,
+    previousPregnancies,
+    ancVisits,
+    vitals = [],
+    labs = [],
+    delivery,
+    postnatalCare,
+    children,
+    immunizations,
+    growth,
   } = data
   
   const mchData = pregnancy.mchData || {}
@@ -40,19 +51,30 @@ export default function DigitalMCHBookClient({ data }: { data: any }) {
   const formatDate = (date: any) => date ? new Date(date).toLocaleDateString() : 'N/A'
 
   useEffect(() => {
-    const channel = pusherClient.subscribe(`pregnancy-${pregnancy.id}`)
-    
-    channel.bind('mch-update', (payload: any) => {
-      console.log('Real-time MCH update received:', payload)
+    if (!process.env.NEXT_PUBLIC_PUSHER_APP_KEY || process.env.NEXT_PUBLIC_PUSHER_APP_KEY === 'dummy_key') {
+      return
+    }
+
+    const channelName = `pregnancy-${pregnancy.id}`
+    const channel = pusherClient.subscribe(channelName)
+
+    const onUpdate = (payload: { message?: string }) => {
       toast({
-        title: 'Record Updated! 🏥',
-        description: payload.message || 'Your health records have been updated by the clinic.'
+        title: 'Record Updated',
+        description: payload.message || 'Your health records were updated by your clinic.',
       })
       router.refresh()
-    })
+    }
+
+    channel.bind('mch-update', onUpdate)
+    channel.bind('vitals-update', onUpdate)
+    channel.bind('labs-update', onUpdate)
 
     return () => {
-      pusherClient.unsubscribe(`pregnancy-${pregnancy.id}`)
+      channel.unbind('mch-update', onUpdate)
+      channel.unbind('vitals-update', onUpdate)
+      channel.unbind('labs-update', onUpdate)
+      pusherClient.unsubscribe(channelName)
     }
   }, [pregnancy.id, router, toast])
 
@@ -233,8 +255,17 @@ export default function DigitalMCHBookClient({ data }: { data: any }) {
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-slate-400 text-sm font-semibold">Blood Group & Rhesus Factor</span>
-                    <span className="font-bold text-lg">{pregnancy.bloodType} {pregnancy.rhesusFactor === 'Positive' ? '+' : '-'}</span>
+                    <span className="font-bold text-lg">
+                      {pregnancy.bloodType || '—'}{' '}
+                      {pregnancy.rhesusFactor === 'Positive' ? '+' : pregnancy.rhesusFactor === 'Negative' ? '-' : ''}
+                    </span>
                   </div>
+                  {hospital && (
+                    <div className="flex justify-between items-center border-t border-slate-800 pt-3">
+                      <span className="text-slate-400 text-sm font-semibold">Registered Facility</span>
+                      <span className="font-bold text-lg">{hospital.name}</span>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </div>
@@ -312,6 +343,48 @@ export default function DigitalMCHBookClient({ data }: { data: any }) {
                 </CardContent>
               </Card>
 
+              {/* Vitals from clinic */}
+              <Card className="border-none shadow-sm rounded-3xl">
+                <CardHeader>
+                  <CardTitle>Vital Signs (from clinic)</CardTitle>
+                  <CardDescription>Weight, blood pressure, and pulse recorded by your care team</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {vitals.map((v: any) => (
+                    <div
+                      key={v.id}
+                      className="p-4 bg-slate-50 rounded-2xl border border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                    >
+                      <div>
+                        <p className="font-bold text-slate-800">{formatDate(v.recordedDate)}</p>
+                        <p className="text-xs text-slate-500 mt-1">{v.notes || 'Clinic vitals'}</p>
+                      </div>
+                      <div className="grid grid-cols-3 gap-4 text-center">
+                        <div>
+                          <p className="text-[9px] font-bold text-slate-400 uppercase">Weight</p>
+                          <p className="text-sm font-bold">{v.weight ? `${v.weight} kg` : '—'}</p>
+                        </div>
+                        <div>
+                          <p className="text-[9px] font-bold text-slate-400 uppercase">BP</p>
+                          <p className="text-sm font-bold">
+                            {v.bloodPressureSystolic && v.bloodPressureDiastolic
+                              ? `${v.bloodPressureSystolic}/${v.bloodPressureDiastolic}`
+                              : '—'}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-[9px] font-bold text-slate-400 uppercase">Pulse</p>
+                          <p className="text-sm font-bold">{v.heartRate ? `${v.heartRate} bpm` : '—'}</p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                  {vitals.length === 0 && (
+                    <p className="text-center py-8 text-slate-400 italic">No vitals recorded yet. Your clinic will add these at your next visit.</p>
+                  )}
+                </CardContent>
+              </Card>
+
               {/* Patient Antenatal Clinic Visits */}
               <Card className="border-none shadow-sm rounded-3xl">
                 <CardHeader>
@@ -319,34 +392,108 @@ export default function DigitalMCHBookClient({ data }: { data: any }) {
                   <CardDescription>Clinical monitoring history across your pregnancy journey</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  {ancVisits.map((visit: any, idx: number) => (
-                    <div key={visit.id} className="p-4 bg-slate-50 rounded-2xl border border-slate-100 flex flex-col md:flex-row justify-between gap-4">
-                      <div>
-                        <p className="font-bold text-slate-800">Visit #{ancVisits.length - idx} — {formatDate(visit.actualDate || visit.scheduledDate)}</p>
-                        <p className="text-xs text-slate-500 font-bold mt-1">Gestational Age: {visit.gestationalAge || '--'} Weeks</p>
-                      </div>
-                      <div className="grid grid-cols-3 gap-6 text-right">
+                  {ancVisits
+                    .filter((v: any) => v.status === 'completed')
+                    .map((visit: any, idx: number, arr: any[]) => (
+                    <div key={visit.id} className="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-3">
+                      <div className="flex flex-col md:flex-row justify-between gap-4">
                         <div>
-                          <p className="text-[9px] font-bold text-slate-400 uppercase">Weight</p>
-                          <p className="text-sm font-bold text-slate-700">{visit.weight ? `${visit.weight} kg` : '--'}</p>
-                        </div>
-                        <div>
-                          <p className="text-[9px] font-bold text-slate-400 uppercase">BP</p>
-                          <p className="text-sm font-bold text-slate-700">
-                            {visit.bloodPressureSystolic && visit.bloodPressureDiastolic 
-                              ? `${visit.bloodPressureSystolic}/${visit.bloodPressureDiastolic}` 
-                              : '--'}
+                          <p className="font-bold text-slate-800">
+                            Visit #{arr.length - idx} — {formatDate(visit.actualDate || visit.scheduledDate)}
+                          </p>
+                          <p className="text-xs text-slate-500 font-bold mt-1">
+                            Gestational Age: {visit.gestationalAge ?? '—'} weeks
+                            {visit.status && (
+                              <Badge variant="outline" className="ml-2 text-[10px] capitalize">
+                                {visit.status}
+                              </Badge>
+                            )}
                           </p>
                         </div>
-                        <div>
-                          <p className="text-[9px] font-bold text-slate-400 uppercase">Hb Level</p>
-                          <p className="text-sm font-bold text-slate-700">{visit.hbLevel ? `${visit.hbLevel} g/dL` : '--'}</p>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-right">
+                          <div>
+                            <p className="text-[9px] font-bold text-slate-400 uppercase">Weight</p>
+                            <p className="text-sm font-bold text-slate-700">{visit.weight ? `${visit.weight} kg` : '—'}</p>
+                          </div>
+                          <div>
+                            <p className="text-[9px] font-bold text-slate-400 uppercase">BP</p>
+                            <p className="text-sm font-bold text-slate-700">{visit.bloodPressure || '—'}</p>
+                          </div>
+                          <div>
+                            <p className="text-[9px] font-bold text-slate-400 uppercase">Hb</p>
+                            <p className="text-sm font-bold text-slate-700">
+                              {visit.hemoglobin ? `${visit.hemoglobin} g/dL` : '—'}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-[9px] font-bold text-slate-400 uppercase">FHR</p>
+                            <p className="text-sm font-bold text-slate-700">
+                              {visit.fetalHeartRate ? `${visit.fetalHeartRate} bpm` : '—'}
+                            </p>
+                          </div>
                         </div>
                       </div>
+                      {(visit.findings || visit.recommendations) && (
+                        <div className="text-sm border-t border-slate-100 pt-3 space-y-2">
+                          {visit.findings && (
+                            <p>
+                              <span className="font-bold text-slate-600">Findings: </span>
+                              {visit.findings}
+                            </p>
+                          )}
+                          {visit.recommendations && (
+                            <p>
+                              <span className="font-bold text-slate-600">Plan: </span>
+                              {visit.recommendations}
+                            </p>
+                          )}
+                        </div>
+                      )}
                     </div>
                   ))}
-                  {ancVisits.length === 0 && (
+                  {ancVisits.filter((v: any) => v.status === 'completed').length === 0 && (
                     <p className="text-center py-10 text-slate-400 italic">No ANC clinical visits registered yet.</p>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Labs & scans */}
+              <Card className="border-none shadow-sm rounded-3xl">
+                <CardHeader>
+                  <CardTitle>Laboratory Tests & Scans</CardTitle>
+                  <CardDescription>Results and imaging recorded by your hospital</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {labs.map((lab: any) => (
+                    <div key={lab.id} className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                      <div className="flex justify-between items-start gap-2">
+                        <p className="font-bold text-slate-800">{lab.testName}</p>
+                        <Badge
+                          className={
+                            lab.status === 'abnormal' || lab.status === 'critical'
+                              ? 'bg-red-100 text-red-800'
+                              : lab.status === 'completed'
+                                ? 'bg-green-100 text-green-800'
+                                : 'bg-amber-100 text-amber-800'
+                          }
+                        >
+                          {lab.status}
+                        </Badge>
+                      </div>
+                      <p className="text-sm text-slate-600 mt-2">
+                        {lab.resultValue ? `Result: ${lab.resultValue}` : 'Pending result'}
+                        {lab.normalRange && ` (Ref: ${lab.normalRange})`}
+                      </p>
+                      {lab.interpretation && (
+                        <p className="text-xs text-slate-500 mt-1">{lab.interpretation}</p>
+                      )}
+                      <p className="text-[10px] text-slate-400 font-bold mt-2 uppercase">
+                        {lab.resultDate ? `Reported ${formatDate(lab.resultDate)}` : 'Ordered — awaiting results'}
+                      </p>
+                    </div>
+                  ))}
+                  {labs.length === 0 && (
+                    <p className="text-center py-8 text-slate-400 italic">No lab tests or scans on file yet.</p>
                   )}
                 </CardContent>
               </Card>

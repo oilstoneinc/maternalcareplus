@@ -109,21 +109,30 @@ export default function PregnantWomanClient({ user, data }: { user: any, data: D
 
   useEffect(() => {
     if (!data?.pregnancy?.id) return
-    const channel = pusherClient.subscribe(`pregnancy-${data.pregnancy.id}`)
-    
-    channel.bind('mch-update', (payload: any) => {
-      console.log('Real-time updates received:', payload)
-      setRealtimeNotification(payload.message || 'Your digital MCH record has been updated by the hospital!')
+    if (!process.env.NEXT_PUBLIC_PUSHER_APP_KEY || process.env.NEXT_PUBLIC_PUSHER_APP_KEY === 'dummy_key') {
+      return
+    }
+
+    const channelName = `pregnancy-${data.pregnancy.id}`
+    const channel = pusherClient.subscribe(channelName)
+
+    const onUpdate = (payload: { message?: string }) => {
+      setRealtimeNotification(
+        payload.message || 'Your health records were updated by your clinic.'
+      )
       router.refresh()
-      
-      // Auto-clear notification after 8 seconds
-      setTimeout(() => {
-        setRealtimeNotification(null)
-      }, 8000)
-    })
+      setTimeout(() => setRealtimeNotification(null), 8000)
+    }
+
+    channel.bind('mch-update', onUpdate)
+    channel.bind('vitals-update', onUpdate)
+    channel.bind('labs-update', onUpdate)
 
     return () => {
-      pusherClient.unsubscribe(`pregnancy-${data.pregnancy.id}`)
+      channel.unbind('mch-update', onUpdate)
+      channel.unbind('vitals-update', onUpdate)
+      channel.unbind('labs-update', onUpdate)
+      pusherClient.unsubscribe(channelName)
     }
   }, [data?.pregnancy?.id, router])
 

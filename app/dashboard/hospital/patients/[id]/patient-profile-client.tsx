@@ -1,18 +1,22 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { ArrowLeft, Activity, Calendar as CalendarIcon, FileText, Plus, BookOpen, Users } from 'lucide-react'
+import { ArrowLeft, Activity, Calendar as CalendarIcon, FileText, Plus, BookOpen, Users, FlaskConical } from 'lucide-react'
 import Link from 'next/link'
-import { recordAntenatalVisit, assignMidwifeToPregnancy } from '@/app/actions' // We will use this to record vitals and schedule
+import { recordAntenatalVisit, recordVitals, recordLabOrScan, assignMidwifeToPregnancy } from '@/app/actions'
 
 export default function PatientProfileClient({ data }: { data: any }) {
   const { patient, pregnancy, vitals, appointments, labs, onboardingHospital, currentHospitalId, availableMidwives } = data
+  const router = useRouter()
   const [activeTab, setActiveTab] = useState('overview')
   const [showVitalForm, setShowVitalForm] = useState(false)
+  const [showQuickVitals, setShowQuickVitals] = useState(false)
+  const [showLabForm, setShowLabForm] = useState(false)
   const [assigningMidwife, setAssigningMidwife] = useState(false)
 
   const patientName = `${patient.firstName} ${patient.lastName}`.trim()
@@ -188,12 +192,38 @@ export default function PatientProfileClient({ data }: { data: any }) {
           </TabsContent>
 
           <TabsContent value="vitals" className="mt-6 space-y-6">
-            <div className="flex justify-between items-center">
+            <div className="flex flex-wrap justify-between items-center gap-3">
               <h2 className="text-xl font-bold text-slate-800">Checkup History</h2>
-              <Button onClick={() => setShowVitalForm(true)} className="bg-[#D48BA1] hover:bg-[#c47a90] font-bold rounded-xl shadow-md">
-                <Plus className="w-4 h-4 mr-2" /> Record Checkup
-              </Button>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => { setShowQuickVitals(true); setShowVitalForm(false) }}
+                  className="font-bold rounded-xl"
+                >
+                  <Plus className="w-4 h-4 mr-2" /> Vitals Only
+                </Button>
+                <Button onClick={() => { setShowVitalForm(true); setShowQuickVitals(false) }} className="bg-[#D48BA1] hover:bg-[#c47a90] font-bold rounded-xl shadow-md">
+                  <Plus className="w-4 h-4 mr-2" /> Full ANC Visit
+                </Button>
+              </div>
             </div>
+
+            {showQuickVitals && (
+              <Card className="border-2 border-slate-300 shadow-lg">
+                <CardHeader className="bg-slate-50 rounded-t-xl pb-4">
+                  <div className="flex justify-between items-center">
+                    <CardTitle>Record Vitals</CardTitle>
+                    <Button variant="ghost" size="sm" onClick={() => setShowQuickVitals(false)}>Cancel</Button>
+                  </div>
+                </CardHeader>
+                <CardContent className="p-6">
+                  <QuickVitalsForm
+                    pregnancyId={pregnancy.id}
+                    onComplete={() => { setShowQuickVitals(false); router.refresh() }}
+                  />
+                </CardContent>
+              </Card>
+            )}
             
             {showVitalForm && (
               <Card className="border-2 border-[#D48BA1] shadow-lg">
@@ -204,7 +234,7 @@ export default function PatientProfileClient({ data }: { data: any }) {
                   </div>
                 </CardHeader>
                 <CardContent className="p-6">
-                   <VitalForm pregnancyId={pregnancy.id} hospitalId={currentHospitalId || pregnancy.hospitalId} onComplete={() => setShowVitalForm(false)} />
+                   <VitalForm pregnancyId={pregnancy.id} hospitalId={currentHospitalId || pregnancy.hospitalId} onComplete={() => { setShowVitalForm(false); router.refresh() }} />
                 </CardContent>
               </Card>
             )}
@@ -281,20 +311,192 @@ export default function PatientProfileClient({ data }: { data: any }) {
             </Card>
           </TabsContent>
           
-          <TabsContent value="labs" className="mt-6">
+          <TabsContent value="labs" className="mt-6 space-y-6">
+            <div className="flex justify-between items-center">
+              <h2 className="text-xl font-bold text-slate-800">Labs & Imaging</h2>
+              <Button onClick={() => setShowLabForm(true)} className="bg-slate-900 hover:bg-slate-800 font-bold rounded-xl">
+                <FlaskConical className="w-4 h-4 mr-2" /> Add Lab / Scan
+              </Button>
+            </div>
+
+            {showLabForm && (
+              <Card className="border-2 border-slate-300 shadow-lg">
+                <CardHeader className="bg-slate-50 rounded-t-xl">
+                  <div className="flex justify-between items-center">
+                    <CardTitle>New Lab Test or Scan</CardTitle>
+                    <Button variant="ghost" size="sm" onClick={() => setShowLabForm(false)}>Cancel</Button>
+                  </div>
+                </CardHeader>
+                <CardContent className="p-6">
+                  <LabScanForm pregnancyId={pregnancy.id} onComplete={() => { setShowLabForm(false); router.refresh() }} />
+                </CardContent>
+              </Card>
+            )}
+
             <Card>
               <CardHeader>
-                <CardTitle>Lab Results</CardTitle>
-                <CardDescription>Recent tests and screenings</CardDescription>
+                <CardTitle>Lab Results & Scans</CardTitle>
+                <CardDescription>Visible to the patient on her dashboard and MCH book</CardDescription>
               </CardHeader>
               <CardContent>
-                <p className="text-slate-500 text-center py-6">No lab results found.</p>
+                {labs.length === 0 ? (
+                  <p className="text-slate-500 text-center py-6">No lab results or scans recorded yet.</p>
+                ) : (
+                  <div className="space-y-4">
+                    {labs.map((lab: any) => (
+                      <div key={lab.id} className="p-4 bg-slate-50 rounded-xl border border-slate-100">
+                        <div className="flex justify-between items-start">
+                          <p className="font-bold text-slate-900">{lab.testName}</p>
+                          <Badge variant="outline" className="capitalize">{lab.status}</Badge>
+                        </div>
+                        <p className="text-sm text-slate-600 mt-2">
+                          {lab.resultValue || 'Pending'}
+                          {lab.normalRange && <span className="text-slate-400"> (Ref: {lab.normalRange})</span>}
+                        </p>
+                        {lab.interpretation && <p className="text-xs text-slate-500 mt-1">{lab.interpretation}</p>}
+                        <p className="text-[10px] text-slate-400 font-bold mt-2 uppercase">
+                          {lab.resultDate ? `Result: ${formatDate(lab.resultDate)}` : 'Awaiting results'}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
         </Tabs>
       </div>
     </div>
+  )
+}
+
+function QuickVitalsForm({ pregnancyId, onComplete }: { pregnancyId: string; onComplete: () => void }) {
+  const [loading, setLoading] = useState(false)
+  const [form, setForm] = useState({
+    pregnancyId,
+    weight: '',
+    bpSystolic: '',
+    bpDiastolic: '',
+    heartRate: '',
+    notes: '',
+  })
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setLoading(true)
+    try {
+      const res = await recordVitals(form)
+      if (res.success) onComplete()
+      else alert(res.error || 'Failed to save vitals')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div>
+          <label className="block text-sm font-medium text-slate-700 mb-1">Weight (kg)</label>
+          <input type="number" step="0.1" required value={form.weight} onChange={e => setForm({ ...form, weight: e.target.value })} className="w-full border border-slate-200 rounded-lg p-2" />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-slate-700 mb-1">BP Systolic</label>
+          <input type="number" required value={form.bpSystolic} onChange={e => setForm({ ...form, bpSystolic: e.target.value })} className="w-full border border-slate-200 rounded-lg p-2" />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-slate-700 mb-1">BP Diastolic</label>
+          <input type="number" required value={form.bpDiastolic} onChange={e => setForm({ ...form, bpDiastolic: e.target.value })} className="w-full border border-slate-200 rounded-lg p-2" />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-slate-700 mb-1">Pulse (bpm)</label>
+          <input type="number" value={form.heartRate} onChange={e => setForm({ ...form, heartRate: e.target.value })} className="w-full border border-slate-200 rounded-lg p-2" />
+        </div>
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-slate-700 mb-1">Notes</label>
+        <textarea value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} className="w-full border border-slate-200 rounded-lg p-2 min-h-[80px]" />
+      </div>
+      <Button type="submit" disabled={loading} className="w-full bg-slate-900 text-white font-bold rounded-xl">
+        {loading ? 'Saving...' : 'Save Vitals'}
+      </Button>
+    </form>
+  )
+}
+
+function LabScanForm({ pregnancyId, onComplete }: { pregnancyId: string; onComplete: () => void }) {
+  const [loading, setLoading] = useState(false)
+  const [form, setForm] = useState({
+    pregnancyId,
+    testType: 'lab' as 'lab' | 'scan',
+    testName: '',
+    resultValue: '',
+    normalRange: '',
+    interpretation: '',
+    status: 'completed' as 'pending' | 'completed' | 'abnormal' | 'critical',
+    resultDate: '',
+  })
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setLoading(true)
+    try {
+      const res = await recordLabOrScan(form)
+      if (res.success) onComplete()
+      else alert(res.error || 'Failed to save')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <label className="block text-sm font-medium text-slate-700 mb-1">Type</label>
+          <select value={form.testType} onChange={e => setForm({ ...form, testType: e.target.value as 'lab' | 'scan' })} className="w-full border border-slate-200 rounded-lg p-2">
+            <option value="lab">Laboratory test</option>
+            <option value="scan">Ultrasound / scan</option>
+          </select>
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-slate-700 mb-1">Name</label>
+          <input required placeholder="e.g. Hemoglobin, Anatomy scan" value={form.testName} onChange={e => setForm({ ...form, testName: e.target.value })} className="w-full border border-slate-200 rounded-lg p-2" />
+        </div>
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <label className="block text-sm font-medium text-slate-700 mb-1">Result</label>
+          <input value={form.resultValue} onChange={e => setForm({ ...form, resultValue: e.target.value })} className="w-full border border-slate-200 rounded-lg p-2" placeholder="Leave empty if pending" />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-slate-700 mb-1">Reference range</label>
+          <input value={form.normalRange} onChange={e => setForm({ ...form, normalRange: e.target.value })} className="w-full border border-slate-200 rounded-lg p-2" />
+        </div>
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-slate-700 mb-1">Clinical interpretation</label>
+        <textarea value={form.interpretation} onChange={e => setForm({ ...form, interpretation: e.target.value })} className="w-full border border-slate-200 rounded-lg p-2 min-h-[80px]" />
+      </div>
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <label className="block text-sm font-medium text-slate-700 mb-1">Status</label>
+          <select value={form.status} onChange={e => setForm({ ...form, status: e.target.value as typeof form.status })} className="w-full border border-slate-200 rounded-lg p-2">
+            <option value="pending">Pending</option>
+            <option value="completed">Completed</option>
+            <option value="abnormal">Abnormal</option>
+            <option value="critical">Critical</option>
+          </select>
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-slate-700 mb-1">Result date</label>
+          <input type="date" value={form.resultDate} onChange={e => setForm({ ...form, resultDate: e.target.value })} className="w-full border border-slate-200 rounded-lg p-2" />
+        </div>
+      </div>
+      <Button type="submit" disabled={loading} className="w-full bg-slate-900 text-white font-bold rounded-xl">
+        {loading ? 'Saving...' : 'Save to patient record'}
+      </Button>
+    </form>
   )
 }
 
@@ -309,8 +511,13 @@ function VitalForm({ pregnancyId, hospitalId, onComplete }: { pregnancyId: strin
     heartRate: '',
     gestationalAge: '',
     fundalHeight: '',
-    fhr: '', // Fetal Heart Rate
+    fhr: '',
     presentation: '',
+    hemoglobin: '',
+    proteinuria: '',
+    edema: '',
+    findings: '',
+    recommendations: '',
     notes: '',
     nextVisitDate: ''
   })
@@ -373,15 +580,43 @@ function VitalForm({ pregnancyId, hospitalId, onComplete }: { pregnancyId: strin
       </div>
 
       <div className="border-t border-slate-100 pt-4">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <h4 className="font-semibold mb-3 text-slate-800">Additional assessments</h4>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
           <div>
-             <label className="block text-sm font-medium text-slate-700 mb-1">Clinical Notes</label>
-             <textarea value={formData.notes} onChange={e => setFormData({...formData, notes: e.target.value})} className="w-full border-slate-200 rounded-lg p-2 min-h-[100px]" placeholder="Any clinical findings or notes..." />
+            <label className="block text-sm font-medium text-slate-700 mb-1">Hemoglobin (g/dL)</label>
+            <input type="number" step="0.1" value={formData.hemoglobin} onChange={e => setFormData({...formData, hemoglobin: e.target.value})} className="w-full border-slate-200 rounded-lg p-2" />
           </div>
           <div>
-             <label className="block text-sm font-medium text-slate-700 mb-1">Schedule Next Visit</label>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Proteinuria</label>
+            <input value={formData.proteinuria} onChange={e => setFormData({...formData, proteinuria: e.target.value})} className="w-full border-slate-200 rounded-lg p-2" placeholder="Negative / Trace / +" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Edema</label>
+            <input value={formData.edema} onChange={e => setFormData({...formData, edema: e.target.value})} className="w-full border-slate-200 rounded-lg p-2" />
+          </div>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+             <label className="block text-sm font-medium text-slate-700 mb-1">Clinical findings</label>
+             <textarea value={formData.findings} onChange={e => setFormData({...formData, findings: e.target.value})} className="w-full border-slate-200 rounded-lg p-2 min-h-[80px]" />
+          </div>
+          <div>
+             <label className="block text-sm font-medium text-slate-700 mb-1">Recommendations / plan</label>
+             <textarea value={formData.recommendations} onChange={e => setFormData({...formData, recommendations: e.target.value})} className="w-full border-slate-200 rounded-lg p-2 min-h-[80px]" />
+          </div>
+        </div>
+      </div>
+
+      <div className="border-t border-slate-100 pt-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+             <label className="block text-sm font-medium text-slate-700 mb-1">Visit notes</label>
+             <textarea value={formData.notes} onChange={e => setFormData({...formData, notes: e.target.value})} className="w-full border-slate-200 rounded-lg p-2 min-h-[100px]" placeholder="Any additional notes..." />
+          </div>
+          <div>
+             <label className="block text-sm font-medium text-slate-700 mb-1">Schedule next visit</label>
              <input type="date" value={formData.nextVisitDate} onChange={e => setFormData({...formData, nextVisitDate: e.target.value})} className="w-full border-slate-200 rounded-lg p-2 mb-2" />
-             <p className="text-xs text-slate-500">Leaving this blank will not schedule a follow-up.</p>
+             <p className="text-xs text-slate-500">Leave blank to skip scheduling a follow-up.</p>
           </div>
         </div>
       </div>
