@@ -58,6 +58,8 @@ interface Patient {
   pregnancies: number
   status: 'active' | 'inactive'
   lastVisit: string
+  /** Active pregnancy record — used for /dashboard/hospital/patients/[id] */
+  pregnancyId?: string | null
 }
 
 export default function HospitalDashboardClient({ user, data }: { user: any, data: any }) {
@@ -75,15 +77,25 @@ export default function HospitalDashboardClient({ user, data }: { user: any, dat
     }
   }
 
-  const [patients, setPatients] = useState<Patient[]>(data?.patients?.map((p: any) => ({
-    id: p.id,
-    name: `${p.firstName || ''} ${p.lastName || ''}`.trim() || 'Anonymous',
-    email: p.email,
-    phone: p.phone,
-    pregnancies: 1, // Mock/aggregate as needed
-    status: p.isActive ? 'active' : 'inactive',
-    lastVisit: formatDate(p.updatedAt)
-  })) || [])
+  const mapPatientRow = (p: any, pregnancyList: any[]): Patient => {
+    const preg = (pregnancyList || []).find(
+      (pr) => (pr.patientUserId || pr.userId) === p.id
+    )
+    return {
+      id: p.id,
+      name: `${p.firstName || ''} ${p.lastName || ''}`.trim() || p.email || 'Anonymous',
+      email: p.email,
+      phone: p.phone,
+      pregnancies: preg ? 1 : 0,
+      status: p.isActive ? 'active' : 'inactive',
+      lastVisit: formatDate(p.updatedAt),
+      pregnancyId: preg?.id ?? null,
+    }
+  }
+
+  const [patients, setPatients] = useState<Patient[]>(
+    data?.patients?.map((p: any) => mapPatientRow(p, data?.pregnancies)) || []
+  )
   
   const mapPregnancies = (list: any[]): Pregnancy[] =>
     (list || []).map((p: any) => ({
@@ -138,18 +150,9 @@ export default function HospitalDashboardClient({ user, data }: { user: any, dat
   }
 
   useEffect(() => {
+    const pregnancyList = data?.pregnancies || []
     if (data?.patients) {
-      setPatients(
-        data.patients.map((p: any) => ({
-          id: p.id,
-          name: `${p.firstName || ''} ${p.lastName || ''}`.trim() || p.email || 'Patient',
-          email: p.email,
-          phone: p.phone,
-          pregnancies: 1,
-          status: p.isActive ? 'active' : 'inactive',
-          lastVisit: formatDate(p.updatedAt),
-        }))
-      )
+      setPatients(data.patients.map((p: any) => mapPatientRow(p, pregnancyList)))
     }
     if (data?.pregnancies) {
       setPregnancies(mapPregnancies(data.pregnancies))
@@ -480,13 +483,21 @@ export default function HospitalDashboardClient({ user, data }: { user: any, dat
                       </tr>
                     </thead>
                     <tbody>
-                      {patients.map((patient) => (
+                      {patients
+                        .filter(
+                          (patient) =>
+                            !searchTerm.trim() ||
+                            patient.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                            patient.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                            patient.phone?.includes(searchTerm)
+                        )
+                        .map((patient) => (
                         <tr key={patient.id} className="border-b hover:bg-gray-50">
                           <td className="p-3 font-medium">{patient.name}</td>
                           <td className="p-3">
                             <div className="flex items-center gap-2">
                               <Phone className="w-4 h-4 text-gray-400" />
-                              <span>{patient.phone}</span>
+                              <span>{patient.phone || '—'}</span>
                             </div>
                           </td>
                           <td className="p-3">{patient.pregnancies}</td>
@@ -497,9 +508,22 @@ export default function HospitalDashboardClient({ user, data }: { user: any, dat
                             </Badge>
                           </td>
                           <td className="p-3">
-                            <Button variant="outline" size="sm">
-                              View
-                            </Button>
+                            {patient.pregnancyId ? (
+                              <Link href={`/dashboard/hospital/patients/${patient.pregnancyId}`}>
+                                <Button variant="outline" size="sm">
+                                  View
+                                </Button>
+                              </Link>
+                            ) : (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                disabled
+                                title="No active pregnancy on file"
+                              >
+                                View
+                              </Button>
+                            )}
                           </td>
                         </tr>
                       ))}
