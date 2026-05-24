@@ -1,12 +1,13 @@
 'use server'
 
 import { db } from '@/lib/db'
-import { users, pregnancies, appointments, labTests, partnerAccess, messages, User, NewUser, NewPregnancy, NewMessage, hospitals, vitalSigns, previousPregnancies, deliveries, postnatalCare, children, immunizations, childGrowth, hospitalInvites, partnershipRequests } from '@/lib/db/schema'
+import { users, pregnancies, appointments, labTests, partnerAccess, messages, User, NewUser, NewPregnancy, NewMessage, hospitals, vitalSigns, previousPregnancies, deliveries, postnatalCare, children, immunizations, childGrowth, hospitalInvites, partnershipRequests, notifications } from '@/lib/db/schema'
 import { currentUser, clerkClient } from '@clerk/nextjs/server'
 import { HospitalDashboardData, DashboardData, Message } from '@/types'
 import { eq, desc, asc, and, or, sql, ilike, inArray } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 import { notifyPregnancyUpdate } from '@/lib/pusher-notify'
+import { notifyPatientForPregnancy } from '@/lib/patient-notifications'
 import { pusherServer } from '@/lib/pusher-server'
 import { ensureMCHSchema } from '@/lib/db/ensure-mch-schema'
 
@@ -156,6 +157,17 @@ export async function getPatientDashboardData(): Promise<DashboardData | null> {
       console.error('Error fetching recent lab tests:', e)
     }
 
+    let patientNotifications: any[] = []
+    try {
+      patientNotifications = await db.query.notifications.findMany({
+        where: eq(notifications.userId, dbUser.id),
+        orderBy: [desc(notifications.createdAt)],
+        limit: 30,
+      })
+    } catch (e) {
+      console.error('Error fetching notifications:', e)
+    }
+
     return {
       user: dbUser,
       pregnancy: {
@@ -167,6 +179,7 @@ export async function getPatientDashboardData(): Promise<DashboardData | null> {
       labs: recentLabs,
       vitals: recentVitals,
       careContact,
+      notifications: patientNotifications,
     }
   } catch (err) {
     console.error('CRITICAL ERROR in getPatientDashboardData:', err)
@@ -1140,11 +1153,30 @@ export async function sendMessage(receiverId: string, content: string, pregnancy
       status: 'sent',
     }).returning()
 
-    // Trigger Pusher event
-    await pusherServer.trigger(`chat-${receiverId}`, 'new-message', newMessage)
-    await pusherServer.trigger(`chat-${dbUser.id}`, 'new-message', newMessage)
+    const serialized = JSON.parse(JSON.stringify(newMessage))
 
-    return { success: true, message: newMessage }
+    try {
+      await pusherServer.trigger(`chat-${receiverId}`, 'new-message', serialized)
+      await pusherServer.trigger(`chat-${dbUser.id}`, 'new-message', serialized)
+    } catch (pusherErr) {
+      console.warn('Pusher chat trigger failed:', pusherErr)
+    }
+
+    if (pregnancyId) {
+      const pregnancy = await db.query.pregnancies.findFirst({
+        where: eq(pregnancies.id, pregnancyId),
+      })
+      if (pregnancy && pregnancy.userId === receiverId) {
+        await notifyPatientForPregnancy(
+          pregnancyId,
+          `New message from your care team: "${content.slice(0, 80)}${content.length > 80 ? '…' : ''}"`,
+          'message',
+          'message'
+        )
+      }
+    }
+
+    return { success: true, message: serialized }
   } catch (error) {
     console.error('Error sending message:', error)
     return { success: false, error: 'Failed to send message' }
@@ -1671,9 +1703,11 @@ export async function scheduleNextVisit(
       notes: notes?.trim() || 'Scheduled by hospital',
     }).returning()
 
-    await notifyPregnancyUpdate(
+    await notifyPatientForPregnancy(
       pregnancyId,
-      `Your next clinic visit is scheduled for ${visitDate.toLocaleDateString()}.`
+      `Your next clinic visit is scheduled for ${visitDate.toLocaleDateString()}.`,
+      'appointment',
+      'appointment'
     )
     revalidatePregnancyPaths(pregnancyId)
     revalidatePath('/dashboard/hospital')
@@ -1682,6 +1716,170 @@ export async function scheduleNextVisit(
   } catch (err: unknown) {
     console.error('scheduleNextVisit error:', err)
     return { success: false, error: 'Failed to schedule visit' }
+  }
+}
+
+/** Fetch notifications for the logged-in patient */
+export async function getPatientNotifications() {
+  const user = await currentUser()
+  if (!user) return []
+
+  const dbUser = await db.query.users.findFirst({
+    where: eq(users.clerkId, user.id),
+  })
+  if (!dbUser) return []
+
+  return db.query.notifications.findMany({
+    where: eq(notifications.userId, dbUser.id),
+    orderBy: [desc(notifications.createdAt)],
+    limit: 50,
+  })
+}
+
+export async function markNotificationsRead(notificationIds?: string[]) {
+  const user = await currentUser()
+  if (!user) return { success: false }
+
+  const dbUser = await db.query.users.findFirst({
+    where: eq(users.clerkId, user.id),
+  })
+  if (!dbUser) return { success: false }
+
+  if (notificationIds?.length) {
+    for (const id of notificationIds) {
+      await db
+        .update(notifications)
+        .set({ isRead: true })
+        .where(and(eq(notifications.id, id), eq(notifications.userId, dbUser.id)))
+    }
+  } else {
+    await db
+      .update(notifications)
+      .set({ isRead: true })
+      .where(eq(notifications.userId, dbUser.id))
+  }
+
+  revalidatePath('/dashboard/pregnant-woman')
+  return { success: true }
+}
+
+/** Active hospitals for locator (optional user coordinates for sorting) */
+export async function getHospitalsForLocator(userLat?: number, userLng?: number) {
+  await ensureMCHSchema()
+
+  const list = await db.query.hospitals.findMany({
+    where: eq(hospitals.isActive, true),
+    orderBy: [asc(hospitals.name)],
+  })
+
+  const withDistance = list.map((h) => {
+    let distanceKm: number | null = null
+    const lat = h.latitude != null ? parseFloat(String(h.latitude)) : null
+    const lng = h.longitude != null ? parseFloat(String(h.longitude)) : null
+
+    if (
+      userLat != null &&
+      userLng != null &&
+      lat != null &&
+      lng != null &&
+      !Number.isNaN(lat) &&
+      !Number.isNaN(lng)
+    ) {
+      const R = 6371
+      const dLat = ((lat - userLat) * Math.PI) / 180
+      const dLon = ((lng - userLng) * Math.PI) / 180
+      const a =
+        Math.sin(dLat / 2) ** 2 +
+        Math.cos((userLat * Math.PI) / 180) *
+          Math.cos((lat * Math.PI) / 180) *
+          Math.sin(dLon / 2) ** 2
+      distanceKm = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+    }
+
+    return {
+      ...h,
+      distanceKm,
+    }
+  })
+
+  withDistance.sort((a, b) => {
+    if (a.distanceKm != null && b.distanceKm != null) return a.distanceKm - b.distanceKm
+    if (a.distanceKm != null) return -1
+    if (b.distanceKm != null) return 1
+    return a.name.localeCompare(b.name)
+  })
+
+  return JSON.parse(JSON.stringify(withDistance))
+}
+
+/** Hospital admin adds midwife or hospital staff via Clerk invite + DB record */
+export async function addHospitalStaffMember(formData: {
+  firstName: string
+  lastName: string
+  email: string
+  phone?: string
+  role: 'midwife' | 'hospital_staff'
+}) {
+  try {
+    const { dbUser } = await requireClinicalStaff()
+    if (!dbUser.hospitalId) {
+      return { success: false, error: 'Complete your hospital profile before adding staff.' }
+    }
+
+    const emailLower = formData.email.trim().toLowerCase()
+    const existing = await db.query.users.findFirst({
+      where: eq(users.email, emailLower),
+    })
+
+    if (existing) {
+      await db
+        .update(users)
+        .set({
+          firstName: formData.firstName.trim(),
+          lastName: formData.lastName.trim(),
+          phone: formData.phone || existing.phone,
+          role: formData.role,
+          hospitalId: dbUser.hospitalId,
+          updatedAt: new Date(),
+        })
+        .where(eq(users.id, existing.id))
+    } else {
+      const inviteToken = `INV-STAFF-${Math.random().toString(36).substring(2, 10).toUpperCase()}`
+      await db.insert(users).values({
+        clerkId: inviteToken,
+        email: emailLower,
+        firstName: formData.firstName.trim(),
+        lastName: formData.lastName.trim(),
+        phone: formData.phone || null,
+        role: formData.role,
+        hospitalId: dbUser.hospitalId,
+        isVerified: false,
+      })
+    }
+
+    const origin = process.env.NEXT_PUBLIC_APP_URL || 'https://maternalcareplus.vercel.app'
+    try {
+      const client = await clerkClient()
+      await client.invitations.createInvitation({
+        emailAddress: emailLower,
+        redirectUrl: `${origin}/sign-up`,
+        publicMetadata: {
+          role: formData.role,
+          hospitalId: dbUser.hospitalId,
+          phone: formData.phone || '',
+        },
+        ignoreExisting: true,
+      })
+    } catch (clerkErr) {
+      console.warn('[addHospitalStaffMember] Clerk invite warning:', clerkErr)
+    }
+
+    revalidatePath('/dashboard/hospital')
+    return { success: true }
+  } catch (err: unknown) {
+    console.error('addHospitalStaffMember error:', err)
+    const message = err instanceof Error ? err.message : 'Failed to add staff'
+    return { success: false, error: message }
   }
 }
 

@@ -24,7 +24,6 @@ import {
   Copy,
   Check,
   Share2,
-  Plus,
   Moon,
   AlertCircle
 } from 'lucide-react'
@@ -37,7 +36,8 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 import ProgressChart from '@/components/dashboard/ProgressChart'
-import { generateFatherJoinCode } from '@/app/actions'
+import { generateFatherJoinCode, markNotificationsRead } from '@/app/actions'
+import NearestHospitalsDialog from '@/components/dashboard/NearestHospitalsDialog'
 import { pusherClient } from '@/lib/pusher-client'
 import { useRouter } from 'next/navigation'
 import { Sparkles as SparklesIcon } from 'lucide-react'
@@ -58,6 +58,7 @@ interface DashboardData {
   labs: any[]
   vitals: any[]
   careContact?: any
+  notifications?: any[]
 }
 
 export default function PregnantWomanClient({ user, data }: { user: any, data: DashboardData | null }) {
@@ -79,26 +80,32 @@ export default function PregnantWomanClient({ user, data }: { user: any, data: D
     daysToEdd = Math.max(diffDays, 0)
   }
 
-  // Real weight tracking data from vitals
+  const formatVitalDate = (d: string | Date) =>
+    new Date(d).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+
+  // Vitals from clinic — chart by visit date
   const weightData = (data?.vitals || [])
-    .map(v => ({ 
-      week: v.notes?.match(/Week (\d+)/)?.[1] || new Date(v.recordedDate).toLocaleDateString(), 
-      weight: parseFloat(v.weight as string) 
+    .filter((v) => v.weight != null && v.weight !== '')
+    .map((v) => ({
+      label: formatVitalDate(v.recordedDate),
+      weight: parseFloat(String(v.weight)),
     }))
     .reverse()
 
   const bpData = (data?.vitals || [])
-    .map(v => ({ 
-      date: new Date(v.recordedDate).toLocaleDateString(), 
+    .filter((v) => v.bloodPressureSystolic && v.bloodPressureDiastolic)
+    .map((v) => ({
+      label: formatVitalDate(v.recordedDate),
       systolic: v.bloodPressureSystolic,
-      diastolic: v.bloodPressureDiastolic
+      diastolic: v.bloodPressureDiastolic,
     }))
     .reverse()
 
   const heartRateData = (data?.vitals || [])
-    .map(v => ({ 
-      date: new Date(v.recordedDate).toLocaleDateString(), 
-      fhr: v.heartRate // Using heart rate field for FHR if recorded
+    .filter((v) => v.heartRate != null)
+    .map((v) => ({
+      label: formatVitalDate(v.recordedDate),
+      fhr: v.heartRate,
     }))
     .reverse()
 
@@ -106,36 +113,90 @@ export default function PregnantWomanClient({ user, data }: { user: any, data: D
   const [isGenerating, setIsGenerating] = useState(false)
   const [copied, setCopied] = useState(false)
   const [realtimeNotification, setRealtimeNotification] = useState<string | null>(null)
+  const [notificationList, setNotificationList] = useState<any[]>(data?.notifications || [])
   const router = useRouter()
 
+  const hospitalPhone = data?.pregnancy?.hospital?.phone as string | undefined
+  const registeredHospitalId = data?.pregnancy?.hospitalId as string | undefined
+
+  const formatTel = (phone?: string) => {
+    if (!phone) return null
+    const digits = phone.replace(/[^\d+]/g, '')
+    return digits ? `tel:${digits}` : null
+  }
+
+  const unreadCount = notificationList.filter((n) => !n.isRead).length
+
   useEffect(() => {
-    if (!data?.pregnancy?.id) return
+    if (data?.notifications) {
+      setNotificationList(data.notifications)
+    }
+  }, [data?.notifications])
+
+  useEffect(() => {
+    if (!data?.user?.id) return
     if (!process.env.NEXT_PUBLIC_PUSHER_APP_KEY || process.env.NEXT_PUBLIC_PUSHER_APP_KEY === 'dummy_key') {
       return
     }
 
-    const channelName = `pregnancy-${data.pregnancy.id}`
-    const channel = pusherClient.subscribe(channelName)
+    const pregnancyId = data?.pregnancy?.id
+    const userChannel = `user-${data.user.id}`
+    const userCh = pusherClient.subscribe(userChannel)
 
-    const onUpdate = (payload: { message?: string }) => {
-      setRealtimeNotification(
-        payload.message || 'Your health records were updated by your clinic.'
-      )
+    const onDbNotification = (payload: {
+      id?: string
+      title?: string
+      message?: string
+      type?: string
+      createdAt?: string
+      isRead?: boolean
+    }) => {
+      const entry = {
+        id: payload.id || `live-${Date.now()}`,
+        title: payload.title || 'Clinic update',
+        message: payload.message || 'Your records were updated.',
+        type: payload.type || 'clinical_update',
+        createdAt: payload.createdAt || new Date().toISOString(),
+        isRead: false,
+      }
+      setNotificationList((prev) => [entry, ...prev.filter((n) => n.id !== entry.id)])
+      setRealtimeNotification(entry.message)
       router.refresh()
-      setTimeout(() => setRealtimeNotification(null), 8000)
+      setTimeout(() => setRealtimeNotification(null), 10000)
     }
 
-    channel.bind('mch-update', onUpdate)
-    channel.bind('vitals-update', onUpdate)
-    channel.bind('labs-update', onUpdate)
+    userCh.bind('notification', onDbNotification)
+
+    let pregnancyCh: ReturnType<typeof pusherClient.subscribe> | null = null
+    const onPregnancyUpdate = (payload: { message?: string }) => {
+      setRealtimeNotification(payload.message || 'Your health records were updated by your clinic.')
+      router.refresh()
+      setTimeout(() => setRealtimeNotification(null), 10000)
+    }
+
+    if (pregnancyId) {
+      pregnancyCh = pusherClient.subscribe(`pregnancy-${pregnancyId}`)
+      pregnancyCh.bind('mch-update', onPregnancyUpdate)
+      pregnancyCh.bind('vitals-update', onPregnancyUpdate)
+      pregnancyCh.bind('labs-update', onPregnancyUpdate)
+    }
 
     return () => {
-      channel.unbind('mch-update', onUpdate)
-      channel.unbind('vitals-update', onUpdate)
-      channel.unbind('labs-update', onUpdate)
-      pusherClient.unsubscribe(channelName)
+      userCh.unbind('notification', onDbNotification)
+      pusherClient.unsubscribe(userChannel)
+      if (pregnancyCh && pregnancyId) {
+        pregnancyCh.unbind('mch-update', onPregnancyUpdate)
+        pregnancyCh.unbind('vitals-update', onPregnancyUpdate)
+        pregnancyCh.unbind('labs-update', onPregnancyUpdate)
+        pusherClient.unsubscribe(`pregnancy-${pregnancyId}`)
+      }
     }
-  }, [data?.pregnancy?.id, router])
+  }, [data?.pregnancy?.id, data?.user?.id, router])
+
+  const handleOpenNotifications = async () => {
+    await markNotificationsRead()
+    setNotificationList((prev) => prev.map((n) => ({ ...n, isRead: true })))
+  }
 
   useEffect(() => {
     if (data?.pregnancy) {
@@ -167,8 +228,8 @@ export default function PregnantWomanClient({ user, data }: { user: any, data: D
   }
 
   return (
-    <div className="min-h-screen bg-background p-4 md:p-8">
-      <div className="max-w-7xl mx-auto space-y-8">
+    <div className="min-h-screen bg-background p-4 md:p-8 overflow-x-hidden">
+      <div className="max-w-7xl mx-auto space-y-8 w-full min-w-0">
         
         {/* Header Section */}
         <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
@@ -184,35 +245,51 @@ export default function PregnantWomanClient({ user, data }: { user: any, data: D
               </Link>
             </Button>
             
-            <Dialog>
+            <Dialog onOpenChange={(open) => open && handleOpenNotifications()}>
               <DialogTrigger asChild>
-                <Button variant="outline" className="rounded-full shadow-sm bg-white border-muted w-full sm:w-auto">
+                <Button variant="outline" className="rounded-full shadow-sm bg-white border-muted w-full sm:w-auto relative">
                   <Bell className="w-4 h-4 mr-2" />
                   Notifications
+                  {unreadCount > 0 && (
+                    <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-[#D48BA1] text-white text-[10px] font-bold flex items-center justify-center">
+                      {unreadCount > 9 ? '9+' : unreadCount}
+                    </span>
+                  )}
                 </Button>
               </DialogTrigger>
-              <DialogContent className="sm:max-w-md">
+              <DialogContent className="sm:max-w-md max-h-[80vh] flex flex-col">
                 <DialogHeader>
                   <DialogTitle>Notifications</DialogTitle>
-                  <DialogDescription>
-                    Your recent alerts and updates
-                  </DialogDescription>
+                  <DialogDescription>Updates from your hospital and care team</DialogDescription>
                 </DialogHeader>
-                <div className="space-y-4 py-4">
-                  {realtimeNotification ? (
-                    <div className="flex items-start gap-3 p-3 bg-emerald-50 rounded-xl border border-emerald-100">
-                      <div className="bg-emerald-500 p-2 rounded-full text-white mt-0.5">
-                        <SparklesIcon className="w-4 h-4" />
+                <div className="space-y-3 py-2 overflow-y-auto flex-1 min-h-0">
+                  {notificationList.length > 0 ? (
+                    notificationList.map((n) => (
+                      <div
+                        key={n.id}
+                        className={`flex items-start gap-3 p-3 rounded-xl border ${
+                          n.isRead
+                            ? 'bg-slate-50 border-slate-100'
+                            : 'bg-emerald-50 border-emerald-100'
+                        }`}
+                      >
+                        <div className={`p-2 rounded-full text-white mt-0.5 shrink-0 ${n.isRead ? 'bg-slate-400' : 'bg-emerald-500'}`}>
+                          <SparklesIcon className="w-4 h-4" />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="font-semibold text-sm text-slate-900">{n.title}</p>
+                          <p className="text-sm text-slate-600 mt-0.5">{n.message}</p>
+                          <p className="text-[10px] text-slate-400 font-bold mt-1 uppercase">
+                            {n.createdAt ? new Date(n.createdAt).toLocaleString() : ''}
+                          </p>
+                        </div>
                       </div>
-                      <div>
-                        <p className="font-semibold text-sm text-emerald-900">New Update</p>
-                        <p className="text-sm text-emerald-700">{realtimeNotification}</p>
-                      </div>
-                    </div>
+                    ))
                   ) : (
                     <div className="text-center py-6 text-gray-500">
                       <Bell className="w-8 h-8 mx-auto mb-2 opacity-20" />
-                      <p className="text-sm">No new notifications</p>
+                      <p className="text-sm">No notifications yet</p>
+                      <p className="text-xs mt-1">You will be alerted when your clinic updates your records.</p>
                     </div>
                   )}
                 </div>
@@ -309,82 +386,120 @@ export default function PregnantWomanClient({ user, data }: { user: any, data: D
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           
           {/* Main Content Area */}
-          <div className="lg:col-span-2 space-y-8">
+          <div className="lg:col-span-2 space-y-8 min-w-0">
             
             {/* Health Metrics & Charts */}
-            <Card className="border-none shadow-lg">
-              <CardHeader className="flex flex-row items-center justify-between">
-                <div>
-                  <CardTitle>Health Tracking</CardTitle>
-                  <CardDescription>Monitor your vitals throughout the pregnancy</CardDescription>
+            <Card className="border-none shadow-lg overflow-hidden min-w-0">
+              <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between pb-2">
+                <div className="min-w-0">
+                  <CardTitle className="text-xl">Health Tracking</CardTitle>
+                  <CardDescription className="text-sm">
+                    Vitals recorded by your clinic at each visit
+                  </CardDescription>
                 </div>
-                <Button variant="ghost" size="sm" className="text-secondary hover:text-secondary/80 hover:bg-secondary/5 transition-colors">
-                  <Plus className="w-4 h-4 mr-1" />
-                  Record Vitals
+                <Button asChild variant="outline" size="sm" className="shrink-0 w-full sm:w-auto rounded-xl border-slate-200">
+                  <Link href="/dashboard/pregnant-woman/digital-mch-book">
+                    <BookOpen className="w-4 h-4 mr-1.5" />
+                    View full records
+                  </Link>
                 </Button>
               </CardHeader>
-              <CardContent>
-                <Tabs defaultValue="weight">
-                  <TabsList className="mb-6">
-                    <TabsTrigger value="weight">Weight (kg)</TabsTrigger>
-                    <TabsTrigger value="bp">Blood Pressure</TabsTrigger>
-                    <TabsTrigger value="heart">Fetal Heart Rate</TabsTrigger>
+              <CardContent className="min-w-0 pt-0">
+                <Tabs defaultValue="weight" className="w-full min-w-0">
+                  <TabsList className="mb-4 w-full h-auto p-1 grid grid-cols-3 gap-1 bg-slate-100/80">
+                    <TabsTrigger
+                      value="weight"
+                      className="text-[11px] sm:text-xs px-1 sm:px-2 py-2 leading-tight whitespace-normal text-center data-[state=active]:shadow-sm"
+                    >
+                      Weight
+                    </TabsTrigger>
+                    <TabsTrigger
+                      value="bp"
+                      className="text-[11px] sm:text-xs px-1 sm:px-2 py-2 leading-tight whitespace-normal text-center data-[state=active]:shadow-sm"
+                    >
+                      Blood pressure
+                    </TabsTrigger>
+                    <TabsTrigger
+                      value="heart"
+                      className="text-[11px] sm:text-xs px-1 sm:px-2 py-2 leading-tight whitespace-normal text-center data-[state=active]:shadow-sm"
+                    >
+                      Fetal heart rate
+                    </TabsTrigger>
                   </TabsList>
-                  
-                  <TabsContent value="weight" className="pt-4">
-                    <ProgressChart 
-                      title="Weight Tracking"
-                      description="Your weight gain journey over time"
+
+                  <TabsContent value="weight" className="mt-0 min-w-0 focus-visible:outline-none">
+                    <ProgressChart
+                      embedded
+                      title="Weight tracking"
+                      description="Recorded at clinic visits (kg)"
                       data={weightData}
                       dataKey="weight"
-                      xAxisKey="week"
+                      xAxisKey="label"
+                      xAxisLabel="Visit date"
                       unit=" kg"
                       color="hsl(330, 81%, 60%)"
                     />
                   </TabsContent>
 
-                  <TabsContent value="bp" className="pt-4">
+                  <TabsContent value="bp" className="mt-0 min-w-0 focus-visible:outline-none">
                     {bpData.length > 0 ? (
-                      <div className="h-[300px]">
+                      <div className="min-w-0 w-full h-[220px] sm:h-[250px]">
                         <ResponsiveContainer width="100%" height="100%">
-                          <LineChart data={bpData}>
+                          <LineChart data={bpData} margin={{ top: 8, right: 12, left: 4, bottom: 4 }}>
                             <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                            <XAxis dataKey="date" />
-                            <YAxis />
+                            <XAxis
+                              dataKey="label"
+                              tick={{ fontSize: 10 }}
+                              interval="preserveStartEnd"
+                              tickMargin={8}
+                            />
+                            <YAxis width={36} tick={{ fontSize: 10 }} />
                             <Tooltip />
-                            <Line type="monotone" dataKey="systolic" stroke="#ef4444" name="Systolic" strokeWidth={2} />
-                            <Line type="monotone" dataKey="diastolic" stroke="#3b82f6" name="Diastolic" strokeWidth={2} />
+                            <Line type="monotone" dataKey="systolic" stroke="#ef4444" name="Systolic" strokeWidth={2} dot={{ r: 3 }} />
+                            <Line type="monotone" dataKey="diastolic" stroke="#3b82f6" name="Diastolic" strokeWidth={2} dot={{ r: 3 }} />
                           </LineChart>
                         </ResponsiveContainer>
                       </div>
                     ) : (
-                      <div className="h-[300px] flex items-center justify-center text-gray-500 bg-gray-50 rounded-xl">
+                      <div className="h-[220px] flex items-center justify-center text-gray-500 bg-slate-50 rounded-xl border border-slate-100 px-4">
                         <div className="text-center">
-                          <Activity className="w-12 h-12 mx-auto mb-3 opacity-20" />
-                          <p>Start recording your BP to see trends</p>
+                          <Activity className="w-10 h-10 mx-auto mb-2 opacity-30" />
+                          <p className="text-sm">Blood pressure will appear after your clinic records a visit.</p>
                         </div>
                       </div>
                     )}
                   </TabsContent>
 
-                  <TabsContent value="heart" className="pt-4">
+                  <TabsContent value="heart" className="mt-0 min-w-0 focus-visible:outline-none">
                     {heartRateData.length > 0 ? (
-                        <div className="h-[300px]">
-                          <ResponsiveContainer width="100%" height="100%">
-                            <LineChart data={heartRateData}>
-                              <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                              <XAxis dataKey="date" />
-                              <YAxis domain={['auto', 'auto']} />
-                              <Tooltip />
-                              <Line type="monotone" dataKey="fhr" stroke="#ec4899" name="Fetal Heart Rate" strokeWidth={3} dot={{ r: 4 }} />
-                            </LineChart>
-                          </ResponsiveContainer>
-                        </div>
+                      <div className="min-w-0 w-full h-[220px] sm:h-[250px]">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <LineChart data={heartRateData} margin={{ top: 8, right: 12, left: 4, bottom: 4 }}>
+                            <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                            <XAxis
+                              dataKey="label"
+                              tick={{ fontSize: 10 }}
+                              interval="preserveStartEnd"
+                              tickMargin={8}
+                            />
+                            <YAxis width={36} domain={['auto', 'auto']} tick={{ fontSize: 10 }} />
+                            <Tooltip />
+                            <Line
+                              type="monotone"
+                              dataKey="fhr"
+                              stroke="#ec4899"
+                              name="bpm"
+                              strokeWidth={2}
+                              dot={{ r: 4 }}
+                            />
+                          </LineChart>
+                        </ResponsiveContainer>
+                      </div>
                     ) : (
-                      <div className="h-[300px] flex items-center justify-center text-gray-500 bg-gray-50 rounded-xl">
+                      <div className="h-[220px] flex items-center justify-center text-gray-500 bg-slate-50 rounded-xl border border-slate-100 px-4">
                         <div className="text-center">
-                          <TrendingUp className="w-12 h-12 mx-auto mb-3 opacity-20" />
-                          <p>Fetal heart rate tracking will appear here</p>
+                          <TrendingUp className="w-10 h-10 mx-auto mb-2 opacity-30" />
+                          <p className="text-sm">Fetal heart rate will appear when recorded at a visit.</p>
                         </div>
                       </div>
                     )}
@@ -583,13 +698,33 @@ export default function PregnantWomanClient({ user, data }: { user: any, data: D
                 <h3 className="text-lg font-bold mb-4">Emergency Support</h3>
                 <p className="text-pink-50 text-sm mb-6 font-medium">Need immediate medical advice or have an emergency?</p>
                 <div className="space-y-3">
-                  <Button className="w-full bg-white text-secondary hover:bg-slate-50 hover:text-secondary font-bold transition-all duration-300 shadow-sm border border-transparent">
-                    <Phone className="w-4 h-4 mr-2" />
-                    Call Nurse Line
-                  </Button>
-                  <Button variant="outline" className="w-full border-white/50 bg-transparent text-white hover:bg-white hover:text-secondary font-bold shadow-sm transition-all duration-300">
-                    Find Nearest Hospital
-                  </Button>
+                  {formatTel(hospitalPhone) ? (
+                    <Button
+                      asChild
+                      className="w-full bg-white text-secondary hover:bg-slate-50 hover:text-secondary font-bold transition-all duration-300 shadow-sm border border-transparent"
+                    >
+                      <a href={formatTel(hospitalPhone)!}>
+                        <Phone className="w-4 h-4 mr-2" />
+                        Call {data?.pregnancy?.hospital?.name || 'your hospital'}
+                      </a>
+                    </Button>
+                  ) : (
+                    <p className="text-xs text-pink-100/90 text-center px-2">
+                      Hospital phone not on file — use Find Nearest Hospital below.
+                    </p>
+                  )}
+                  <NearestHospitalsDialog
+                    registeredHospitalId={registeredHospitalId}
+                    trigger={
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="w-full border-white/50 bg-transparent text-white hover:bg-white hover:text-secondary font-bold shadow-sm transition-all duration-300"
+                      >
+                        Find Nearest Hospital
+                      </Button>
+                    }
+                  />
                 </div>
               </CardContent>
             </Card>

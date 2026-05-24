@@ -5,6 +5,7 @@ export interface DashboardData {
   labs: any[]
   vitals: any[]
   careContact?: any
+  notifications?: any[]
 }
 
 export interface HospitalDashboardData {

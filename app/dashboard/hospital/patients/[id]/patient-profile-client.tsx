@@ -9,6 +9,12 @@ import { Button } from '@/components/ui/button'
 import { ArrowLeft, Activity, Calendar as CalendarIcon, FileText, Plus, BookOpen, Users, FlaskConical, MessageCircle } from 'lucide-react'
 import Link from 'next/link'
 import { recordAntenatalVisit, recordVitals, recordLabOrScan, assignMidwifeToPregnancy, scheduleNextVisit } from '@/app/actions'
+import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
+import { Label } from '@/components/ui/label'
+
+const clinicalFieldClass =
+  'bg-white border-slate-300 text-slate-900 shadow-sm focus-visible:ring-[#D48BA1] focus-visible:border-[#D48BA1]'
 
 export default function PatientProfileClient({ data }: { data: any }) {
   const { patient, pregnancy, vitals, appointments, labs, onboardingHospital, currentHospitalId, availableMidwives } = data
@@ -411,20 +417,20 @@ function ScheduleVisitForm({ pregnancyId, onComplete }: { pregnancyId: string; o
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col sm:flex-row gap-3">
-      <input
+      <Input
         type="date"
         required
         value={date}
         onChange={(e) => setDate(e.target.value)}
         min={new Date().toISOString().split('T')[0]}
-        className="flex-1 border border-slate-200 rounded-lg p-2.5"
+        className={`flex-1 ${clinicalFieldClass}`}
       />
-      <input
+      <Input
         type="text"
         placeholder="Visit notes (optional)"
         value={notes}
         onChange={(e) => setNotes(e.target.value)}
-        className="flex-[2] border border-slate-200 rounded-lg p-2.5"
+        className={`flex-[2] ${clinicalFieldClass}`}
       />
       <Button type="submit" disabled={loading} className="bg-[#D48BA1] hover:bg-[#c47a90] font-bold shrink-0">
         {loading ? 'Saving...' : 'Schedule'}
@@ -458,27 +464,27 @@ function QuickVitalsForm({ pregnancyId, onComplete }: { pregnancyId: string; onC
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">Weight (kg)</label>
-          <input type="number" step="0.1" required value={form.weight} onChange={e => setForm({ ...form, weight: e.target.value })} className="w-full border border-slate-200 rounded-lg p-2" />
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="space-y-1.5">
+          <Label>Weight (kg)</Label>
+          <Input type="number" step="0.1" required value={form.weight} onChange={(e) => setForm({ ...form, weight: e.target.value })} className={clinicalFieldClass} />
         </div>
-        <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">BP Systolic</label>
-          <input type="number" required value={form.bpSystolic} onChange={e => setForm({ ...form, bpSystolic: e.target.value })} className="w-full border border-slate-200 rounded-lg p-2" />
+        <div className="space-y-1.5">
+          <Label>BP Systolic</Label>
+          <Input type="number" required value={form.bpSystolic} onChange={(e) => setForm({ ...form, bpSystolic: e.target.value })} className={clinicalFieldClass} />
         </div>
-        <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">BP Diastolic</label>
-          <input type="number" required value={form.bpDiastolic} onChange={e => setForm({ ...form, bpDiastolic: e.target.value })} className="w-full border border-slate-200 rounded-lg p-2" />
+        <div className="space-y-1.5">
+          <Label>BP Diastolic</Label>
+          <Input type="number" required value={form.bpDiastolic} onChange={(e) => setForm({ ...form, bpDiastolic: e.target.value })} className={clinicalFieldClass} />
         </div>
-        <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">Pulse (bpm)</label>
-          <input type="number" value={form.heartRate} onChange={e => setForm({ ...form, heartRate: e.target.value })} className="w-full border border-slate-200 rounded-lg p-2" />
+        <div className="space-y-1.5">
+          <Label>Pulse (bpm)</Label>
+          <Input type="number" value={form.heartRate} onChange={(e) => setForm({ ...form, heartRate: e.target.value })} className={clinicalFieldClass} />
         </div>
       </div>
-      <div>
-        <label className="block text-sm font-medium text-slate-700 mb-1">Notes</label>
-        <textarea value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} className="w-full border border-slate-200 rounded-lg p-2 min-h-[80px]" />
+      <div className="space-y-1.5">
+        <Label>Notes</Label>
+        <Textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} className={`min-h-[80px] ${clinicalFieldClass}`} />
       </div>
       <Button type="submit" disabled={loading} className="w-full bg-slate-900 text-white font-bold rounded-xl">
         {loading ? 'Saving...' : 'Save Vitals'}
@@ -605,86 +611,178 @@ function VitalForm({ pregnancyId, hospitalId, onComplete }: { pregnancyId: strin
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">Weight (kg)</label>
-          <input type="number" step="0.1" required value={formData.weight} onChange={e => setFormData({...formData, weight: e.target.value})} className="w-full border-slate-200 rounded-lg p-2" />
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="space-y-1.5">
+          <Label htmlFor="weight">Weight (kg)</Label>
+          <Input
+            id="weight"
+            type="number"
+            step="0.1"
+            required
+            value={formData.weight}
+            onChange={(e) => setFormData({ ...formData, weight: e.target.value })}
+            className={clinicalFieldClass}
+          />
         </div>
-        <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">BP Systolic</label>
-          <input type="number" required value={formData.bpSystolic} onChange={e => setFormData({...formData, bpSystolic: e.target.value})} className="w-full border-slate-200 rounded-lg p-2" />
+        <div className="space-y-1.5">
+          <Label htmlFor="bpSystolic">BP Systolic</Label>
+          <Input
+            id="bpSystolic"
+            type="number"
+            required
+            value={formData.bpSystolic}
+            onChange={(e) => setFormData({ ...formData, bpSystolic: e.target.value })}
+            className={clinicalFieldClass}
+          />
         </div>
-        <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">BP Diastolic</label>
-          <input type="number" required value={formData.bpDiastolic} onChange={e => setFormData({...formData, bpDiastolic: e.target.value})} className="w-full border-slate-200 rounded-lg p-2" />
+        <div className="space-y-1.5">
+          <Label htmlFor="bpDiastolic">BP Diastolic</Label>
+          <Input
+            id="bpDiastolic"
+            type="number"
+            required
+            value={formData.bpDiastolic}
+            onChange={(e) => setFormData({ ...formData, bpDiastolic: e.target.value })}
+            className={clinicalFieldClass}
+          />
         </div>
-        <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">Heart Rate (bpm)</label>
-          <input type="number" value={formData.heartRate} onChange={e => setFormData({...formData, heartRate: e.target.value})} className="w-full border-slate-200 rounded-lg p-2" />
+        <div className="space-y-1.5">
+          <Label htmlFor="heartRate">Heart Rate (bpm)</Label>
+          <Input
+            id="heartRate"
+            type="number"
+            value={formData.heartRate}
+            onChange={(e) => setFormData({ ...formData, heartRate: e.target.value })}
+            className={clinicalFieldClass}
+          />
         </div>
       </div>
-      
-      <div className="border-t border-slate-100 pt-4">
-        <h4 className="font-semibold mb-3 text-slate-800">Fetal Assessment</h4>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Gestational Age (wks)</label>
-            <input type="number" required value={formData.gestationalAge} onChange={e => setFormData({...formData, gestationalAge: e.target.value})} className="w-full border-slate-200 rounded-lg p-2" />
+
+      <div className="border-t border-slate-200 pt-5">
+        <h4 className="font-semibold mb-4 text-slate-800">Fetal Assessment</h4>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="space-y-1.5">
+            <Label htmlFor="gestationalAge">Gestational Age (wks)</Label>
+            <Input
+              id="gestationalAge"
+              type="number"
+              required
+              value={formData.gestationalAge}
+              onChange={(e) => setFormData({ ...formData, gestationalAge: e.target.value })}
+              className={clinicalFieldClass}
+            />
           </div>
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Fundal Height (cm)</label>
-            <input type="number" step="0.1" value={formData.fundalHeight} onChange={e => setFormData({...formData, fundalHeight: e.target.value})} className="w-full border-slate-200 rounded-lg p-2" />
+          <div className="space-y-1.5">
+            <Label htmlFor="fundalHeight">Fundal Height (cm)</Label>
+            <Input
+              id="fundalHeight"
+              type="number"
+              step="0.1"
+              value={formData.fundalHeight}
+              onChange={(e) => setFormData({ ...formData, fundalHeight: e.target.value })}
+              className={clinicalFieldClass}
+            />
           </div>
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Fetal Heart Rate</label>
-            <input type="number" value={formData.fhr} onChange={e => setFormData({...formData, fhr: e.target.value})} className="w-full border-slate-200 rounded-lg p-2" />
+          <div className="space-y-1.5">
+            <Label htmlFor="fhr">Fetal Heart Rate</Label>
+            <Input
+              id="fhr"
+              type="number"
+              value={formData.fhr}
+              onChange={(e) => setFormData({ ...formData, fhr: e.target.value })}
+              className={clinicalFieldClass}
+            />
           </div>
         </div>
       </div>
 
-      <div className="border-t border-slate-100 pt-4">
-        <h4 className="font-semibold mb-3 text-slate-800">Additional assessments</h4>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Hemoglobin (g/dL)</label>
-            <input type="number" step="0.1" value={formData.hemoglobin} onChange={e => setFormData({...formData, hemoglobin: e.target.value})} className="w-full border-slate-200 rounded-lg p-2" />
+      <div className="border-t border-slate-200 pt-5">
+        <h4 className="font-semibold mb-4 text-slate-800">Additional assessments</h4>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
+          <div className="space-y-1.5">
+            <Label htmlFor="hemoglobin">Hemoglobin (g/dL)</Label>
+            <Input
+              id="hemoglobin"
+              type="number"
+              step="0.1"
+              value={formData.hemoglobin}
+              onChange={(e) => setFormData({ ...formData, hemoglobin: e.target.value })}
+              className={clinicalFieldClass}
+            />
           </div>
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Proteinuria</label>
-            <input value={formData.proteinuria} onChange={e => setFormData({...formData, proteinuria: e.target.value})} className="w-full border-slate-200 rounded-lg p-2" placeholder="Negative / Trace / +" />
+          <div className="space-y-1.5">
+            <Label htmlFor="proteinuria">Proteinuria</Label>
+            <Input
+              id="proteinuria"
+              value={formData.proteinuria}
+              onChange={(e) => setFormData({ ...formData, proteinuria: e.target.value })}
+              placeholder="Negative / Trace / +"
+              className={clinicalFieldClass}
+            />
           </div>
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Edema</label>
-            <input value={formData.edema} onChange={e => setFormData({...formData, edema: e.target.value})} className="w-full border-slate-200 rounded-lg p-2" />
+          <div className="space-y-1.5">
+            <Label htmlFor="edema">Edema</Label>
+            <Input
+              id="edema"
+              value={formData.edema}
+              onChange={(e) => setFormData({ ...formData, edema: e.target.value })}
+              className={clinicalFieldClass}
+            />
           </div>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-             <label className="block text-sm font-medium text-slate-700 mb-1">Clinical findings</label>
-             <textarea value={formData.findings} onChange={e => setFormData({...formData, findings: e.target.value})} className="w-full border-slate-200 rounded-lg p-2 min-h-[80px]" />
+          <div className="space-y-1.5">
+            <Label htmlFor="findings">Clinical findings</Label>
+            <Textarea
+              id="findings"
+              value={formData.findings}
+              onChange={(e) => setFormData({ ...formData, findings: e.target.value })}
+              className={`min-h-[88px] ${clinicalFieldClass}`}
+            />
           </div>
-          <div>
-             <label className="block text-sm font-medium text-slate-700 mb-1">Recommendations / plan</label>
-             <textarea value={formData.recommendations} onChange={e => setFormData({...formData, recommendations: e.target.value})} className="w-full border-slate-200 rounded-lg p-2 min-h-[80px]" />
+          <div className="space-y-1.5">
+            <Label htmlFor="recommendations">Recommendations / plan</Label>
+            <Textarea
+              id="recommendations"
+              value={formData.recommendations}
+              onChange={(e) => setFormData({ ...formData, recommendations: e.target.value })}
+              className={`min-h-[88px] ${clinicalFieldClass}`}
+            />
           </div>
         </div>
       </div>
 
-      <div className="border-t border-slate-100 pt-4">
+      <div className="border-t border-slate-200 pt-5">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-             <label className="block text-sm font-medium text-slate-700 mb-1">Visit notes</label>
-             <textarea value={formData.notes} onChange={e => setFormData({...formData, notes: e.target.value})} className="w-full border-slate-200 rounded-lg p-2 min-h-[100px]" placeholder="Any additional notes..." />
+          <div className="space-y-1.5">
+            <Label htmlFor="notes">Visit notes</Label>
+            <Textarea
+              id="notes"
+              value={formData.notes}
+              onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+              placeholder="Any additional notes..."
+              className={`min-h-[100px] ${clinicalFieldClass}`}
+            />
           </div>
-          <div>
-             <label className="block text-sm font-medium text-slate-700 mb-1">Schedule next visit</label>
-             <input type="date" value={formData.nextVisitDate} onChange={e => setFormData({...formData, nextVisitDate: e.target.value})} className="w-full border-slate-200 rounded-lg p-2 mb-2" />
-             <p className="text-xs text-slate-500">Leave blank to skip scheduling a follow-up.</p>
+          <div className="space-y-1.5">
+            <Label htmlFor="nextVisitDate">Schedule next visit</Label>
+            <Input
+              id="nextVisitDate"
+              type="date"
+              value={formData.nextVisitDate}
+              onChange={(e) => setFormData({ ...formData, nextVisitDate: e.target.value })}
+              className={clinicalFieldClass}
+            />
+            <p className="text-xs text-slate-500">Leave blank to skip scheduling a follow-up.</p>
           </div>
         </div>
       </div>
 
-      <Button type="submit" disabled={loading} className="w-full bg-[#D48BA1] hover:bg-[#c47a90] text-white font-bold py-3 rounded-xl shadow-md">
+      <Button
+        type="submit"
+        disabled={loading}
+        className="w-full bg-[#D48BA1] hover:bg-[#c47a90] text-white font-bold py-3 rounded-xl shadow-md"
+      >
         {loading ? 'Saving...' : 'Save Checkup Record'}
       </Button>
     </form>

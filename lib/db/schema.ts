@@ -40,6 +40,8 @@ export const hospitals = pgTable('hospitals', {
   phone: text('phone').notNull(),
   email: text('email'),
   type: text('type').notNull(), // Hospital, Health Center, Clinic
+  latitude: decimal('latitude', { precision: 9, scale: 6 }),
+  longitude: decimal('longitude', { precision: 9, scale: 6 }),
   isActive: boolean('is_active').default(true),
   isVerified: boolean('is_verified').default(false),
   createdAt: timestamp('created_at').defaultNow(),

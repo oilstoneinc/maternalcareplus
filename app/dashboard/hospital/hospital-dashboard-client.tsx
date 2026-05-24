@@ -7,7 +7,16 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import Link from 'next/link'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
-import { searchGlobalPatients, scheduleNextVisit, assignMidwifeToPregnancy } from '@/app/actions'
+import { searchGlobalPatients, scheduleNextVisit, assignMidwifeToPregnancy, addHospitalStaffMember } from '@/app/actions'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import { useRouter } from 'next/navigation'
 import { 
   Users, 
@@ -96,6 +105,15 @@ export default function HospitalDashboardClient({ user, data }: { user: any, dat
   const [pregnancies, setPregnancies] = useState<Pregnancy[]>(mapPregnancies(data?.pregnancies))
   const [searchTerm, setSearchTerm] = useState('')
   const [showOnboarding, setShowOnboarding] = useState(false)
+  const [showAddStaff, setShowAddStaff] = useState(false)
+  const [staffSaving, setStaffSaving] = useState(false)
+  const [staffForm, setStaffForm] = useState({
+    firstName: '',
+    lastName: '',
+    email: '',
+    phone: '',
+    role: 'midwife' as 'midwife' | 'hospital_staff',
+  })
 
   // National Patient Registry Search states
   const [globalSearchTerm, setGlobalSearchTerm] = useState('')
@@ -149,6 +167,28 @@ export default function HospitalDashboardClient({ user, data }: { user: any, dat
 
   const refreshDashboard = () => router.refresh()
 
+  const handleAddStaff = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!staffForm.firstName.trim() || !staffForm.lastName.trim() || !staffForm.email.trim()) {
+      alert('First name, last name, and email are required.')
+      return
+    }
+    setStaffSaving(true)
+    try {
+      const res = await addHospitalStaffMember(staffForm)
+      if (res.success) {
+        alert('Staff member added. They will receive an email invitation to join.')
+        setShowAddStaff(false)
+        setStaffForm({ firstName: '', lastName: '', email: '', phone: '', role: 'midwife' })
+        refreshDashboard()
+      } else {
+        alert(res.error || 'Could not add staff member')
+      }
+    } finally {
+      setStaffSaving(false)
+    }
+  }
+
   const getRiskColor = (level: string) => {
     switch (level) {
       case 'high': return 'bg-red-100 text-red-800'
@@ -172,10 +212,19 @@ export default function HospitalDashboardClient({ user, data }: { user: any, dat
               <p className="text-slate-500 font-bold text-sm tracking-wide uppercase">Hospital Management Console</p>
             </div>
           </div>
-          <div className="flex gap-3 mt-4 md:mt-0">
+          <div className="flex flex-wrap gap-3 mt-4 md:mt-0">
             <Button onClick={() => setShowOnboarding(true)} className="bg-[#D48BA1] hover:bg-[#c47a90] font-bold py-5 px-6 rounded-xl shadow-md transition-all">
               <Plus className="w-5 h-5 mr-2" />
               Onboard Patient
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setShowAddStaff(true)}
+              className="border-slate-200 text-slate-700 font-bold py-5 rounded-xl"
+            >
+              <UserCog className="w-4 h-4 mr-2" />
+              Add Staff
             </Button>
             <Button variant="outline" className="border-slate-200 text-slate-600 font-bold py-5 rounded-xl">
               <Download className="w-4 h-4 mr-2" />
@@ -594,6 +643,91 @@ export default function HospitalDashboardClient({ user, data }: { user: any, dat
           </div>
         </div>
       )}
+
+      <Dialog open={showAddStaff} onOpenChange={setShowAddStaff}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Add hospital staff</DialogTitle>
+            <DialogDescription>
+              Invite a midwife or hospital staff member. They will receive an email to sign up and join your facility.
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleAddStaff} className="space-y-4">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label htmlFor="staff-first">First name</Label>
+                <Input
+                  id="staff-first"
+                  value={staffForm.firstName}
+                  onChange={(e) => setStaffForm((f) => ({ ...f, firstName: e.target.value }))}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="staff-last">Last name</Label>
+                <Input
+                  id="staff-last"
+                  value={staffForm.lastName}
+                  onChange={(e) => setStaffForm((f) => ({ ...f, lastName: e.target.value }))}
+                  required
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="staff-email">Email</Label>
+              <Input
+                id="staff-email"
+                type="email"
+                value={staffForm.email}
+                onChange={(e) => setStaffForm((f) => ({ ...f, email: e.target.value }))}
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="staff-phone">Phone (optional)</Label>
+              <Input
+                id="staff-phone"
+                value={staffForm.phone}
+                onChange={(e) => setStaffForm((f) => ({ ...f, phone: e.target.value }))}
+                placeholder="+233..."
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="staff-role">Role</Label>
+              <select
+                id="staff-role"
+                className="w-full h-10 rounded-md border border-slate-200 px-3 text-sm font-medium"
+                value={staffForm.role}
+                onChange={(e) =>
+                  setStaffForm((f) => ({
+                    ...f,
+                    role: e.target.value as 'midwife' | 'hospital_staff',
+                  }))
+                }
+              >
+                <option value="midwife">Midwife</option>
+                <option value="hospital_staff">Hospital staff</option>
+              </select>
+            </div>
+            {careStaff.length > 0 && (
+              <div className="rounded-xl bg-slate-50 border border-slate-100 p-3">
+                <p className="text-xs font-bold text-slate-500 uppercase mb-2">Current team ({careStaff.length})</p>
+                <ul className="text-sm text-slate-700 space-y-1 max-h-28 overflow-y-auto">
+                  {careStaff.map((s) => (
+                    <li key={s.id}>
+                      {s.firstName} {s.lastName}{' '}
+                      <span className="text-slate-400">· {s.role.replace('_', ' ')}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            <Button type="submit" className="w-full bg-[#D48BA1] hover:bg-[#c47a90] font-bold" disabled={staffSaving}>
+              {staffSaving ? 'Sending invite…' : 'Add staff member'}
+            </Button>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
@@ -657,7 +791,7 @@ function PregnancyQuickActions({
             type="date"
             value={visitDate}
             onChange={(e) => setVisitDate(e.target.value)}
-            className="w-full border border-slate-200 rounded-lg p-2 text-sm"
+            className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#D48BA1]"
             min={new Date().toISOString().split('T')[0]}
           />
           <input
@@ -665,7 +799,7 @@ function PregnancyQuickActions({
             placeholder="Notes (optional)"
             value={visitNotes}
             onChange={(e) => setVisitNotes(e.target.value)}
-            className="w-full border border-slate-200 rounded-lg p-2 text-sm"
+            className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#D48BA1]"
           />
           <Button
             type="button"

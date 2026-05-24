@@ -275,23 +275,33 @@ export default function MCHBookClient({ data }: { data: any }) {
                   <CardTitle>Obstetric History (Previous Pregnancies)</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="overflow-x-auto">
-                    <table className="w-full">
-                      <thead className="text-left border-b border-slate-100">
-                        <tr>
-                          <th className="pb-4 text-slate-400 text-[10px] uppercase font-bold">Year</th>
-                          <th className="pb-4 text-slate-400 text-[10px] uppercase font-bold">Duration (wks)</th>
-                          <th className="pb-4 text-slate-400 text-[10px] uppercase font-bold">Mode</th>
-                          <th className="pb-4 text-slate-400 text-[10px] uppercase font-bold">Status</th>
+                  <div className="overflow-x-auto rounded-xl border border-slate-100">
+                    <table className="w-full min-w-[480px] table-fixed border-collapse">
+                      <colgroup>
+                        <col style={{ width: '18%' }} />
+                        <col style={{ width: '22%' }} />
+                        <col style={{ width: '30%' }} />
+                        <col style={{ width: '30%' }} />
+                      </colgroup>
+                      <thead>
+                        <tr className="bg-slate-50/80 border-b border-slate-200">
+                          <th className="px-4 py-3 text-left text-[10px] uppercase font-bold text-slate-500">Year</th>
+                          <th className="px-4 py-3 text-left text-[10px] uppercase font-bold text-slate-500">Duration</th>
+                          <th className="px-4 py-3 text-left text-[10px] uppercase font-bold text-slate-500">Mode</th>
+                          <th className="px-4 py-3 text-left text-[10px] uppercase font-bold text-slate-500">Status</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-slate-50">
+                      <tbody>
                         {previousPregnancies.map((p: any) => (
-                          <tr key={p.id}>
-                            <td className="py-4 font-bold text-slate-800">{p.year}</td>
-                            <td className="py-4 text-slate-600">{p.pregnancyDuration}</td>
-                            <td className="py-4 text-slate-600 uppercase text-xs">{p.modeOfDelivery}</td>
-                            <td className="py-4">
+                          <tr key={p.id} className="border-b border-slate-50 last:border-0">
+                            <td className="px-4 py-3.5 text-sm font-semibold text-slate-800 align-middle">{p.year}</td>
+                            <td className="px-4 py-3.5 text-sm text-slate-700 align-middle whitespace-nowrap">
+                              {p.pregnancyDuration != null ? `${p.pregnancyDuration} wks` : '—'}
+                            </td>
+                            <td className="px-4 py-3.5 text-sm font-medium text-slate-700 align-middle uppercase">
+                              {p.modeOfDelivery || '—'}
+                            </td>
+                            <td className="px-4 py-3.5 align-middle">
                               <Badge className={p.alive ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}>
                                 {p.alive ? 'Alive' : 'Deceased'}
                               </Badge>

@@ -1,7 +1,7 @@
 import { currentUser } from '@clerk/nextjs/server'
 import { db } from '@/lib/db'
-import { users } from '@/lib/db/schema'
-import { eq } from 'drizzle-orm'
+import { users, pregnancies, hospitals } from '@/lib/db/schema'
+import { and, eq } from 'drizzle-orm'
 import ChatHub from '@/components/dashboard/ChatHub'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
@@ -58,6 +58,28 @@ export default async function ChatPage({
     )
   }
 
+  let contactPhone: string | null = null
+  let pregnancyId: string | undefined
+
+  if (dbUser.role === 'pregnant_woman') {
+    const pregnancy = await db.query.pregnancies.findFirst({
+      where: and(eq(pregnancies.userId, dbUser.id), eq(pregnancies.status, 'active')),
+    })
+    if (pregnancy) {
+      pregnancyId = pregnancy.id
+      const hospital = await db.query.hospitals.findFirst({
+        where: eq(hospitals.id, pregnancy.hospitalId),
+      })
+      contactPhone = hospital?.phone ?? null
+    }
+  } else if (['midwife', 'hospital_staff', 'admin'].includes(dbUser.role)) {
+    contactPhone = otherUser.phone ?? null
+    const patientPregnancy = await db.query.pregnancies.findFirst({
+      where: and(eq(pregnancies.userId, otherUserId), eq(pregnancies.status, 'active')),
+    })
+    pregnancyId = patientPregnancy?.id
+  }
+
   // Determine back URL based on current user's role
   const backUrl =
     dbUser.role === 'pregnant_woman'
@@ -91,6 +113,8 @@ export default async function ChatPage({
           otherUserId={otherUser.id}
           otherUserName={`${otherUser.firstName} ${otherUser.lastName}`}
           otherUserRole={otherUser.role}
+          pregnancyId={pregnancyId}
+          contactPhone={contactPhone}
         />
       </div>
     </div>

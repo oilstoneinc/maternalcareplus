@@ -9,6 +9,8 @@ export async function ensureMCHSchema() {
     sql`ALTER TABLE "pregnancies" ADD COLUMN IF NOT EXISTS "iptp_doses" integer DEFAULT 0`,
     sql`ALTER TABLE "pregnancies" ADD COLUMN IF NOT EXISTS "tt_doses" integer DEFAULT 0`,
     sql`ALTER TABLE "pregnancies" ADD COLUMN IF NOT EXISTS "itn_distributed" boolean DEFAULT false`,
+    sql`ALTER TABLE "hospitals" ADD COLUMN IF NOT EXISTS "latitude" numeric(9, 6)`,
+    sql`ALTER TABLE "hospitals" ADD COLUMN IF NOT EXISTS "longitude" numeric(9, 6)`,
     sql`
       CREATE TABLE IF NOT EXISTS "previous_pregnancies" (
         "id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
@@ -81,6 +83,20 @@ export async function ensureMCHSchema() {
         "date_administered" timestamp,
         "batch_number" text,
         "administered_by" uuid,
+        "created_at" timestamp DEFAULT now()
+      )
+    `,
+    sql`
+      CREATE TABLE IF NOT EXISTS "notifications" (
+        "id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+        "user_id" uuid NOT NULL,
+        "pregnancy_id" uuid,
+        "title" text NOT NULL,
+        "message" text NOT NULL,
+        "type" text NOT NULL,
+        "scheduled_for" timestamp,
+        "sent_at" timestamp,
+        "is_read" boolean DEFAULT false,
         "created_at" timestamp DEFAULT now()
       )
     `,

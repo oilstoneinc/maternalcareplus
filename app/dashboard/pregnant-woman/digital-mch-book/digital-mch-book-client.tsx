@@ -349,39 +349,110 @@ export default function DigitalMCHBookClient({ data }: { data: any }) {
                   <CardTitle>Obstetric History (Previous Pregnancies)</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="overflow-x-auto">
-                    <table className="w-full">
-                      <thead className="text-left border-b border-slate-100">
-                        <tr>
-                          <th className="pb-4 text-slate-400 text-[10px] uppercase font-bold">Year</th>
-                          <th className="pb-4 text-slate-400 text-[10px] uppercase font-bold">Duration (wks)</th>
-                          <th className="pb-4 text-slate-400 text-[10px] uppercase font-bold">Mode of Delivery</th>
-                          <th className="pb-4 text-slate-400 text-[10px] uppercase font-bold">Complications</th>
-                          <th className="pb-4 text-slate-400 text-[10px] uppercase font-bold">Child Status</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-50">
+                  {previousPregnancies.length === 0 ? (
+                    <p className="py-8 text-center text-slate-400 italic text-sm">No previous pregnancies registered.</p>
+                  ) : (
+                    <>
+                      <div className="md:hidden space-y-3">
                         {previousPregnancies.map((p: any) => (
-                          <tr key={p.id}>
-                            <td className="py-4 font-bold text-slate-800">{p.year}</td>
-                            <td className="py-4 text-slate-600 font-bold">{p.pregnancyDuration} wks</td>
-                            <td className="py-4 text-slate-600 font-bold uppercase text-xs">{p.modeOfDelivery}</td>
-                            <td className="py-4 text-slate-500 text-xs font-semibold">{p.complications || 'None'}</td>
-                            <td className="py-4">
-                              <Badge className={p.alive ? 'bg-green-100 text-green-700 hover:bg-green-100' : 'bg-red-100 text-red-700 hover:bg-red-100'}>
+                          <div
+                            key={p.id}
+                            className="rounded-2xl border border-slate-100 bg-slate-50/80 p-4 space-y-3"
+                          >
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="text-sm font-bold text-slate-800">{p.year}</span>
+                              <Badge
+                                className={
+                                  p.alive
+                                    ? 'bg-green-100 text-green-700 hover:bg-green-100'
+                                    : 'bg-red-100 text-red-700 hover:bg-red-100'
+                                }
+                              >
                                 {p.alive ? 'Alive' : 'Deceased'}
                               </Badge>
-                            </td>
-                          </tr>
+                            </div>
+                            <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+                              <div>
+                                <dt className="text-[10px] font-bold uppercase text-slate-400">Duration</dt>
+                                <dd className="font-medium text-slate-800">
+                                  {p.pregnancyDuration != null ? `${p.pregnancyDuration} wks` : '—'}
+                                </dd>
+                              </div>
+                              <div>
+                                <dt className="text-[10px] font-bold uppercase text-slate-400">Delivery</dt>
+                                <dd className="font-medium text-slate-800 uppercase">
+                                  {p.modeOfDelivery || '—'}
+                                </dd>
+                              </div>
+                              <div className="col-span-2">
+                                <dt className="text-[10px] font-bold uppercase text-slate-400">Complications</dt>
+                                <dd className="text-slate-600">{p.complications || 'None'}</dd>
+                              </div>
+                            </dl>
+                          </div>
                         ))}
-                        {previousPregnancies.length === 0 && (
-                          <tr>
-                            <td colSpan={5} className="py-8 text-center text-slate-400 italic">No previous pregnancies registered.</td>
-                          </tr>
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
+                      </div>
+                      <div className="hidden md:block overflow-x-auto rounded-xl border border-slate-100">
+                        <table className="w-full min-w-[640px] table-fixed border-collapse">
+                          <colgroup>
+                            <col style={{ width: '12%' }} />
+                            <col style={{ width: '16%' }} />
+                            <col style={{ width: '22%' }} />
+                            <col style={{ width: '34%' }} />
+                            <col style={{ width: '16%' }} />
+                          </colgroup>
+                          <thead>
+                            <tr className="bg-slate-50/80 border-b border-slate-200">
+                              <th className="px-4 py-3 text-left text-[10px] uppercase font-bold text-slate-500 tracking-wide">
+                                Year
+                              </th>
+                              <th className="px-4 py-3 text-left text-[10px] uppercase font-bold text-slate-500 tracking-wide">
+                                Duration
+                              </th>
+                              <th className="px-4 py-3 text-left text-[10px] uppercase font-bold text-slate-500 tracking-wide">
+                                Mode
+                              </th>
+                              <th className="px-4 py-3 text-left text-[10px] uppercase font-bold text-slate-500 tracking-wide">
+                                Complications
+                              </th>
+                              <th className="px-4 py-3 text-left text-[10px] uppercase font-bold text-slate-500 tracking-wide">
+                                Child
+                              </th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {previousPregnancies.map((p: any) => (
+                              <tr key={p.id} className="border-b border-slate-50 last:border-0">
+                                <td className="px-4 py-3.5 text-sm font-semibold text-slate-800 align-middle">
+                                  {p.year}
+                                </td>
+                                <td className="px-4 py-3.5 text-sm text-slate-700 align-middle whitespace-nowrap">
+                                  {p.pregnancyDuration != null ? `${p.pregnancyDuration} wks` : '—'}
+                                </td>
+                                <td className="px-4 py-3.5 text-sm font-medium text-slate-700 align-middle uppercase">
+                                  {p.modeOfDelivery || '—'}
+                                </td>
+                                <td className="px-4 py-3.5 text-sm text-slate-600 align-middle">
+                                  {p.complications || 'None'}
+                                </td>
+                                <td className="px-4 py-3.5 align-middle">
+                                  <Badge
+                                    className={
+                                      p.alive
+                                        ? 'bg-green-100 text-green-700 hover:bg-green-100 whitespace-nowrap'
+                                        : 'bg-red-100 text-red-700 hover:bg-red-100 whitespace-nowrap'
+                                    }
+                                  >
+                                    {p.alive ? 'Alive' : 'Deceased'}
+                                  </Badge>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </>
+                  )}
                 </CardContent>
               </Card>
 
