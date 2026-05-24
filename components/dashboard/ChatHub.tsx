@@ -201,6 +201,7 @@ export default function ChatHub({
         ) : (
           msgs.map((msg, i) => {
             const isMine = msg.senderId === currentUserId
+            const isFromPatient = msg.senderId === otherUserId
             const showTime =
               i === 0 ||
               new Date(msg.createdAt).getTime() - new Date(msgs[i - 1].createdAt).getTime() >
@@ -223,7 +224,7 @@ export default function ChatHub({
                 <div className={`flex items-end gap-2 ${isMine ? 'justify-end' : 'justify-start'}`}>
                   {!isMine && (
                     <div className="w-7 h-7 rounded-xl bg-gradient-to-br from-[#D48BA1] to-[#e6a8bc] flex items-center justify-center text-white font-black text-[9px] flex-shrink-0 mb-0.5">
-                      {initials}
+                      {isFromPatient ? initials : 'MC'}
                     </div>
                   )}
                   <div
@@ -233,6 +234,11 @@ export default function ChatHub({
                         : 'bg-white text-slate-800 rounded-bl-none border border-slate-100'
                     }`}
                   >
+                    {!isMine && !isFromPatient && (
+                      <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-1">
+                        Care team
+                      </p>
+                    )}
                     <p>{msg.content}</p>
                     <span
                       className={`text-[9px] mt-1 block font-semibold ${isMine ? 'text-slate-400 text-right' : 'text-slate-400'}`}

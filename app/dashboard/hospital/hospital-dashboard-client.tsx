@@ -289,8 +289,24 @@ export default function HospitalDashboardClient({ user, data }: { user: any, dat
 
         {/* Main Content */}
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-2 sm:grid-cols-5">
             <TabsTrigger value="overview">Overview</TabsTrigger>
+            <TabsTrigger value="messages" className="relative">
+              Messages
+              {(data?.messageThreads || []).some((t: { unreadCount: number }) => t.unreadCount > 0) && (
+                <span className="ml-1.5 min-w-[18px] h-[18px] px-1 rounded-full bg-[#D48BA1] text-white text-[10px] font-bold inline-flex items-center justify-center">
+                  {(data?.messageThreads || []).reduce(
+                    (sum: number, t: { unreadCount: number }) => sum + (t.unreadCount || 0),
+                    0
+                  ) > 9
+                    ? '9+'
+                    : (data?.messageThreads || []).reduce(
+                        (sum: number, t: { unreadCount: number }) => sum + (t.unreadCount || 0),
+                        0
+                      )}
+                </span>
+              )}
+            </TabsTrigger>
             <TabsTrigger value="patients">Patients</TabsTrigger>
             <TabsTrigger value="pregnancies">Pregnancies</TabsTrigger>
             <TabsTrigger value="appointments">Appointments</TabsTrigger>
@@ -344,6 +360,84 @@ export default function HospitalDashboardClient({ user, data }: { user: any, dat
                 </CardContent>
               </Card>
             </div>
+          </TabsContent>
+
+          <TabsContent value="messages" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <MessageCircle className="w-5 h-5 text-[#D48BA1]" />
+                  Patient messages
+                </CardTitle>
+                <CardDescription>
+                  When a pregnant woman messages care team, conversations appear here. Assign a staff member on the patient profile so she knows who to contact.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {(data?.messageThreads || []).length === 0 ? (
+                  <div className="text-center py-10 text-slate-500">
+                    <MessageCircle className="w-12 h-12 mx-auto mb-3 opacity-30" />
+                    <p className="font-medium">No patient messages yet</p>
+                    <p className="text-sm mt-1 max-w-md mx-auto">
+                      Messages sent from the pregnant woman app go to her assigned midwife or staff. Open a patient and use Assign chat contact if messaging is disabled for her.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {(data?.messageThreads || []).map((thread: {
+                      patientUserId: string
+                      patientName: string
+                      pregnancyId: string
+                      lastMessage: string
+                      lastMessageAt: string
+                      unreadCount: number
+                      assignedStaffName: string | null
+                    }) => (
+                      <Link
+                        key={thread.patientUserId}
+                        href={`/dashboard/chat?with=${thread.patientUserId}`}
+                        className="flex items-center gap-4 p-4 rounded-xl border border-slate-100 bg-slate-50/80 hover:bg-white hover:shadow-sm transition-all"
+                      >
+                        <div className="w-11 h-11 rounded-2xl bg-[#D48BA1]/15 flex items-center justify-center shrink-0 font-black text-[#D48BA1] text-sm">
+                          {thread.patientName
+                            .split(' ')
+                            .map((n) => n[0])
+                            .join('')
+                            .slice(0, 2)
+                            .toUpperCase()}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between gap-2">
+                            <p className="font-bold text-slate-900 truncate">{thread.patientName}</p>
+                            <span className="text-[10px] text-slate-400 font-bold shrink-0">
+                              {thread.lastMessageAt
+                                ? new Date(thread.lastMessageAt).toLocaleString([], {
+                                    month: 'short',
+                                    day: 'numeric',
+                                    hour: '2-digit',
+                                    minute: '2-digit',
+                                  })
+                                : ''}
+                            </span>
+                          </div>
+                          <p className="text-sm text-slate-600 truncate mt-0.5">{thread.lastMessage}</p>
+                          {thread.assignedStaffName && (
+                            <p className="text-[10px] text-slate-400 font-semibold mt-1">
+                              Care contact: {thread.assignedStaffName}
+                            </p>
+                          )}
+                        </div>
+                        {thread.unreadCount > 0 && (
+                          <Badge className="bg-[#D48BA1] text-white shrink-0">
+                            {thread.unreadCount}
+                          </Badge>
+                        )}
+                      </Link>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
           </TabsContent>
 
           <TabsContent value="patients" className="space-y-6">

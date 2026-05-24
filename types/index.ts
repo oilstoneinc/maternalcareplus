@@ -15,6 +15,15 @@ export interface HospitalDashboardData {
   appointments: any[]
   careStaff?: any[]
   upcomingAppointments?: any[]
+  messageThreads?: {
+    patientUserId: string
+    patientName: string
+    pregnancyId: string
+    lastMessage: string
+    lastMessageAt: string
+    unreadCount: number
+    assignedStaffName: string | null
+  }[]
 }
 
 /**

@@ -349,6 +349,8 @@ export async function getHospitalDashboardData(): Promise<HospitalDashboardData 
       where: eq(hospitals.id, dbUser.hospitalId)
     })
 
+    const messageThreads = await getHospitalMessageThreads()
+
     return JSON.parse(JSON.stringify({
       hospital,
       patients: allPatients,
@@ -356,6 +358,7 @@ export async function getHospitalDashboardData(): Promise<HospitalDashboardData 
       careStaff,
       appointments: todayAppointments,
       upcomingAppointments: enrichedAppointments,
+      messageThreads,
     }))
   } catch (error) {
     console.error('Error in getHospitalDashboardData:', error)
@@ -1212,8 +1215,104 @@ export async function sendMessage(receiverId: string, content: string, pregnancy
   }
 }
 
+async function getHospitalStaffUserIds(hospitalId: string) {
+  const staff = await db.query.users.findMany({
+    where: and(
+      eq(users.hospitalId, hospitalId),
+      or(eq(users.role, 'midwife'), eq(users.role, 'hospital_staff'))
+    ),
+  })
+  return staff.map((s) => s.id)
+}
+
 /**
- * Get messages between two users
+ * Patient ↔ hospital staff message threads (for hospital dashboard inbox)
+ */
+export async function getHospitalMessageThreads() {
+  try {
+    const { dbUser } = await requireClinicalStaff()
+    if (!dbUser.hospitalId) return []
+
+    const staffIds = await getHospitalStaffUserIds(dbUser.hospitalId)
+    if (staffIds.length === 0) return []
+
+    const activePregnancies = await db.query.pregnancies.findMany({
+      where: and(
+        eq(pregnancies.hospitalId, dbUser.hospitalId),
+        eq(pregnancies.status, 'active')
+      ),
+    })
+
+    const threads: {
+      patientUserId: string
+      patientName: string
+      pregnancyId: string
+      lastMessage: string
+      lastMessageAt: string
+      unreadCount: number
+      assignedStaffName: string | null
+    }[] = []
+
+    for (const preg of activePregnancies) {
+      const patient = await db.query.users.findFirst({
+        where: eq(users.id, preg.userId),
+      })
+      if (!patient) continue
+
+      const recent = await db.query.messages.findMany({
+        where: and(
+          or(eq(messages.senderId, patient.id), eq(messages.receiverId, patient.id)),
+          or(inArray(messages.senderId, staffIds), inArray(messages.receiverId, staffIds))
+        ),
+        orderBy: [desc(messages.createdAt)],
+        limit: 1,
+      })
+      const last = recent[0]
+      if (!last) continue
+
+      const unreadRows = await db.query.messages.findMany({
+        where: and(
+          eq(messages.senderId, patient.id),
+          inArray(messages.receiverId, staffIds),
+          sql`${messages.readAt} IS NULL`
+        ),
+      })
+
+      let assignedStaffName: string | null = null
+      if (preg.midwifeId) {
+        const assigned = await db.query.users.findFirst({
+          where: eq(users.id, preg.midwifeId),
+        })
+        if (assigned) {
+          assignedStaffName = `${assigned.firstName} ${assigned.lastName}`.trim()
+        }
+      }
+
+      threads.push({
+        patientUserId: patient.id,
+        patientName: `${patient.firstName} ${patient.lastName}`.trim() || patient.email,
+        pregnancyId: preg.id,
+        lastMessage: last.content,
+        lastMessageAt: last.createdAt as unknown as string,
+        unreadCount: unreadRows.length,
+        assignedStaffName,
+      })
+    }
+
+    threads.sort(
+      (a, b) =>
+        new Date(b.lastMessageAt).getTime() - new Date(a.lastMessageAt).getTime()
+    )
+
+    return JSON.parse(JSON.stringify(threads))
+  } catch (err) {
+    console.error('getHospitalMessageThreads error:', err)
+    return []
+  }
+}
+
+/**
+ * Get messages between two users (hospital staff see full clinic thread with a patient)
  */
 export async function getMessages(otherUserId: string) {
   const user = await currentUser()
@@ -1226,14 +1325,52 @@ export async function getMessages(otherUserId: string) {
   if (!dbUser) throw new Error('User not found')
 
   try {
-    const allMessages = await db.query.messages.findMany({
-      where: or(
-        and(eq(messages.senderId, dbUser.id), eq(messages.receiverId, otherUserId)),
-        and(eq(messages.senderId, otherUserId), eq(messages.receiverId, dbUser.id))
-      ),
-      orderBy: [desc(messages.createdAt)],
-      limit: 50
+    const otherUser = await db.query.users.findFirst({
+      where: eq(users.id, otherUserId),
     })
+
+    const isClinicalStaff = ['midwife', 'hospital_staff', 'admin'].includes(dbUser.role)
+    const isPatientChat =
+      otherUser?.role === 'pregnant_woman' && isClinicalStaff && dbUser.hospitalId
+
+    let allMessages: (typeof messages.$inferSelect)[] = []
+
+    if (isPatientChat) {
+      const staffIds = await getHospitalStaffUserIds(dbUser.hospitalId!)
+      const participantIds = [...new Set([...staffIds, dbUser.id])]
+
+      allMessages = await db.query.messages.findMany({
+        where: and(
+          or(eq(messages.senderId, otherUserId), eq(messages.receiverId, otherUserId)),
+          or(
+            inArray(messages.senderId, participantIds),
+            inArray(messages.receiverId, participantIds)
+          )
+        ),
+        orderBy: [desc(messages.createdAt)],
+        limit: 100,
+      })
+
+      await db
+        .update(messages)
+        .set({ readAt: new Date(), status: 'read' })
+        .where(
+          and(
+            eq(messages.senderId, otherUserId),
+            inArray(messages.receiverId, participantIds),
+            sql`${messages.readAt} IS NULL`
+          )
+        )
+    } else {
+      allMessages = await db.query.messages.findMany({
+        where: or(
+          and(eq(messages.senderId, dbUser.id), eq(messages.receiverId, otherUserId)),
+          and(eq(messages.senderId, otherUserId), eq(messages.receiverId, dbUser.id))
+        ),
+        orderBy: [desc(messages.createdAt)],
+        limit: 50,
+      })
+    }
 
     return allMessages.reverse()
   } catch (error) {

@@ -33,9 +33,23 @@ export default async function ChatPage({
           </div>
           <h2 className="text-2xl font-black text-slate-900">No conversation selected</h2>
           <p className="text-slate-500 font-medium">Please select a conversation from your dashboard to begin chatting.</p>
-          <Link href="/dashboard/pregnant-woman" className="inline-flex items-center gap-2 text-sm font-bold text-[#D48BA1] hover:underline">
+          <Link
+            href={
+              dbUser.role === 'hospital_staff' || dbUser.role === 'admin'
+                ? '/dashboard/hospital'
+                : dbUser.role === 'midwife'
+                  ? '/dashboard/midwife'
+                  : '/dashboard/pregnant-woman'
+            }
+            className="inline-flex items-center gap-2 text-sm font-bold text-[#D48BA1] hover:underline"
+          >
             <ArrowLeft className="w-4 h-4" /> Return to Dashboard
           </Link>
+          {(dbUser.role === 'hospital_staff' || dbUser.role === 'midwife') && (
+            <p className="text-xs text-slate-500 max-w-sm mx-auto">
+              Open the <strong>Messages</strong> tab on your dashboard to see patient conversations.
+            </p>
+          )}
         </div>
       </div>
     )
