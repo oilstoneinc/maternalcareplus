@@ -72,13 +72,31 @@ export default function PregnantWomanClient({ user, data }: { user: any, data: D
   let progress = 0
   let daysToEdd = 0
 
-  if (lmp && edd) {
-    const diffTime = Math.abs(now.getTime() - lmp.getTime())
-    gestationalAge = Math.floor(diffTime / (1000 * 60 * 60 * 24 * 7))
+  if (lmp) {
+    const diffTime = now.getTime() - lmp.getTime()
+    const weeksFromLmp = Math.max(0, Math.floor(diffTime / (1000 * 60 * 60 * 24 * 7)))
+    gestationalAge =
+      data?.pregnancy?.gestationalAge != null && data.pregnancy.gestationalAge > 0
+        ? data.pregnancy.gestationalAge
+        : weeksFromLmp
     progress = Math.min((gestationalAge / 40) * 100, 100)
-    
+  }
+
+  if (edd) {
     const diffDays = Math.ceil((edd.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
     daysToEdd = Math.max(diffDays, 0)
+  }
+
+  const babySizeByWeek = (week: number): string => {
+    if (week < 4) return 'poppy seed'
+    if (week < 6) return 'pea'
+    if (week < 8) return 'raspberry'
+    if (week < 12) return 'plum'
+    if (week < 16) return 'avocado'
+    if (week < 20) return 'banana'
+    if (week < 24) return 'ear of corn'
+    if (week < 28) return 'eggplant'
+    return 'cantaloupe'
   }
 
   const formatVitalDate = (d: string | Date) =>
@@ -376,7 +394,9 @@ export default function PregnantWomanClient({ user, data }: { user: any, data: D
                   </div>
                   <div>
                     <h4 className="font-bold text-primary">Your Baby's Growth</h4>
-                    <p className="text-sm text-primary/80">At week {gestationalAge}, your baby is about the size of a {gestationalAge < 20 ? 'large banana' : 'cantaloupe'}!</p>
+                    <p className="text-sm text-primary/80">
+                      At week {gestationalAge}, your baby is about the size of a {babySizeByWeek(gestationalAge)}!
+                    </p>
                   </div>
                 </div>
               </div>

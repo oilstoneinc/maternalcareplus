@@ -13,7 +13,9 @@ import {
 } from 'lucide-react'
 import Link from 'next/link'
 import { 
-  savePreviousPregnancy, 
+  savePreviousPregnancy,
+  updatePreviousPregnancyOutcome,
+  updatePregnancyTimeline,
   saveDeliveryRecord, 
   updateMCHPregnancyDetails, 
   savePostnatalCare,
@@ -81,11 +83,15 @@ export default function MCHBookClient({ data }: { data: any }) {
     setLoading(true)
     const formData = new FormData(e.currentTarget)
     const res = await savePreviousPregnancy({
-      pregnancyId: pregnancy.id, userId: mother.id,
-      year: formData.get('year'), duration: formData.get('duration'),
-      mode: formData.get('mode'), weight: formData.get('weight'),
-      sex: formData.get('sex'), alive: formData.get('alive') === 'on' ? 'true' : 'false',
-      complications: formData.get('complications')
+      pregnancyId: pregnancy.id,
+      userId: mother.id,
+      year: formData.get('year'),
+      duration: formData.get('duration'),
+      mode: formData.get('mode'),
+      weight: formData.get('weight'),
+      sex: formData.get('sex'),
+      outcome: formData.get('outcome') || 'alive',
+      complications: formData.get('complications'),
     })
     setLoading(false)
     if (res.success) {
@@ -270,9 +276,89 @@ export default function MCHBookClient({ data }: { data: any }) {
           {/* 2. Pregnancy Records */}
           {activeChapter === 'pregnancy' && (
             <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+              <Card className="border-none shadow-sm border-2 border-[#D48BA1]/20">
+                <CardHeader>
+                  <CardTitle>Current pregnancy timeline</CardTitle>
+                  <CardDescription>
+                    LMP and EDD control Week progress and countdown on the patient&apos;s dashboard.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <form
+                    onSubmit={async (e) => {
+                      e.preventDefault()
+                      setLoading(true)
+                      const fd = new FormData(e.currentTarget)
+                      const res = await updatePregnancyTimeline(pregnancy.id, {
+                        lmp: (fd.get('lmp') as string) || undefined,
+                        edd: (fd.get('edd') as string) || undefined,
+                        gestationalAgeWeeks: fd.get('gestationalAge')
+                          ? parseInt(fd.get('gestationalAge') as string, 10)
+                          : undefined,
+                      })
+                      setLoading(false)
+                      if (res.success) {
+                        toast({ title: 'Saved', description: 'Patient dashboard progress updated.' })
+                        window.location.reload()
+                      } else {
+                        toast({ title: 'Error', description: res.error, variant: 'destructive' })
+                      }
+                    }}
+                    className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end"
+                  >
+                    <div className="space-y-2">
+                      <Label htmlFor="timeline-lmp">Last menstrual period (LMP)</Label>
+                      <Input
+                        id="timeline-lmp"
+                        name="lmp"
+                        type="date"
+                        required
+                        defaultValue={
+                          pregnancy.lmp
+                            ? new Date(pregnancy.lmp).toISOString().slice(0, 10)
+                            : ''
+                        }
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="timeline-edd">Expected delivery (EDD)</Label>
+                      <Input
+                        id="timeline-edd"
+                        name="edd"
+                        type="date"
+                        defaultValue={
+                          pregnancy.edd
+                            ? new Date(pregnancy.edd).toISOString().slice(0, 10)
+                            : ''
+                        }
+                      />
+                      <p className="text-[10px] text-slate-500">Leave blank to auto-calculate (LMP + 280 days)</p>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="timeline-ga">Gestational age (weeks)</Label>
+                      <Input
+                        id="timeline-ga"
+                        name="gestationalAge"
+                        type="number"
+                        min={0}
+                        max={42}
+                        defaultValue={pregnancy.gestationalAge ?? ''}
+                        placeholder="Auto from LMP"
+                      />
+                    </div>
+                    <Button type="submit" disabled={loading} className="bg-[#D48BA1] hover:bg-[#c47a90] font-bold">
+                      {loading ? 'Saving…' : 'Update patient progress'}
+                    </Button>
+                  </form>
+                </CardContent>
+              </Card>
+
                <Card className="border-none shadow-sm">
                 <CardHeader>
                   <CardTitle>Obstetric History (Previous Pregnancies)</CardTitle>
+                  <CardDescription>
+                    Status is the baby&apos;s outcome for that pregnancy — choose Alive or Deceased when adding or editing.
+                  </CardDescription>
                 </CardHeader>
                 <CardContent>
                   <div className="overflow-x-auto rounded-xl border border-slate-100">
@@ -302,9 +388,26 @@ export default function MCHBookClient({ data }: { data: any }) {
                               {p.modeOfDelivery || '—'}
                             </td>
                             <td className="px-4 py-3.5 align-middle">
-                              <Badge className={p.alive ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}>
-                                {p.alive ? 'Alive' : 'Deceased'}
-                              </Badge>
+                              <select
+                                className="text-sm border border-slate-200 rounded-lg px-2 py-1.5 font-semibold bg-white"
+                                defaultValue={p.alive ? 'alive' : 'deceased'}
+                                onChange={async (e) => {
+                                  const res = await updatePreviousPregnancyOutcome(
+                                    p.id,
+                                    pregnancy.id,
+                                    e.target.value as 'alive' | 'deceased'
+                                  )
+                                  if (res.success) {
+                                    toast({ title: 'Status updated' })
+                                    window.location.reload()
+                                  } else {
+                                    toast({ title: 'Error', description: res.error, variant: 'destructive' })
+                                  }
+                                }}
+                              >
+                                <option value="alive">Alive</option>
+                                <option value="deceased">Deceased</option>
+                              </select>
                             </td>
                           </tr>
                         ))}
@@ -315,11 +418,23 @@ export default function MCHBookClient({ data }: { data: any }) {
                     <h4 className="font-bold text-slate-900 mb-6 flex items-center gap-2">
                       <Plus className="w-4 h-4" /> Add Previous Record
                     </h4>
-                    <form onSubmit={handleAddPrevPregnancy} className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <form onSubmit={handleAddPrevPregnancy} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4">
                       <Input name="year" type="number" required placeholder="Year" />
                       <Input name="duration" type="number" required placeholder="Duration (wks)" />
                       <Input name="mode" required placeholder="Mode (SVD/CS)" />
-                      <Button type="submit" disabled={loading} className="w-full bg-slate-900">Add</Button>
+                      <select
+                        name="outcome"
+                        required
+                        defaultValue="alive"
+                        className="h-10 rounded-md border border-slate-200 px-3 text-sm font-medium"
+                      >
+                        <option value="alive">Baby alive</option>
+                        <option value="deceased">Baby deceased</option>
+                      </select>
+                      <Input name="sex" placeholder="Sex (M/F)" />
+                      <Button type="submit" disabled={loading} className="w-full bg-slate-900">
+                        Add record
+                      </Button>
                     </form>
                   </div>
                 </CardContent>

@@ -1483,6 +1483,74 @@ export async function getMessages(otherUserId: string) {
  * MCH Book Actions
  */
 
+function eddFromLmp(lmp: Date): Date {
+  const edd = new Date(lmp)
+  edd.setDate(edd.getDate() + 280)
+  return edd
+}
+
+/** Set LMP / EDD / gestational age — drives the patient progress dashboard */
+export async function updatePregnancyTimeline(
+  pregnancyId: string,
+  data: { lmp?: string; edd?: string; gestationalAgeWeeks?: number }
+) {
+  try {
+    const { dbUser } = await requireClinicalStaff()
+
+    const pregnancy = await db.query.pregnancies.findFirst({
+      where: eq(pregnancies.id, pregnancyId),
+    })
+    if (!pregnancy) return { success: false, error: 'Pregnancy not found' }
+
+    if (dbUser.role !== 'admin' && pregnancy.hospitalId !== dbUser.hospitalId) {
+      return { success: false, error: 'Not authorized for this patient' }
+    }
+
+    const update: Partial<typeof pregnancies.$inferInsert> = { updatedAt: new Date() }
+
+    if (data.lmp) {
+      const lmpDate = new Date(data.lmp)
+      if (Number.isNaN(lmpDate.getTime())) {
+        return { success: false, error: 'Invalid LMP date' }
+      }
+      update.lmp = lmpDate
+      update.edd = data.edd ? new Date(data.edd) : eddFromLmp(lmpDate)
+      if (Number.isNaN((update.edd as Date).getTime())) {
+        return { success: false, error: 'Invalid EDD date' }
+      }
+      update.gestationalAge = calcGestationalAgeWeeks(lmpDate)
+    } else if (data.edd) {
+      const eddDate = new Date(data.edd)
+      if (Number.isNaN(eddDate.getTime())) {
+        return { success: false, error: 'Invalid EDD date' }
+      }
+      update.edd = eddDate
+    }
+
+    if (data.gestationalAgeWeeks != null && !Number.isNaN(data.gestationalAgeWeeks)) {
+      const weeks = Math.max(0, Math.min(42, Math.floor(data.gestationalAgeWeeks)))
+      update.gestationalAge = weeks
+    }
+
+    if (Object.keys(update).length <= 1) {
+      return { success: false, error: 'Provide LMP, EDD, or gestational age' }
+    }
+
+    await db.update(pregnancies).set(update).where(eq(pregnancies.id, pregnancyId))
+
+    await notifyPregnancyUpdate(
+      pregnancyId,
+      'Your pregnancy dates and progress were updated by your clinic.'
+    )
+    revalidatePregnancyPaths(pregnancyId)
+    return { success: true }
+  } catch (err: unknown) {
+    console.error('updatePregnancyTimeline error:', err)
+    const message = err instanceof Error ? err.message : 'Failed to update pregnancy dates'
+    return { success: false, error: message }
+  }
+}
+
 export async function savePreviousPregnancy(data: any) {
   const user = await currentUser()
   if (!user) throw new Error('Unauthorized')
@@ -1496,28 +1564,67 @@ export async function savePreviousPregnancy(data: any) {
   }
 
   try {
+    const outcome = data.outcome ?? data.alive
+    const isAlive =
+      outcome === 'alive' || outcome === 'true' || outcome === true
+
     await db.insert(previousPregnancies).values({
       userId: data.userId,
       year: parseInt(data.year),
       pregnancyDuration: parseInt(data.duration),
       modeOfDelivery: data.mode,
-      birthWeight: data.weight,
-      sex: data.sex,
-      alive: data.alive === 'true',
-      complications: data.complications
+      birthWeight: data.weight ? parseFloat(data.weight) : null,
+      sex: data.sex || null,
+      alive: isAlive,
+      complications: data.complications || null,
     })
 
-    // Trigger Real-time update
-    await pusherServer.trigger(`pregnancy-${data.pregnancyId}`, 'mch-update', {
-      type: 'previous_pregnancy',
-      message: 'New obstetric history added'
-    })
+    if (data.pregnancyId) {
+      await notifyPregnancyUpdate(
+        data.pregnancyId,
+        'Obstetric history (previous pregnancy) was updated by your clinic.'
+      )
+      revalidatePregnancyPaths(data.pregnancyId)
+    }
 
     revalidatePath(`/dashboard/hospital/patients/${data.pregnancyId}/mch-book`)
     return { success: true }
   } catch (error) {
     console.error('Save previous pregnancy error:', error)
     return { success: false, error: 'Failed to save record' }
+  }
+}
+
+/** Update Alive / Deceased on an existing previous pregnancy row */
+export async function updatePreviousPregnancyOutcome(
+  recordId: string,
+  pregnancyId: string,
+  outcome: 'alive' | 'deceased'
+) {
+  try {
+    const { dbUser } = await requireClinicalStaff()
+
+    const record = await db.query.previousPregnancies.findFirst({
+      where: eq(previousPregnancies.id, recordId),
+    })
+    if (!record) return { success: false, error: 'Record not found' }
+
+    await db
+      .update(previousPregnancies)
+      .set({ alive: outcome === 'alive' })
+      .where(eq(previousPregnancies.id, recordId))
+
+    await notifyPregnancyUpdate(
+      pregnancyId,
+      'Obstetric history was updated by your clinic.'
+    )
+    revalidatePregnancyPaths(pregnancyId)
+    revalidatePath(`/dashboard/hospital/patients/${pregnancyId}/mch-book`)
+    return { success: true }
+  } catch (err: unknown) {
+    console.error('updatePreviousPregnancyOutcome error:', err)
+    const message = err instanceof Error ? err.message : 'Failed to update status'
+    return { success: false, error: message }
   }
 }
 
