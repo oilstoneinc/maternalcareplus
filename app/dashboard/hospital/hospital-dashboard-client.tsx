@@ -135,7 +135,11 @@ export default function HospitalDashboardClient({ user, data }: { user: any, dat
 
   const handleGlobalSearch = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!globalSearchTerm.trim()) return
+    const q = globalSearchTerm.trim()
+    if (q.length < 2) {
+      alert('Enter at least 2 characters (name, phone, email, or ID).')
+      return
+    }
     setIsSearchingGlobal(true)
     setHasSearchedGlobal(true)
     try {
@@ -490,7 +494,8 @@ export default function HospitalDashboardClient({ user, data }: { user: any, dat
                           <thead className="bg-slate-50 text-[10px] font-black text-slate-900 uppercase tracking-widest">
                             <tr className="border-b border-slate-100">
                               <th className="px-4 py-3">Patient Name</th>
-                              <th className="px-4 py-3">Contact</th>
+                              <th className="px-4 py-3">Phone / Email</th>
+                              <th className="px-4 py-3">Patient & Clerk ID</th>
                               <th className="px-4 py-3">Primary Onboarding Facility</th>
                               <th className="px-4 py-3 text-right">Action</th>
                             </tr>
@@ -501,13 +506,23 @@ export default function HospitalDashboardClient({ user, data }: { user: any, dat
                                 <td className="px-4 py-3">
                                   <div className="flex flex-col">
                                     <span className="font-bold text-slate-800">{res.name}</span>
-                                    <span className="text-[10px] text-muted-foreground uppercase tracking-widest font-mono">ID: {res.id.substring(0,8)}</span>
+                                    {res.pregnancyStatus && res.pregnancyStatus !== 'active' && (
+                                      <span className="text-[10px] text-amber-600 font-semibold">
+                                        Pregnancy: {res.pregnancyStatus}
+                                      </span>
+                                    )}
                                   </div>
                                 </td>
                                 <td className="px-4 py-3">
                                   <div className="flex flex-col text-xs text-slate-600">
-                                    <span>{res.phone || 'No phone'}</span>
-                                    <span className="text-muted-foreground font-mono">{res.email}</span>
+                                    <span>{res.phone || '—'}</span>
+                                    <span className="text-muted-foreground break-all">{res.email}</span>
+                                  </div>
+                                </td>
+                                <td className="px-4 py-3">
+                                  <div className="flex flex-col text-[10px] font-mono text-slate-600 gap-0.5">
+                                    <span title={res.id}>Patient: {res.id.substring(0, 8)}…</span>
+                                    <span>Clerk: {res.clerkId?.substring(0, 12) || '—'}…</span>
                                   </div>
                                 </td>
                                 <td className="px-4 py-3">
@@ -517,15 +532,19 @@ export default function HospitalDashboardClient({ user, data }: { user: any, dat
                                   </div>
                                 </td>
                                 <td className="px-4 py-3 text-right">
-                                  <Link href={`/dashboard/hospital/patients/${res.pregnancyId}`}>
-                                    <Button 
-                                      variant="outline" 
-                                      size="sm"
-                                      className="border-pink-200 text-[#D48BA1] hover:bg-pink-50 hover:text-[#c47a90] rounded-xl font-bold text-xs"
-                                    >
-                                      Retrieve History & Record ANC Visit
-                                    </Button>
-                                  </Link>
+                                  {res.pregnancyId ? (
+                                    <Link href={`/dashboard/hospital/patients/${res.pregnancyId}`}>
+                                      <Button 
+                                        variant="outline" 
+                                        size="sm"
+                                        className="border-pink-200 text-[#D48BA1] hover:bg-pink-50 hover:text-[#c47a90] rounded-xl font-bold text-xs"
+                                      >
+                                        Retrieve History & Record ANC Visit
+                                      </Button>
+                                    </Link>
+                                  ) : (
+                                    <span className="text-xs text-slate-400">No pregnancy on file</span>
+                                  )}
                                 </td>
                               </tr>
                             ))}
@@ -550,7 +569,7 @@ export default function HospitalDashboardClient({ user, data }: { user: any, dat
                       <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
                       <input
                         type="text"
-                        placeholder="Search patients..."
+                        placeholder="Name, phone, or email..."
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                         className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#D48BA1] focus:border-transparent"
@@ -583,7 +602,8 @@ export default function HospitalDashboardClient({ user, data }: { user: any, dat
                             !searchTerm.trim() ||
                             patient.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                             patient.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                            patient.phone?.includes(searchTerm)
+                            patient.phone?.replace(/\D/g, '').includes(searchTerm.replace(/\D/g, '')) ||
+                            patient.id?.toLowerCase().includes(searchTerm.toLowerCase())
                         )
                         .map((patient) => (
                         <tr key={patient.id} className="border-b hover:bg-gray-50">

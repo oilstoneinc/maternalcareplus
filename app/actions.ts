@@ -2032,57 +2032,81 @@ export async function searchGlobalPatients(queryText: string) {
     throw new Error('Not authorized to search patient registry')
   }
 
-  if (!queryText || queryText.trim().length < 2) {
+  const raw = queryText.trim()
+  if (!raw || raw.length < 2) {
     return []
   }
 
-  const cleanQuery = `%${queryText.trim()}%`
+  const cleanQuery = `%${raw}%`
+  const digitsOnly = raw.replace(/\D/g, '')
+  const phonePattern = digitsOnly.length >= 4 ? `%${digitsOnly}%` : null
+  const idCompact = raw.replace(/-/g, '').toLowerCase()
+  const idPattern = idCompact.length >= 4 ? `%${idCompact}%` : null
 
   try {
-    // Query patients match
+    const matchConditions = [
+      ilike(users.firstName, cleanQuery),
+      ilike(users.lastName, cleanQuery),
+      ilike(users.email, cleanQuery),
+      ilike(users.phone, cleanQuery),
+      ilike(users.clerkId, cleanQuery),
+      sql`(${users.firstName} || ' ' || ${users.lastName}) ILIKE ${cleanQuery}`,
+      sql`CAST(${users.id} AS TEXT) ILIKE ${cleanQuery}`,
+    ]
+
+    if (phonePattern) {
+      matchConditions.push(
+        sql`regexp_replace(COALESCE(${users.phone}, ''), '[^0-9]', '', 'g') LIKE ${phonePattern}`
+      )
+    }
+
+    if (idPattern) {
+      matchConditions.push(
+        sql`REPLACE(LOWER(CAST(${users.id} AS TEXT)), '-', '') LIKE ${idPattern}`
+      )
+    }
+
     const matchingPatients = await db.query.users.findMany({
-      where: and(
-        eq(users.role, 'pregnant_woman'),
-        or(
-          ilike(users.firstName, cleanQuery),
-          ilike(users.lastName, cleanQuery),
-          ilike(users.email, cleanQuery),
-          ilike(users.phone, cleanQuery)
-        )
-      ),
-      limit: 25
+      where: and(eq(users.role, 'pregnant_woman'), or(...matchConditions)),
+      limit: 25,
     })
 
     const results = []
 
     for (const patient of matchingPatients) {
-      // Find active pregnancy
-      const activePreg = await db.query.pregnancies.findFirst({
-        where: and(
-          eq(pregnancies.userId, patient.id),
-          eq(pregnancies.status, 'active')
-        )
+      let pregnancy = await db.query.pregnancies.findFirst({
+        where: and(eq(pregnancies.userId, patient.id), eq(pregnancies.status, 'active')),
       })
 
-      if (activePreg) {
-        // Find onboarding hospital
-        const onboardingHospital = await db.query.hospitals.findFirst({
-          where: eq(hospitals.id, activePreg.hospitalId)
-        })
-
-        results.push({
-          id: patient.id,
-          name: `${patient.firstName} ${patient.lastName}`.trim(),
-          email: patient.email,
-          phone: patient.phone,
-          pregnancyId: activePreg.id,
-          onboardedHospitalName: onboardingHospital ? onboardingHospital.name : 'Unknown Hospital',
-          onboardedHospitalLocation: onboardingHospital ? `${onboardingHospital.city}, ${onboardingHospital.region}` : 'Unknown Location'
+      if (!pregnancy) {
+        pregnancy = await db.query.pregnancies.findFirst({
+          where: eq(pregnancies.userId, patient.id),
+          orderBy: [desc(pregnancies.createdAt)],
         })
       }
+
+      const onboardingHospital = pregnancy
+        ? await db.query.hospitals.findFirst({
+            where: eq(hospitals.id, pregnancy.hospitalId),
+          })
+        : null
+
+      results.push({
+        id: patient.id,
+        name: `${patient.firstName} ${patient.lastName}`.trim() || patient.email,
+        email: patient.email,
+        phone: patient.phone,
+        clerkId: patient.clerkId,
+        pregnancyId: pregnancy?.id ?? null,
+        pregnancyStatus: pregnancy?.status ?? null,
+        onboardedHospitalName: onboardingHospital?.name ?? 'Not assigned',
+        onboardedHospitalLocation: onboardingHospital
+          ? `${onboardingHospital.city}, ${onboardingHospital.region}`
+          : '—',
+      })
     }
 
-    return results
+    return JSON.parse(JSON.stringify(results))
   } catch (error) {
     console.error('searchGlobalPatients error:', error)
     return []
