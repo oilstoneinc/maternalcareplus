@@ -13,15 +13,15 @@ function SignInContent() {
     <>
       {partnerHint && (
         <div className="w-full max-w-md mb-4 p-4 rounded-2xl bg-indigo-50 border border-indigo-100 text-sm text-indigo-900 font-medium text-center leading-relaxed">
-          Partners: sign in with the <strong>mother&apos;s email and password</strong>. You will then
-          enter the invite code from her app before the dashboard opens.
+          Partners: sign in with the <strong>mother&apos;s email and password</strong>, enter her invite
+          code, then view her pregnancy on a <strong>read-only dashboard</strong>.
         </div>
       )}
 
       <p className="text-center text-sm text-slate-500 mb-4 max-w-md leading-relaxed">
         <strong>Fathers / partners:</strong> use the pregnant woman&apos;s sign-in details (same email
         and password). After sign-in, enter the code she generates under{' '}
-        <strong>Support your Partner</strong> on her phone. Separate partner accounts are not used.
+        <strong>Support your Partner</strong> on her phone. You will see a read-only partner dashboard, not her full record.
       </p>
 
       <SignIn

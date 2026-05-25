@@ -619,7 +619,7 @@ export default function PregnantWomanClient({ user, data }: { user: any, data: D
                 <ol className="text-[10px] text-indigo-800/80 space-y-1 list-decimal list-inside font-medium">
                   <li>Tap <strong>Generate Invite Code</strong> (valid 24 hours, one-time use)</li>
                   <li>Partner opens <strong>Sign In</strong> and uses your login details</li>
-                  <li>He enters this code — without it he cannot open your dashboard</li>
+                  <li>He enters this code to open his <strong>read-only</strong> dashboard (not your full record)</li>
                 </ol>
                 {shareCode ? (
                   <div className="space-y-3">

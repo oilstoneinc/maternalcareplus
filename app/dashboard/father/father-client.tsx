@@ -19,12 +19,13 @@ import {
   Zap,
   Lock,
   ArrowRight,
+  Eye,
   FileText,
   FlaskConical,
   Beaker
 } from 'lucide-react'
 import { useState } from 'react'
-import { linkFatherViaToken } from '@/app/actions'
+import { verifyPartnerAccessCode } from '@/app/actions'
 import ProgressChart from '@/components/dashboard/ProgressChart'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -36,6 +37,7 @@ interface FatherDashboardProps {
 }
 
 export default function FatherDashboardClient({ user, data }: FatherDashboardProps) {
+  const readOnly = !!data?.readOnly
   const [joinCode, setJoinCode] = useState('')
   const [isJoining, setIsJoining] = useState(false)
 
@@ -45,21 +47,21 @@ export default function FatherDashboardClient({ user, data }: FatherDashboardPro
     
     setIsJoining(true)
     try {
-      const result = await linkFatherViaToken(joinCode)
+      const result = await verifyPartnerAccessCode(joinCode)
       if (result.success) {
-        toast.success("Successfully linked to pregnancy!")
-        window.location.reload()
+        toast.success('Access granted — opening read-only dashboard')
+        window.location.href = '/dashboard/father'
       } else {
-        toast.error(result.error || "Failed to link")
+        toast.error(result.error || 'Failed to verify code')
       }
     } catch (error) {
-      toast.error("An error occurred")
+      toast.error('An error occurred')
     } finally {
       setIsJoining(false)
     }
   }
 
-  // Unlinked state
+  // Unlinked state (legacy father accounts only)
   if (!data?.pregnancy) {
     return (
       <div className="min-h-[80vh] flex items-center justify-center p-4">
@@ -70,7 +72,7 @@ export default function FatherDashboardClient({ user, data }: FatherDashboardPro
             </div>
             <CardTitle className="text-2xl font-black text-indigo-950">Welcome, Dad! 🤜🤛</CardTitle>
             <CardDescription className="text-indigo-700/60 font-medium">
-              Ready to support your partner? Enter the 6-digit invite code shared with you to start tracking the journey.
+              Sign in with the mother&apos;s email and password, then enter her invite code. Or enter a code below if you already signed in.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -130,16 +132,25 @@ export default function FatherDashboardClient({ user, data }: FatherDashboardPro
 
   return (
     <div className="p-4 space-y-6 max-w-5xl mx-auto pb-20">
+      {readOnly && (
+        <div className="flex items-center gap-2 rounded-2xl border border-indigo-200 bg-indigo-50 px-4 py-3 text-sm font-semibold text-indigo-900">
+          <Eye className="h-4 w-4 shrink-0" />
+          Read-only partner view — you can see progress and clinic updates but cannot edit records or message care teams.
+        </div>
+      )}
+
       {/* Header */}
       <header className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
-            Dad&apos;s Dashboard
+            {readOnly ? 'Partner Dashboard' : 'Dad\'s Dashboard'}
           </h1>
-          <p className="text-sm text-muted-foreground">Support, track, and prepare for baby.</p>
+          <p className="text-sm text-muted-foreground">
+            {readOnly ? 'View-only support for your partner\'s pregnancy journey.' : 'Support, track, and prepare for baby.'}
+          </p>
         </div>
         <div className="h-10 w-10 rounded-full bg-indigo-100 flex items-center justify-center border-2 border-white shadow-sm">
-          <ShieldCheck className="h-5 w-5 text-indigo-600" />
+          {readOnly ? <Eye className="h-5 w-5 text-indigo-600" /> : <ShieldCheck className="h-5 w-5 text-indigo-600" />}
         </div>
       </header>
 
@@ -323,9 +334,9 @@ export default function FatherDashboardClient({ user, data }: FatherDashboardPro
           <p className="text-indigo-100/90 leading-relaxed">
             At week {week}, your baby is starting to grow real hair and their lungs are developing fast! Your partner might be feeling more "practice" contractions. Keep her hydration high and try to handle more of the household errands this week.
           </p>
-          <Button variant="outline" className="border-white/20 hover:bg-white/10 text-white font-bold rounded-xl h-10 px-6 backdrop-blur-sm">
-            Read Full Guide
-          </Button>
+          <p className="text-[10px] text-indigo-200/80 font-semibold uppercase tracking-wider">
+            {readOnly ? 'Educational summary — read only' : 'Educational summary'}
+          </p>
         </div>
       </Card>
 

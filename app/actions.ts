@@ -2,7 +2,12 @@
 
 import { db } from '@/lib/db'
 import { users, pregnancies, appointments, labTests, partnerAccess, messages, User, NewUser, NewPregnancy, NewMessage, hospitals, vitalSigns, previousPregnancies, deliveries, postnatalCare, children, immunizations, childGrowth, hospitalInvites, partnershipRequests, notifications } from '@/lib/db/schema'
-import { setVerifiedPregnancyDevice, getVerifiedPregnancyId } from '@/lib/partner-session'
+import {
+  setVerifiedPregnancyDevice,
+  getVerifiedPregnancyId,
+  setPartnerReadonlySession,
+  getPartnerSessionPregnancyId,
+} from '@/lib/partner-session'
 import { currentUser, clerkClient } from '@clerk/nextjs/server'
 import { HospitalDashboardData, DashboardData, Message } from '@/types'
 import { eq, desc, asc, and, or, sql, ilike, inArray } from 'drizzle-orm'
@@ -478,30 +483,40 @@ export async function getMidwifeDashboardData() {
 
 
 /**
- * Get data for the Father Dashboard
+ * Get data for the Father Dashboard (read-only for partners on mother's account)
  */
 export async function getFatherDashboardData() {
   const user = await currentUser()
   if (!user) throw new Error('Unauthorized')
 
-  // Get father record
   const dbUser = await db.query.users.findFirst({
     where: eq(users.clerkId, user.id),
   })
 
-  if (!dbUser || dbUser.role !== 'father' && dbUser.role !== 'admin') {
-    throw new Error('Unauthorized role')
+  if (!dbUser) throw new Error('Unauthorized')
+
+  let pregnancy: (typeof pregnancies.$inferSelect) | null = null
+  const partnerPregnancyId = await getPartnerSessionPregnancyId(user.id)
+  const isReadOnlyPartner =
+    dbUser.role === 'pregnant_woman' && !!partnerPregnancyId
+
+  if (isReadOnlyPartner && partnerPregnancyId) {
+    pregnancy = await db.query.pregnancies.findFirst({
+      where: and(
+        eq(pregnancies.id, partnerPregnancyId),
+        eq(pregnancies.userId, dbUser.id)
+      ),
+    })
+  } else if (dbUser.role === 'father' || dbUser.role === 'admin') {
+    const access = await db.query.partnerAccess.findFirst({
+      where: eq(partnerAccess.partnerId, dbUser.id),
+    })
+    pregnancy = access?.pregnancyId
+      ? await db.query.pregnancies.findFirst({
+          where: eq(pregnancies.id, access.pregnancyId),
+        })
+      : null
   }
-
-  // Get linked pregnancy via partner_access
-  const access = await db.query.partnerAccess.findFirst({
-    where: eq(partnerAccess.partnerId, dbUser.id),
-  })
-
-  // Fetch linked pregnancy separately to avoid Drizzle relation dependencies
-  const pregnancy = access?.pregnancyId ? await db.query.pregnancies.findFirst({
-    where: eq(pregnancies.id, access.pregnancyId)
-  }) : null
 
   // Get upcoming appointments
   const upcomingAppointments = pregnancy?.id ? await db.query.appointments.findMany({
@@ -564,6 +579,7 @@ export async function getFatherDashboardData() {
       appointments: upcomingAppointments,
       labs,
       clinicRecommendations,
+      readOnly: isReadOnlyPartner,
     })
   )
 }
@@ -837,7 +853,7 @@ export async function syncClerkAccount() {
     if (role === 'hospital_staff') targetPath = '/dashboard/hospital'
     if (role === 'midwife') targetPath = '/dashboard/midwife'
     if (role === 'pregnant_woman') targetPath = '/dashboard/pregnant-woman'
-    if (role === 'father') targetPath = '/sign-in?partner=mother-account'
+    if (role === 'father') targetPath = '/dashboard/father'
 
     revalidatePath('/')
     return { success: true, role, targetPath }
@@ -1361,7 +1377,7 @@ export async function generateFatherJoinCode(pregnancyId: string) {
   }
 
   if (dbUser.role === 'pregnant_woman') {
-    const verifiedId = await getVerifiedPregnancyId(dbUser.id)
+    const verifiedId = await getVerifiedPregnancyId(user.id)
     if (verifiedId !== pregnancyId) {
       return {
         success: false,
@@ -1425,7 +1441,7 @@ export async function verifyPartnerAccessCode(joinCode: string) {
       }
     }
 
-    await setVerifiedPregnancyDevice(dbUser.id, pregnancy.id)
+    await setPartnerReadonlySession(user.id, pregnancy.id)
 
     await db
       .update(pregnancies)
@@ -1435,7 +1451,7 @@ export async function verifyPartnerAccessCode(joinCode: string) {
       })
       .where(eq(pregnancies.id, pregnancy.id))
 
-    revalidatePath('/dashboard/pregnant-woman')
+    revalidatePath('/dashboard/father')
     revalidatePath('/dashboard/pregnant-woman/partner-access')
     return { success: true }
   } catch (error) {

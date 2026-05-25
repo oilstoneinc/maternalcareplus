@@ -25,7 +25,7 @@ export default function PartnerAccessClient({ motherFirstName }: PartnerAccessCl
       const result = await verifyPartnerAccessCode(joinCode)
       if (result.success) {
         toast.success('Access granted')
-        window.location.href = '/dashboard/pregnant-woman'
+        window.location.href = '/dashboard/father'
       } else {
         toast.error(result.error || 'Invalid or expired code')
       }
@@ -50,9 +50,9 @@ export default function PartnerAccessClient({ motherFirstName }: PartnerAccessCl
           </div>
           <CardTitle className="text-2xl font-black text-slate-900">Partner access verification</CardTitle>
           <CardDescription className="text-slate-600 font-medium leading-relaxed">
-            You signed in with {motherFirstName}&apos;s account. For security, enter the{' '}
-            <strong>6-character code</strong> she generates on her phone under{' '}
-            <strong>Support your Partner</strong> before you can open the care dashboard.
+            You signed in with {motherFirstName}&apos;s account. Enter the{' '}
+            <strong>6-character code</strong> from her phone to open your{' '}
+            <strong>read-only partner dashboard</strong> (view progress, visits, and clinic advice).
           </CardDescription>
         </CardHeader>
         <CardContent>

@@ -19,7 +19,7 @@ export default function PartnerSignUpPage() {
         <p className="text-sm text-slate-600 font-medium leading-relaxed mb-8">
           For your security, partners do not create separate accounts. Sign in with the{' '}
           <strong>mother&apos;s email and password</strong>, then enter the 6-character code she
-          generates on her phone under <strong>Support your Partner</strong>.
+          generates on her phone — you then get a <strong>read-only partner dashboard</strong>.
         </p>
         <Link
           href="/sign-in"

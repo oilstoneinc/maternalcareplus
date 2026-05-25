@@ -8,6 +8,7 @@ import {
   getVerifiedPregnancyId,
   setVerifiedPregnancyDevice,
   isWithinPrimaryDeviceGraceWindow,
+  getPartnerSessionPregnancyId,
 } from '@/lib/partner-session'
 import PartnerAccessClient from './partner-access-client'
 
@@ -30,13 +31,18 @@ export default async function PartnerAccessPage() {
     redirect('/dashboard/pregnant-woman')
   }
 
-  const verifiedPregnancyId = await getVerifiedPregnancyId(dbUser.id)
+  const partnerSessionId = await getPartnerSessionPregnancyId(user.id)
+  if (partnerSessionId) {
+    redirect('/dashboard/father')
+  }
+
+  const verifiedPregnancyId = await getVerifiedPregnancyId(user.id)
   if (verifiedPregnancyId === pregnancy.id) {
     redirect('/dashboard/pregnant-woman')
   }
 
   if (isWithinPrimaryDeviceGraceWindow(user.createdAt)) {
-    await setVerifiedPregnancyDevice(dbUser.id, pregnancy.id)
+    await setVerifiedPregnancyDevice(user.id, pregnancy.id)
     redirect('/dashboard/pregnant-woman')
   }
 

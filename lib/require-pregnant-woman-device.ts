@@ -7,15 +7,19 @@ import {
   getVerifiedPregnancyId,
   setVerifiedPregnancyDevice,
   isWithinPrimaryDeviceGraceWindow,
+  hasPartnerReadonlySession,
 } from '@/lib/partner-session'
 
 /**
- * Ensures this browser has verified access (mother's primary device or partner code).
- * Redirects to partner-access gate when not verified.
+ * Full maternal dashboard — mother's trusted device only (not partner read-only session).
  */
 export async function requirePregnantWomanDeviceAccess() {
   const user = await currentUser()
   if (!user) redirect('/sign-in')
+
+  if (await hasPartnerReadonlySession(user.id)) {
+    redirect('/dashboard/father')
+  }
 
   const dbUser = await db.query.users.findFirst({
     where: eq(users.clerkId, user.id),
@@ -29,11 +33,11 @@ export async function requirePregnantWomanDeviceAccess() {
 
   if (!pregnancy) return
 
-  const verifiedId = await getVerifiedPregnancyId(dbUser.id)
+  const verifiedId = await getVerifiedPregnancyId(user.id)
   if (verifiedId === pregnancy.id) return
 
   if (isWithinPrimaryDeviceGraceWindow(user.createdAt)) {
-    await setVerifiedPregnancyDevice(dbUser.id, pregnancy.id)
+    await setVerifiedPregnancyDevice(user.id, pregnancy.id)
     return
   }
 

@@ -2,6 +2,7 @@ import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 
 const PW_DEVICE_COOKIE = "mc_pw_device_verified";
+const PARTNER_SESSION_COOKIE = "mc_partner_readonly";
 
 const isPublicRoute = createRouteMatcher([
   "/",
@@ -14,8 +15,15 @@ const isPartnerAccessRoute = createRouteMatcher([
   "/dashboard/pregnant-woman/partner-access(.*)",
 ]);
 
+function cookieMatchesUser(
+  raw: string | undefined,
+  clerkUserId: string
+): boolean {
+  if (!raw) return false;
+  return raw.startsWith(`${clerkUserId}:`);
+}
+
 export default clerkMiddleware(async (auth, req) => {
-  // If the route is not public and the user is not authenticated, protect it
   if (!isPublicRoute(req)) {
     await auth.protect();
   }
@@ -23,19 +31,28 @@ export default clerkMiddleware(async (auth, req) => {
   const { userId, sessionClaims } = await auth();
 
   if (userId) {
-    // Read role from JWT session claims only (fast, no DB query in Edge)
-    const role = (sessionClaims?.publicMetadata as any)?.role 
-               || (sessionClaims?.unsafeMetadata as any)?.role;
-    
-    const pathname = req.nextUrl.pathname;
+    const role =
+      (sessionClaims?.publicMetadata as { role?: string })?.role ||
+      (sessionClaims?.unsafeMetadata as { role?: string })?.role;
 
-    // Only redirect from root paths — dashboard pages handle their own auth
+    const pathname = req.nextUrl.pathname;
+    const partnerCookie = req.cookies.get(PARTNER_SESSION_COOKIE)?.value;
+    const motherCookie = req.cookies.get(PW_DEVICE_COOKIE)?.value;
+    const isPartnerSession = cookieMatchesUser(partnerCookie, userId);
+    const isMotherDevice = cookieMatchesUser(motherCookie, userId);
+
     if (pathname === "/" || pathname === "/dashboard") {
+      if (role === "pregnant_woman") {
+        const dest = isPartnerSession
+          ? "/dashboard/father"
+          : isMotherDevice
+            ? "/dashboard/pregnant-woman"
+            : "/dashboard/pregnant-woman/partner-access";
+        return NextResponse.redirect(new URL(dest, req.url));
+      }
       switch (role) {
-        case "pregnant_woman":
-          return NextResponse.redirect(new URL("/dashboard/pregnant-woman", req.url));
         case "father":
-          return NextResponse.redirect(new URL("/sign-in?partner=mother-account", req.url));
+          return NextResponse.redirect(new URL("/dashboard/father", req.url));
         case "midwife":
           return NextResponse.redirect(new URL("/dashboard/midwife", req.url));
         case "hospital_staff":
@@ -43,47 +60,51 @@ export default clerkMiddleware(async (auth, req) => {
         case "admin":
           return NextResponse.redirect(new URL("/dashboard/admin", req.url));
         default:
-          // Role not in JWT yet — send to unauthorized where self-healing runs
           return NextResponse.redirect(new URL("/unauthorized", req.url));
       }
     }
 
-    // Protect role-specific routes — only block if role is KNOWN and WRONG
-    // If role is undefined (stale JWT), let the page load so DB fallback can run
     if (role && pathname.startsWith("/dashboard/hospital") && role !== "hospital_staff" && role !== "admin") {
       return NextResponse.redirect(new URL("/unauthorized", req.url));
     }
     if (role && pathname.startsWith("/dashboard/midwife") && role !== "midwife" && role !== "admin") {
       return NextResponse.redirect(new URL("/unauthorized", req.url));
     }
-    if (role && pathname.startsWith("/dashboard/pregnant-woman") && role !== "pregnant_woman" && role !== "admin") {
+    if (role && pathname.startsWith("/dashboard/admin") && role !== "admin") {
       return NextResponse.redirect(new URL("/unauthorized", req.url));
     }
 
-    if (
-      role === "pregnant_woman" &&
-      pathname.startsWith("/dashboard/pregnant-woman") &&
-      !isPartnerAccessRoute(req)
-    ) {
-      const verified = req.cookies.get(PW_DEVICE_COOKIE)?.value;
-      if (!verified || !verified.startsWith(`${userId}:`)) {
+    if (role === "pregnant_woman") {
+      if (isPartnerSession && pathname.startsWith("/dashboard/pregnant-woman") && !isPartnerAccessRoute(req)) {
+        return NextResponse.redirect(new URL("/dashboard/father", req.url));
+      }
+      if (
+        !isPartnerSession &&
+        pathname.startsWith("/dashboard/pregnant-woman") &&
+        !isPartnerAccessRoute(req) &&
+        !isMotherDevice
+      ) {
+        return NextResponse.redirect(
+          new URL("/dashboard/pregnant-woman/partner-access", req.url)
+        );
+      }
+      if (
+        !isPartnerSession &&
+        pathname.startsWith("/dashboard/father")
+      ) {
         return NextResponse.redirect(
           new URL("/dashboard/pregnant-woman/partner-access", req.url)
         );
       }
     }
 
-    if (role === "father") {
-      return NextResponse.redirect(
-        new URL("/sign-in?partner=mother-account", req.url)
-      );
+    if (role === "father" && pathname.startsWith("/dashboard/father")) {
+      return NextResponse.next();
     }
-    if (role && pathname.startsWith("/dashboard/father") && role !== "admin") {
-      return NextResponse.redirect(
-        new URL("/sign-in?partner=mother-account", req.url)
-      );
+    if (role && pathname.startsWith("/dashboard/pregnant-woman") && role !== "pregnant_woman" && role !== "admin") {
+      return NextResponse.redirect(new URL("/unauthorized", req.url));
     }
-    if (role && pathname.startsWith("/dashboard/admin") && role !== "admin") {
+    if (role && pathname.startsWith("/dashboard/father") && role !== "father" && role !== "pregnant_woman" && role !== "admin") {
       return NextResponse.redirect(new URL("/unauthorized", req.url));
     }
   }
