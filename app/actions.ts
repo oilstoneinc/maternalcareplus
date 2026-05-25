@@ -22,6 +22,53 @@ function parseDecimalOrNull(value: unknown): string | null {
   return String(value)
 }
 
+export type PatientRecommendationItem = {
+  title: string
+  content: string
+  source: 'clinic_visit' | 'medication' | 'standing_advice' | 'education'
+  date?: string
+}
+
+function buildPatientRecommendationsList({
+  pregnancy,
+  visitRecommendations,
+}: {
+  pregnancy: any
+  visitRecommendations: { title: string; content: string; date?: string }[]
+}): PatientRecommendationItem[] {
+  const items: PatientRecommendationItem[] = []
+  const mch = (pregnancy.mchData as Record<string, unknown>) || {}
+
+  const standing = mch.standingAdvice as string | undefined
+  if (standing?.trim()) {
+    items.push({
+      title: 'Advice from your care team',
+      content: standing.trim(),
+      source: 'standing_advice',
+    })
+  }
+
+  for (const v of visitRecommendations.slice(0, 5)) {
+    items.push({
+      title: v.title,
+      content: v.content,
+      source: 'clinic_visit',
+      date: v.date,
+    })
+  }
+
+  const meds = pregnancy.medications as string[] | null | undefined
+  if (meds?.length) {
+    items.push({
+      title: 'Medications prescribed by clinic',
+      content: meds.join(' · '),
+      source: 'medication',
+    })
+  }
+
+  return items
+}
+
 function calcGestationalAgeWeeks(lmp: Date | string | null | undefined): number {
   if (!lmp) return 0
   const lmpDate = new Date(lmp)
@@ -175,18 +222,49 @@ export async function getPatientDashboardData(): Promise<DashboardData | null> {
       console.error('Error fetching notifications:', e)
     }
 
+    const ga =
+      pregnancy.gestationalAge ?? calcGestationalAgeWeeks(pregnancy.lmp)
+
+    let visitRecommendations: { title: string; content: string; date?: string }[] = []
+    try {
+      const completedVisits = await db.query.appointments.findMany({
+        where: and(
+          eq(appointments.pregnancyId, pregnancy.id),
+          eq(appointments.status, 'completed')
+        ),
+        orderBy: [desc(appointments.scheduledDate)],
+        limit: 15,
+      })
+      visitRecommendations = completedVisits
+        .filter((v) => v.recommendations?.trim())
+        .map((v) => ({
+          title: 'Clinic visit advice',
+          content: v.recommendations!.trim(),
+          date: v.scheduledDate
+            ? new Date(v.scheduledDate).toLocaleDateString()
+            : undefined,
+        }))
+    } catch (e) {
+      console.error('Error fetching visit recommendations:', e)
+    }
+
+    const clinicRecommendations = buildPatientRecommendationsList({
+      pregnancy: { ...pregnancy, gestationalAge: ga },
+      visitRecommendations,
+    })
+
     return {
       user: dbUser,
       pregnancy: {
         ...pregnancyWithHospital,
-        gestationalAge:
-          pregnancy.gestationalAge ?? calcGestationalAgeWeeks(pregnancy.lmp),
+        gestationalAge: ga,
       },
       appointments: upcomingAppointments,
       labs: recentLabs,
       vitals: recentVitals,
       careContact,
       notifications: patientNotifications,
+      clinicRecommendations,
     }
   } catch (err) {
     console.error('CRITICAL ERROR in getPatientDashboardData:', err)
@@ -438,12 +516,55 @@ export async function getFatherDashboardData() {
     limit: 10
   }) : []
 
-  return {
-    user: dbUser,
-    pregnancy,
-    appointments: upcomingAppointments,
-    labs
+  let hospital: typeof hospitals.$inferSelect | null = null
+  if (pregnancy?.hospitalId) {
+    hospital =
+      (await db.query.hospitals.findFirst({
+        where: eq(hospitals.id, pregnancy.hospitalId),
+      })) ?? null
   }
+
+  const ga = pregnancy
+    ? pregnancy.gestationalAge ?? calcGestationalAgeWeeks(pregnancy.lmp)
+    : 0
+
+  let visitRecommendations: { title: string; content: string; date?: string }[] = []
+  if (pregnancy?.id) {
+    const completedVisits = await db.query.appointments.findMany({
+      where: and(
+        eq(appointments.pregnancyId, pregnancy.id),
+        eq(appointments.status, 'completed')
+      ),
+      orderBy: [desc(appointments.scheduledDate)],
+      limit: 10,
+    })
+    visitRecommendations = completedVisits
+      .filter((v) => v.recommendations?.trim())
+      .map((v) => ({
+        title: 'Clinic visit advice',
+        content: v.recommendations!.trim(),
+        date: v.scheduledDate
+          ? new Date(v.scheduledDate).toLocaleDateString()
+          : undefined,
+      }))
+  }
+
+  const clinicRecommendations = pregnancy
+    ? buildPatientRecommendationsList({
+        pregnancy: { ...pregnancy, gestationalAge: ga },
+        visitRecommendations,
+      })
+    : []
+
+  return JSON.parse(
+    JSON.stringify({
+      user: dbUser,
+      pregnancy: pregnancy ? { ...pregnancy, gestationalAge: ga, hospital } : null,
+      appointments: upcomingAppointments,
+      labs,
+      clinicRecommendations,
+    })
+  )
 }
 
 /**
@@ -1181,12 +1302,62 @@ export async function recordLabOrScan(formData: {
 /**
  * Generate a join code for a father to link to a pregnancy
  */
+/** Standing advice shown on patient "Recommended for You" (editable by hospital) */
+export async function updatePregnancyStandingAdvice(pregnancyId: string, advice: string) {
+  try {
+    const { dbUser } = await requireClinicalStaff()
+
+    const pregnancy = await db.query.pregnancies.findFirst({
+      where: eq(pregnancies.id, pregnancyId),
+    })
+    if (!pregnancy) return { success: false, error: 'Pregnancy not found' }
+
+    if (dbUser.role !== 'admin' && pregnancy.hospitalId !== dbUser.hospitalId) {
+      return { success: false, error: 'Not authorized' }
+    }
+
+    const mchData = { ...((pregnancy.mchData as object) || {}), standingAdvice: advice.trim() }
+
+    await db
+      .update(pregnancies)
+      .set({ mchData, updatedAt: new Date() })
+      .where(eq(pregnancies.id, pregnancyId))
+
+    await notifyPatientForPregnancy(
+      pregnancyId,
+      'Your clinic posted new health advice on your dashboard.',
+      'clinical_update',
+      'mch-update'
+    )
+    revalidatePregnancyPaths(pregnancyId)
+    return { success: true }
+  } catch (err: unknown) {
+    console.error('updatePregnancyStandingAdvice error:', err)
+    const message = err instanceof Error ? err.message : 'Failed to save advice'
+    return { success: false, error: message }
+  }
+}
+
 export async function generateFatherJoinCode(pregnancyId: string) {
   const user = await currentUser()
   if (!user) throw new Error('Unauthorized')
 
-  // Verify ownership or staff role
-  // (Simplified for demo)
+  const dbUser = await db.query.users.findFirst({
+    where: eq(users.clerkId, user.id),
+  })
+  if (!dbUser) return { success: false, error: 'Unauthorized' }
+
+  const pregnancy = await db.query.pregnancies.findFirst({
+    where: eq(pregnancies.id, pregnancyId),
+  })
+  if (!pregnancy) return { success: false, error: 'Pregnancy not found' }
+
+  if (
+    dbUser.role === 'pregnant_woman' &&
+    pregnancy.userId !== dbUser.id
+  ) {
+    return { success: false, error: 'Not your pregnancy record' }
+  }
 
   const joinCode = Math.random().toString(36).substring(2, 8).toUpperCase()
   const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000) // 24 hours
@@ -1233,19 +1404,27 @@ export async function linkFatherViaToken(joinCode: string) {
     })
 
     if (!pregnancy) {
-      return { success: false, error: 'Invalid or expired code' }
+      return { success: false, error: 'Invalid or expired code. Ask her to generate a new code.' }
     }
 
-    // Create partner access
-    await db.insert(partnerAccess).values({
-      pregnantWomanId: pregnancy.userId,
-      partnerId: dbUser.id,
-      pregnancyId: pregnancy.id,
-      canViewAppointments: true,
-      canViewLabResults: true,
-      canViewProgress: true,
-      canReceiveNotifications: true
+    const existing = await db.query.partnerAccess.findFirst({
+      where: and(
+        eq(partnerAccess.partnerId, dbUser.id),
+        eq(partnerAccess.pregnancyId, pregnancy.id)
+      ),
     })
+
+    if (!existing) {
+      await db.insert(partnerAccess).values({
+        pregnantWomanId: pregnancy.userId,
+        partnerId: dbUser.id,
+        pregnancyId: pregnancy.id,
+        canViewAppointments: true,
+        canViewLabResults: true,
+        canViewProgress: true,
+        canReceiveNotifications: true,
+      })
+    }
 
     // Clear code (one-time use)
     await db.update(pregnancies)
@@ -1568,12 +1747,15 @@ export async function savePreviousPregnancy(data: any) {
     const isAlive =
       outcome === 'alive' || outcome === 'true' || outcome === true
 
+    const year = parseInt(String(data.year), 10)
+    const duration = parseInt(String(data.duration), 10)
+
     await db.insert(previousPregnancies).values({
       userId: data.userId,
-      year: parseInt(data.year),
-      pregnancyDuration: parseInt(data.duration),
-      modeOfDelivery: data.mode,
-      birthWeight: data.weight ? parseFloat(data.weight) : null,
+      year: Number.isNaN(year) ? new Date().getFullYear() : year,
+      pregnancyDuration: Number.isNaN(duration) ? null : duration,
+      modeOfDelivery: data.mode || null,
+      birthWeight: data.weight ? parseDecimalOrNull(data.weight) : null,
       sex: data.sex || null,
       alive: isAlive,
       complications: data.complications || null,

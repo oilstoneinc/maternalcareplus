@@ -60,6 +60,12 @@ interface DashboardData {
   vitals: any[]
   careContact?: any
   notifications?: any[]
+  clinicRecommendations?: {
+    title: string
+    content: string
+    source: string
+    date?: string
+  }[]
 }
 
 export default function PregnantWomanClient({ user, data }: { user: any, data: DashboardData | null }) {
@@ -529,47 +535,65 @@ export default function PregnantWomanClient({ user, data }: { user: any, data: D
               </CardContent>
             </Card>
 
-            {/* Educational Resources */}
+            {/* Clinic recommendations */}
             <div className="space-y-4">
               <div className="flex justify-between items-center px-1">
                 <h3 className="text-xl font-bold text-foreground">Recommended for You</h3>
-                <Button variant="ghost" size="sm" className="text-secondary hover:bg-secondary/5">View All</Button>
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                  From your hospital
+                </span>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {[
-                  { title: "Nutrition for Week 24", icon: Heart, color: "bg-red-50 text-red-600", content: "Focus on iron-rich foods like leafy greens, lean meats, and fortified cereals. Your baby is growing rapidly and needs extra nutrients!" },
-                  { title: "Managing Back Pain", icon: Activity, color: "bg-orange-50 text-orange-600", content: "Practice good posture, use supportive shoes, and try gentle prenatal yoga to ease lower back discomfort." },
-                  { title: "Safe Exercises", icon: TrendingUp, color: "bg-green-50 text-green-600", content: "Walking, swimming, and stationary cycling are excellent low-impact exercises. Always consult your midwife before starting a new routine." },
-                  { title: "Sleep Best Practices", icon: Moon, color: "bg-purple-50 text-purple-600", content: "Sleep on your left side to improve blood flow. Use a pregnancy pillow for added support behind your back and between your knees." }
-                ].map((item, i) => (
-                  <Dialog key={i}>
-                    <DialogTrigger asChild>
-                      <Card className="border-none shadow-sm hover:shadow-md transition-shadow cursor-pointer group">
-                        <CardContent className="p-4 flex items-center gap-4">
-                          <div className={`p-3 rounded-xl ${item.color}`}>
-                            <item.icon className="w-5 h-5" />
-                          </div>
-                          <div className="flex-1 text-left">
-                            <h4 className="font-semibold text-gray-900">{item.title}</h4>
-                            <p className="text-xs text-gray-500">5 min read • Expert advice</p>
-                          </div>
-                          <ChevronRight className="w-4 h-4 text-gray-300 group-hover:text-secondary transition-colors" />
-                        </CardContent>
-                      </Card>
-                    </DialogTrigger>
-                    <DialogContent>
-                      <DialogHeader>
-                        <div className={`w-12 h-12 rounded-xl flex items-center justify-center mb-4 ${item.color}`}>
-                          <item.icon className="w-6 h-6" />
-                        </div>
-                        <DialogTitle>{item.title}</DialogTitle>
-                        <DialogDescription className="text-base text-gray-700 pt-4 leading-relaxed">
-                          {item.content}
-                        </DialogDescription>
-                      </DialogHeader>
-                    </DialogContent>
-                  </Dialog>
-                ))}
+                {(data?.clinicRecommendations?.length ?? 0) > 0 ? (
+                  data!.clinicRecommendations!.map((item, i) => {
+                    const icon =
+                      item.source === 'medication'
+                        ? { Icon: Activity, color: 'bg-blue-50 text-blue-600' }
+                        : item.source === 'clinic_visit'
+                          ? { Icon: Heart, color: 'bg-pink-50 text-pink-600' }
+                          : { Icon: FileText, color: 'bg-emerald-50 text-emerald-600' }
+                    return (
+                      <Dialog key={`${item.title}-${i}`}>
+                        <DialogTrigger asChild>
+                          <Card className="border-none shadow-sm hover:shadow-md transition-shadow cursor-pointer group">
+                            <CardContent className="p-4 flex items-center gap-4">
+                              <div className={`p-3 rounded-xl ${icon.color}`}>
+                                <icon.Icon className="w-5 h-5" />
+                              </div>
+                              <div className="flex-1 text-left min-w-0">
+                                <h4 className="font-semibold text-gray-900 truncate">{item.title}</h4>
+                                <p className="text-xs text-gray-500 truncate">
+                                  {item.date ? `${item.date} · ` : ''}
+                                  {item.source === 'medication'
+                                    ? 'Prescribed medications'
+                                    : item.source === 'standing_advice'
+                                      ? 'Care team advice'
+                                      : 'After clinic visit'}
+                                </p>
+                              </div>
+                              <ChevronRight className="w-4 h-4 text-gray-300 group-hover:text-secondary transition-colors shrink-0" />
+                            </CardContent>
+                          </Card>
+                        </DialogTrigger>
+                        <DialogContent>
+                          <DialogHeader>
+                            <DialogTitle>{item.title}</DialogTitle>
+                            <DialogDescription className="text-base text-gray-700 pt-4 leading-relaxed whitespace-pre-wrap">
+                              {item.content}
+                            </DialogDescription>
+                          </DialogHeader>
+                        </DialogContent>
+                      </Dialog>
+                    )
+                  })
+                ) : (
+                  <Card className="border-none shadow-sm md:col-span-2">
+                    <CardContent className="p-6 text-center text-sm text-slate-500">
+                      Your clinic has not posted personalized recommendations yet. They can add advice
+                      after a visit or from your patient profile in the hospital portal.
+                    </CardContent>
+                  </Card>
+                )}
               </div>
             </div>
           </div>
@@ -588,10 +612,15 @@ export default function PregnantWomanClient({ user, data }: { user: any, data: D
                   Support your Partner
                 </CardTitle>
                 <CardDescription className="text-indigo-700/70 text-[10px]">
-                  Share this code with the father to link your accounts
+                  Father creates account at Partner Sign-Up, then enters this code on his dashboard
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4 pt-2">
+                <ol className="text-[10px] text-indigo-800/80 space-y-1 list-decimal list-inside font-medium">
+                  <li>Tap <strong>Generate Invite Code</strong> (valid 24 hours)</li>
+                  <li>Partner registers at <Link href="/sign-up/partner" className="underline font-bold">Partner Sign-Up</Link></li>
+                  <li>Partner signs in → enters code → tracks progress with you</li>
+                </ol>
                 {shareCode ? (
                   <div className="space-y-3">
                     <div className="bg-white p-3 rounded-xl border border-indigo-100 flex items-center justify-between shadow-sm">

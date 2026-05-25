@@ -100,9 +100,11 @@ export default function FatherDashboardClient({ user, data }: FatherDashboardPro
   }
 
   const pregnancy = data?.pregnancy
-  const week = pregnancy?.gestationalAge || 24
-  const progressValue = (week / 40) * 100
-  const edd = pregnancy?.edd ? new Date(pregnancy.edd).toLocaleDateString() : 'Dec 15, 2026'
+  const week = pregnancy?.gestationalAge ?? 0
+  const progressValue = Math.min((week / 40) * 100, 100)
+  const edd = pregnancy?.edd ? new Date(pregnancy.edd).toLocaleDateString() : 'Pending'
+  const clinicRecs: { title: string; content: string; date?: string }[] =
+    data?.clinicRecommendations || []
 
   // Weight tracking mock data
   const weightData = [
@@ -172,6 +174,24 @@ export default function FatherDashboardClient({ user, data }: FatherDashboardPro
         </CardContent>
       </Card>
 
+      {clinicRecs.length > 0 && (
+        <Card className="border-none shadow-md">
+          <CardHeader>
+            <CardTitle className="text-lg">Clinic guidance for your partner</CardTitle>
+            <CardDescription>Posted by {pregnancy?.hospital?.name || 'her hospital'}</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {clinicRecs.map((rec, idx) => (
+              <div key={idx} className="p-4 rounded-xl bg-slate-50 border border-slate-100">
+                <p className="font-bold text-sm text-slate-900">{rec.title}</p>
+                {rec.date && <p className="text-[10px] text-slate-400 font-semibold mt-0.5">{rec.date}</p>}
+                <p className="text-sm text-slate-600 mt-2 leading-relaxed">{rec.content}</p>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
+
       {/* Main Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Support Section */}
@@ -206,8 +226,8 @@ export default function FatherDashboardClient({ user, data }: FatherDashboardPro
                   <div key={idx} className="p-4 flex items-center justify-between border-b last:border-0 hover:bg-indigo-50/30 transition-colors">
                     <div className="flex items-center gap-3">
                       <div className="h-10 w-10 rounded-lg bg-indigo-100 flex flex-col items-center justify-center text-indigo-700">
-                        <span className="text-[10px] font-bold uppercase">{new Date(appt.appointmentDate).toLocaleString('default', { month: 'short' })}</span>
-                        <span className="text-sm font-black leading-none">{new Date(appt.appointmentDate).getDate()}</span>
+                        <span className="text-[10px] font-bold uppercase">{new Date(appt.scheduledDate).toLocaleString('default', { month: 'short' })}</span>
+                        <span className="text-sm font-black leading-none">{new Date(appt.scheduledDate).getDate()}</span>
                       </div>
                       <div>
                         <p className="text-sm font-bold">{appt.type || 'Prenatal Checkup'}</p>

@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { ArrowLeft, Activity, Calendar as CalendarIcon, FileText, Plus, BookOpen, Users, FlaskConical, MessageCircle, Pencil, Check, X } from 'lucide-react'
 import Link from 'next/link'
-import { recordAntenatalVisit, recordVitals, recordLabOrScan, assignMidwifeToPregnancy, scheduleNextVisit, updatePregnancyBloodType, updatePatientAge, updatePregnancyMedicalInfo } from '@/app/actions'
+import { recordAntenatalVisit, recordVitals, recordLabOrScan, assignMidwifeToPregnancy, scheduleNextVisit, updatePregnancyBloodType, updatePatientAge, updatePregnancyMedicalInfo, updatePregnancyStandingAdvice } from '@/app/actions'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
@@ -399,6 +399,8 @@ export default function PatientProfileClient({ data }: { data: any }) {
             </Card>
 
             <MedicalHistoryEditor pregnancy={pregnancy} onSaved={() => router.refresh()} />
+
+            <StandingAdviceEditor pregnancy={pregnancy} onSaved={() => router.refresh()} />
           </TabsContent>
 
           <TabsContent value="vitals" className="mt-6 space-y-6">
@@ -767,6 +769,57 @@ function LabScanForm({ pregnancyId, onComplete }: { pregnancyId: string; onCompl
 
 function listToComma(arr?: string[] | null) {
   return (arr || []).join(', ')
+}
+
+function StandingAdviceEditor({
+  pregnancy,
+  onSaved,
+}: {
+  pregnancy: any
+  onSaved: () => void
+}) {
+  const mch = (pregnancy.mchData as Record<string, unknown>) || {}
+  const [advice, setAdvice] = useState((mch.standingAdvice as string) || '')
+  const [saving, setSaving] = useState(false)
+
+  const handleSave = async () => {
+    setSaving(true)
+    try {
+      const res = await updatePregnancyStandingAdvice(pregnancy.id, advice)
+      if (res.success) onSaved()
+      else alert(res.error || 'Could not save')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <Card className="border-2 border-emerald-100">
+      <CardHeader>
+        <CardTitle className="text-lg">Patient dashboard — Recommended for You</CardTitle>
+        <CardDescription>
+          This advice appears on the pregnant woman&apos;s home screen. ANC visit &quot;Recommendations / plan&quot; also
+          show automatically after each visit.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <Textarea
+          value={advice}
+          onChange={(e) => setAdvice(e.target.value)}
+          placeholder="e.g. Take iron daily, attend ANC every 4 weeks, watch for severe headache or swelling..."
+          className={`min-h-[100px] ${clinicalFieldClass}`}
+        />
+        <Button
+          type="button"
+          onClick={handleSave}
+          disabled={saving}
+          className="bg-emerald-600 hover:bg-emerald-700 font-bold"
+        >
+          {saving ? 'Publishing…' : 'Publish to patient dashboard'}
+        </Button>
+      </CardContent>
+    </Card>
+  )
 }
 
 function MedicalHistoryEditor({

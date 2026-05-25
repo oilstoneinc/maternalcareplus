@@ -18,6 +18,13 @@ export default function SignInPage() {
           <p className="text-slate-600 font-medium">Access your professional maternal care dashboard.</p>
         </div>
 
+        <p className="text-center text-sm text-slate-500 mb-4 max-w-md">
+          Fathers / partners: after sign-in you will enter the invite code from the pregnant woman&apos;s app.{' '}
+          <a href="/sign-up/partner" className="text-indigo-600 font-bold hover:underline">
+            Create partner account
+          </a>
+        </p>
+
         <SignIn 
           routing="path" 
           path="/sign-in" 

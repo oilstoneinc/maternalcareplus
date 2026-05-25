@@ -6,6 +6,12 @@ export interface DashboardData {
   vitals: any[]
   careContact?: any
   notifications?: any[]
+  clinicRecommendations?: {
+    title: string
+    content: string
+    source: string
+    date?: string
+  }[]
 }
 
 export interface HospitalDashboardData {
