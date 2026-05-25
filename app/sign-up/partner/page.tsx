@@ -1,7 +1,6 @@
 'use client'
 
-import { SignUp } from '@clerk/nextjs'
-import { HeartPulse, ArrowLeft } from 'lucide-react'
+import { HeartPulse, Lock, ArrowLeft } from 'lucide-react'
 import Link from 'next/link'
 
 export default function PartnerSignUpPage() {
@@ -12,37 +11,30 @@ export default function PartnerSignUpPage() {
         <span className="text-2xl font-black text-slate-800 tracking-tight">MaternalCare Plus</span>
       </div>
 
-      <div className="w-full max-w-lg text-center mb-6 space-y-2">
-        <h1 className="text-2xl font-black text-slate-900">Partner / Father registration</h1>
-        <p className="text-sm text-slate-600 font-medium leading-relaxed">
-          Create your account, then sign in and enter the <strong>6-character code</strong> your partner
-          shared from her dashboard under <strong>Support your Partner</strong>.
+      <div className="w-full max-w-lg bg-white p-8 sm:p-10 rounded-3xl border border-slate-100 shadow-2xl text-center">
+        <div className="w-16 h-16 bg-indigo-50 rounded-2xl flex items-center justify-center mx-auto mb-6">
+          <Lock className="w-8 h-8 text-indigo-600" />
+        </div>
+        <h1 className="text-2xl font-black text-slate-900 mb-3">Partner registration is closed</h1>
+        <p className="text-sm text-slate-600 font-medium leading-relaxed mb-8">
+          For your security, partners do not create separate accounts. Sign in with the{' '}
+          <strong>mother&apos;s email and password</strong>, then enter the 6-character code she
+          generates on her phone under <strong>Support your Partner</strong>.
         </p>
+        <Link
+          href="/sign-in"
+          className="inline-flex w-full items-center justify-center gap-2 py-4 text-sm font-black rounded-2xl text-white bg-indigo-600 hover:bg-indigo-700 transition-all"
+        >
+          Go to Sign In
+        </Link>
+        <Link
+          href="/"
+          className="mt-6 inline-flex items-center gap-2 text-sm font-bold text-slate-500 hover:text-[#D48BA1]"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          Back to homepage
+        </Link>
       </div>
-
-      <SignUp
-        routing="path"
-        path="/sign-up/partner"
-        signInUrl="/sign-in"
-        fallbackRedirectUrl="/dashboard/father"
-        unsafeMetadata={{ role: 'father' }}
-        appearance={{
-          elements: {
-            rootBox: 'w-full max-w-[440px] shadow-2xl rounded-2xl overflow-hidden',
-            card: 'bg-white border-0 shadow-none p-8',
-            formButtonPrimary:
-              'bg-indigo-600 hover:bg-indigo-700 text-sm font-bold py-3 rounded-xl transition-all shadow-md',
-          },
-        }}
-      />
-
-      <Link
-        href="/sign-in"
-        className="mt-8 inline-flex items-center gap-2 text-sm font-bold text-slate-600 hover:text-[#D48BA1]"
-      >
-        <ArrowLeft className="w-4 h-4" />
-        Already have an account? Sign in
-      </Link>
     </div>
   )
 }

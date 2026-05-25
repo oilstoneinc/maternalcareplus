@@ -2,6 +2,7 @@
 
 import { db } from '@/lib/db'
 import { users, pregnancies, appointments, labTests, partnerAccess, messages, User, NewUser, NewPregnancy, NewMessage, hospitals, vitalSigns, previousPregnancies, deliveries, postnatalCare, children, immunizations, childGrowth, hospitalInvites, partnershipRequests, notifications } from '@/lib/db/schema'
+import { setVerifiedPregnancyDevice, getVerifiedPregnancyId } from '@/lib/partner-session'
 import { currentUser, clerkClient } from '@clerk/nextjs/server'
 import { HospitalDashboardData, DashboardData, Message } from '@/types'
 import { eq, desc, asc, and, or, sql, ilike, inArray } from 'drizzle-orm'
@@ -836,7 +837,7 @@ export async function syncClerkAccount() {
     if (role === 'hospital_staff') targetPath = '/dashboard/hospital'
     if (role === 'midwife') targetPath = '/dashboard/midwife'
     if (role === 'pregnant_woman') targetPath = '/dashboard/pregnant-woman'
-    if (role === 'father') targetPath = '/dashboard/father'
+    if (role === 'father') targetPath = '/sign-in?partner=mother-account'
 
     revalidatePath('/')
     return { success: true, role, targetPath }
@@ -1359,6 +1360,17 @@ export async function generateFatherJoinCode(pregnancyId: string) {
     return { success: false, error: 'Not your pregnancy record' }
   }
 
+  if (dbUser.role === 'pregnant_woman') {
+    const verifiedId = await getVerifiedPregnancyId(dbUser.id)
+    if (verifiedId !== pregnancyId) {
+      return {
+        success: false,
+        error:
+          'Open the app on your trusted device to generate a partner code, then share it with your partner.',
+      }
+    }
+  }
+
   const joinCode = Math.random().toString(36).substring(2, 8).toUpperCase()
   const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000) // 24 hours
 
@@ -1379,66 +1391,65 @@ export async function generateFatherJoinCode(pregnancyId: string) {
 }
 
 /**
- * Link a father to a pregnancy using a join code
+ * Partner / father signs in with the mother's account on a new device and must enter
+ * the code she generated on her phone before accessing the pregnant woman dashboard.
  */
-export async function linkFatherViaToken(joinCode: string) {
+export async function verifyPartnerAccessCode(joinCode: string) {
   const user = await currentUser()
-  if (!user) throw new Error('Unauthorized')
+  if (!user) return { success: false, error: 'Unauthorized' }
 
-  // Get DB user
   const dbUser = await db.query.users.findFirst({
-    where: eq(users.clerkId, user.id)
+    where: eq(users.clerkId, user.id),
   })
 
-  if (!dbUser || dbUser.role !== 'father') {
-    return { success: false, error: 'Only fathers can join pregnancies' }
+  if (!dbUser || dbUser.role !== 'pregnant_woman') {
+    return {
+      success: false,
+      error: 'Sign in with the mother\'s email and password, then enter her invite code.',
+    }
   }
 
   try {
-    // Find valid pregnancy
     const pregnancy = await db.query.pregnancies.findFirst({
       where: and(
         eq(pregnancies.fatherJoinCode, joinCode.toUpperCase()),
+        eq(pregnancies.userId, dbUser.id),
         sql`${pregnancies.fatherJoinCodeExpires} > NOW()`
-      )
-    })
-
-    if (!pregnancy) {
-      return { success: false, error: 'Invalid or expired code. Ask her to generate a new code.' }
-    }
-
-    const existing = await db.query.partnerAccess.findFirst({
-      where: and(
-        eq(partnerAccess.partnerId, dbUser.id),
-        eq(partnerAccess.pregnancyId, pregnancy.id)
       ),
     })
 
-    if (!existing) {
-      await db.insert(partnerAccess).values({
-        pregnantWomanId: pregnancy.userId,
-        partnerId: dbUser.id,
-        pregnancyId: pregnancy.id,
-        canViewAppointments: true,
-        canViewLabResults: true,
-        canViewProgress: true,
-        canReceiveNotifications: true,
-      })
+    if (!pregnancy) {
+      return {
+        success: false,
+        error: 'Invalid or expired code. Ask her to generate a new code on her device.',
+      }
     }
 
-    // Clear code (one-time use)
-    await db.update(pregnancies)
+    await setVerifiedPregnancyDevice(dbUser.id, pregnancy.id)
+
+    await db
+      .update(pregnancies)
       .set({
         fatherJoinCode: null,
-        fatherJoinCodeExpires: null
+        fatherJoinCodeExpires: null,
       })
       .where(eq(pregnancies.id, pregnancy.id))
 
-    revalidatePath('/dashboard/father')
+    revalidatePath('/dashboard/pregnant-woman')
+    revalidatePath('/dashboard/pregnant-woman/partner-access')
     return { success: true }
   } catch (error) {
-    console.error('Error linking father:', error)
-    return { success: false, error: 'Internal server error' }
+    console.error('verifyPartnerAccessCode error:', error)
+    return { success: false, error: 'Verification failed' }
+  }
+}
+
+/** @deprecated Fathers use the mother's sign-in + partner access code instead */
+export async function linkFatherViaToken(joinCode: string) {
+  return {
+    success: false,
+    error:
+      'Partner accounts are no longer used. Sign in with the mother\'s email and password, then enter her invite code.',
   }
 }
 

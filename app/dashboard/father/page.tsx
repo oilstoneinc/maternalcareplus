@@ -1,28 +1,6 @@
-import { currentUser } from '@clerk/nextjs/server'
 import { redirect } from 'next/navigation'
-import { requireRole } from '@/lib/clerk'
-import { getFatherDashboardData } from '@/app/actions'
-import FatherDashboardClient from './father-client'
 
+/** Legacy father accounts — partners now use the mother's sign-in + invite code */
 export default async function FatherDashboard() {
-  // 1. Verify role
-  await requireRole(['father', 'admin'])
-
-  // 2. Get Clerk user
-  const user = await currentUser()
-  if (!user) redirect('/sign-in')
-
-  // 3. Fetch data
-  const data = await getFatherDashboardData()
-
-  // 4. Render client component with safe plain user object
-  const plainUser = {
-    id: user.id,
-    firstName: user.firstName,
-    lastName: user.lastName,
-    imageUrl: user.imageUrl,
-    emailAddress: user.emailAddresses[0]?.emailAddress || '',
-  }
-
-  return <FatherDashboardClient user={plainUser} data={data} />
+  redirect('/sign-in?partner=mother-account')
 }

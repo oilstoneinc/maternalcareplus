@@ -28,7 +28,7 @@ export default async function HospitalOnboardingPage() {
     if (role === 'pregnant_woman') {
       redirect('/dashboard/pregnant-woman')
     } else if (role === 'father') {
-      redirect('/dashboard/father')
+      redirect('/sign-in?partner=mother-account')
     } else if (role === 'midwife') {
       redirect('/dashboard/midwife')
     } else if (role === 'admin') {

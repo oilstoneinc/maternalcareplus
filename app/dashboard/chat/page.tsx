@@ -4,6 +4,7 @@ import { users, pregnancies, hospitals } from '@/lib/db/schema'
 import { and, eq } from 'drizzle-orm'
 import ChatHub from '@/components/dashboard/ChatHub'
 import { redirect } from 'next/navigation'
+import { requirePregnantWomanDeviceAccess } from '@/lib/require-pregnant-woman-device'
 import Link from 'next/link'
 import { ArrowLeft, HeartPulse } from 'lucide-react'
 
@@ -20,6 +21,10 @@ export default async function ChatPage({
   })
 
   if (!dbUser) redirect('/onboarding')
+
+  if (dbUser.role === 'pregnant_woman') {
+    await requirePregnantWomanDeviceAccess()
+  }
 
   const resolvedParams = await searchParams
   const otherUserId = resolvedParams.with

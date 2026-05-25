@@ -612,14 +612,14 @@ export default function PregnantWomanClient({ user, data }: { user: any, data: D
                   Support your Partner
                 </CardTitle>
                 <CardDescription className="text-indigo-700/70 text-[10px]">
-                  Father creates account at Partner Sign-Up, then enters this code on his dashboard
+                  Partner signs in with your email and password on his device, then enters this code
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4 pt-2">
                 <ol className="text-[10px] text-indigo-800/80 space-y-1 list-decimal list-inside font-medium">
-                  <li>Tap <strong>Generate Invite Code</strong> (valid 24 hours)</li>
-                  <li>Partner registers at <Link href="/sign-up/partner" className="underline font-bold">Partner Sign-Up</Link></li>
-                  <li>Partner signs in → enters code → tracks progress with you</li>
+                  <li>Tap <strong>Generate Invite Code</strong> (valid 24 hours, one-time use)</li>
+                  <li>Partner opens <strong>Sign In</strong> and uses your login details</li>
+                  <li>He enters this code — without it he cannot open your dashboard</li>
                 </ol>
                 {shareCode ? (
                   <div className="space-y-3">

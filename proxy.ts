@@ -1,11 +1,17 @@
 import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 
+const PW_DEVICE_COOKIE = "mc_pw_device_verified";
+
 const isPublicRoute = createRouteMatcher([
   "/",
   "/sign-in(.*)",
   "/sign-up(.*)",
   "/api/webhooks(.*)",
+]);
+
+const isPartnerAccessRoute = createRouteMatcher([
+  "/dashboard/pregnant-woman/partner-access(.*)",
 ]);
 
 export default clerkMiddleware(async (auth, req) => {
@@ -29,7 +35,7 @@ export default clerkMiddleware(async (auth, req) => {
         case "pregnant_woman":
           return NextResponse.redirect(new URL("/dashboard/pregnant-woman", req.url));
         case "father":
-          return NextResponse.redirect(new URL("/dashboard/father", req.url));
+          return NextResponse.redirect(new URL("/sign-in?partner=mother-account", req.url));
         case "midwife":
           return NextResponse.redirect(new URL("/dashboard/midwife", req.url));
         case "hospital_staff":
@@ -53,8 +59,29 @@ export default clerkMiddleware(async (auth, req) => {
     if (role && pathname.startsWith("/dashboard/pregnant-woman") && role !== "pregnant_woman" && role !== "admin") {
       return NextResponse.redirect(new URL("/unauthorized", req.url));
     }
-    if (role && pathname.startsWith("/dashboard/father") && role !== "father" && role !== "admin") {
-      return NextResponse.redirect(new URL("/unauthorized", req.url));
+
+    if (
+      role === "pregnant_woman" &&
+      pathname.startsWith("/dashboard/pregnant-woman") &&
+      !isPartnerAccessRoute(req)
+    ) {
+      const verified = req.cookies.get(PW_DEVICE_COOKIE)?.value;
+      if (!verified || !verified.startsWith(`${userId}:`)) {
+        return NextResponse.redirect(
+          new URL("/dashboard/pregnant-woman/partner-access", req.url)
+        );
+      }
+    }
+
+    if (role === "father") {
+      return NextResponse.redirect(
+        new URL("/sign-in?partner=mother-account", req.url)
+      );
+    }
+    if (role && pathname.startsWith("/dashboard/father") && role !== "admin") {
+      return NextResponse.redirect(
+        new URL("/sign-in?partner=mother-account", req.url)
+      );
     }
     if (role && pathname.startsWith("/dashboard/admin") && role !== "admin") {
       return NextResponse.redirect(new URL("/unauthorized", req.url));

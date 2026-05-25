@@ -1,6 +1,7 @@
 import { currentUser } from '@clerk/nextjs/server'
 import { redirect } from 'next/navigation'
 import { requireRole } from '@/lib/clerk'
+import { requirePregnantWomanDeviceAccess } from '@/lib/require-pregnant-woman-device'
 import { getPatientDashboardData } from '@/app/actions'
 import PregnantWomanClient from './pregnant-woman-client'
 import { DashboardData } from '@/types'
@@ -8,6 +9,7 @@ import { DashboardData } from '@/types'
 export default async function PregnantWomanDashboard() {
   // 1. Verify role
   await requireRole('pregnant_woman')
+  await requirePregnantWomanDeviceAccess()
   
   // 2. Get current user from Clerk
   const user = await currentUser()
