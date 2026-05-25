@@ -2113,6 +2113,123 @@ export async function searchGlobalPatients(queryText: string) {
   }
 }
 
+function escapeCsvCell(value: unknown): string {
+  if (value == null) return ''
+  const s = String(value)
+  if (/[",\n\r]/.test(s)) return `"${s.replace(/"/g, '""')}"`
+  return s
+}
+
+/**
+ * Export patients registered at the logged-in user's hospital (CSV).
+ * Server-side auth only — no cross-hospital data unless admin with hospital scope.
+ */
+export async function exportHospitalPatientsCsv(): Promise<{
+  success: boolean
+  csv?: string
+  filename?: string
+  error?: string
+}> {
+  try {
+    const { dbUser } = await requireClinicalStaff()
+
+    if (!dbUser.hospitalId) {
+      return {
+        success: false,
+        error: 'Link your account to a hospital before exporting patient data.',
+      }
+    }
+
+    const hospital = await db.query.hospitals.findFirst({
+      where: eq(hospitals.id, dbUser.hospitalId),
+    })
+
+    const activePregnancies = await db.query.pregnancies.findMany({
+      where: and(
+        eq(pregnancies.hospitalId, dbUser.hospitalId),
+        eq(pregnancies.status, 'active')
+      ),
+      orderBy: [desc(pregnancies.createdAt)],
+      limit: 500,
+    })
+
+    const patientIds = [...new Set(activePregnancies.map((p) => p.userId))]
+    const patientUsers =
+      patientIds.length > 0
+        ? await db.query.users.findMany({
+            where: inArray(users.id, patientIds),
+          })
+        : []
+    const patientById = new Map(patientUsers.map((u) => [u.id, u]))
+
+    const headers = [
+      'Patient Name',
+      'Email',
+      'Phone',
+      'Patient ID',
+      'Gestational Age (weeks)',
+      'LMP',
+      'EDD',
+      'Blood Type',
+      'Pregnancy Status',
+      'Assigned Staff',
+    ]
+
+    const rows: string[][] = []
+
+    for (const preg of activePregnancies) {
+      const patient = patientById.get(preg.userId)
+      let staffName = ''
+      if (preg.midwifeId) {
+        const staff = await db.query.users.findFirst({
+          where: eq(users.id, preg.midwifeId),
+        })
+        if (staff) staffName = `${staff.firstName} ${staff.lastName}`.trim()
+      }
+
+      const ga = preg.gestationalAge ?? calcGestationalAgeWeeks(preg.lmp)
+      const blood =
+        preg.bloodType && preg.rhesusFactor
+          ? `${preg.bloodType} (${preg.rhesusFactor})`
+          : preg.bloodType || ''
+
+      rows.push([
+        patient ? `${patient.firstName} ${patient.lastName}`.trim() : '',
+        patient?.email ?? '',
+        patient?.phone ?? '',
+        patient?.id ?? preg.userId,
+        String(ga),
+        preg.lmp ? new Date(preg.lmp).toISOString().slice(0, 10) : '',
+        preg.edd ? new Date(preg.edd).toISOString().slice(0, 10) : '',
+        blood,
+        preg.status ?? '',
+        staffName,
+      ])
+    }
+
+    const csvLines = [
+      headers.map(escapeCsvCell).join(','),
+      ...rows.map((row) => row.map(escapeCsvCell).join(',')),
+    ]
+
+    const hospitalSlug = (hospital?.name || 'hospital')
+      .replace(/[^a-z0-9]+/gi, '-')
+      .toLowerCase()
+      .slice(0, 40)
+    const dateStamp = new Date().toISOString().slice(0, 10)
+
+    return {
+      success: true,
+      csv: csvLines.join('\n'),
+      filename: `maternalcare-${hospitalSlug}-patients-${dateStamp}.csv`,
+    }
+  } catch (err: unknown) {
+    console.error('exportHospitalPatientsCsv error:', err)
+    const message = err instanceof Error ? err.message : 'Export failed'
+    return { success: false, error: message }
+  }
+}
+
 /**
  * Submit a partnership request from a hospital seeking access
  */

@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import Link from 'next/link'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
-import { searchGlobalPatients, scheduleNextVisit, assignMidwifeToPregnancy, addHospitalStaffMember } from '@/app/actions'
+import { searchGlobalPatients, scheduleNextVisit, assignMidwifeToPregnancy, addHospitalStaffMember, exportHospitalPatientsCsv } from '@/app/actions'
 import {
   Dialog,
   DialogContent,
@@ -132,6 +132,7 @@ export default function HospitalDashboardClient({ user, data }: { user: any, dat
   const [globalSearchResults, setGlobalSearchResults] = useState<any[]>([])
   const [isSearchingGlobal, setIsSearchingGlobal] = useState(false)
   const [hasSearchedGlobal, setHasSearchedGlobal] = useState(false)
+  const [exporting, setExporting] = useState(false)
 
   const handleGlobalSearch = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -173,6 +174,31 @@ export default function HospitalDashboardClient({ user, data }: { user: any, dat
   }
 
   const refreshDashboard = () => router.refresh()
+
+  const handleExportData = async () => {
+    setExporting(true)
+    try {
+      const res = await exportHospitalPatientsCsv()
+      if (res.success && res.csv) {
+        const blob = new Blob([`\uFEFF${res.csv}`], { type: 'text/csv;charset=utf-8;' })
+        const url = URL.createObjectURL(blob)
+        const link = document.createElement('a')
+        link.href = url
+        link.download = res.filename || 'patients-export.csv'
+        document.body.appendChild(link)
+        link.click()
+        link.remove()
+        URL.revokeObjectURL(url)
+      } else {
+        alert(res.error || 'Could not export data')
+      }
+    } catch (err) {
+      console.error(err)
+      alert('Export failed')
+    } finally {
+      setExporting(false)
+    }
+  }
 
   const handleAddStaff = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -233,9 +259,16 @@ export default function HospitalDashboardClient({ user, data }: { user: any, dat
               <UserCog className="w-4 h-4 mr-2" />
               Add Staff
             </Button>
-            <Button variant="outline" className="border-slate-200 text-slate-600 font-bold py-5 rounded-xl">
+            <Button
+              type="button"
+              variant="outline"
+              disabled={exporting}
+              onClick={handleExportData}
+              className="border-slate-200 text-slate-600 font-bold py-5 rounded-xl"
+              title="Download CSV of patients at your facility only"
+            >
               <Download className="w-4 h-4 mr-2" />
-              Export Data
+              {exporting ? 'Exporting…' : 'Export Data'}
             </Button>
           </div>
         </div>
@@ -455,7 +488,7 @@ export default function HospitalDashboardClient({ user, data }: { user: any, dat
                       National MCH Patient Registry Search
                     </CardTitle>
                     <CardDescription className="text-xs text-muted-foreground mt-1">
-                      Search across all hospitals nationally to locate a visiting mother's unified MCH record by Name, Phone, Email, or Clerk ID.
+                      Search across all hospitals nationally to locate a visiting mother's unified MCH record by Name, Phone, Email, or ID.
                     </CardDescription>
                   </div>
                 </div>
@@ -466,7 +499,7 @@ export default function HospitalDashboardClient({ user, data }: { user: any, dat
                     <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-4 h-4" />
                     <input
                       type="text"
-                      placeholder="Enter patient name, phone, email, or ID (e.g. Ridge patient visiting for ANC)..."
+                      placeholder="Name, phone, email, or patient ID…"
                       value={globalSearchTerm}
                       onChange={(e) => setGlobalSearchTerm(e.target.value)}
                       className="w-full pl-10 pr-4 py-2 border border-slate-200 focus:border-[#D48BA1] focus:ring-1 focus:ring-[#D48BA1] rounded-xl text-sm shadow-sm"
@@ -495,7 +528,7 @@ export default function HospitalDashboardClient({ user, data }: { user: any, dat
                             <tr className="border-b border-slate-100">
                               <th className="px-4 py-3">Patient Name</th>
                               <th className="px-4 py-3">Phone / Email</th>
-                              <th className="px-4 py-3">Patient & Clerk ID</th>
+                              <th className="px-4 py-3">Patient & ID</th>
                               <th className="px-4 py-3">Primary Onboarding Facility</th>
                               <th className="px-4 py-3 text-right">Action</th>
                             </tr>
@@ -522,7 +555,7 @@ export default function HospitalDashboardClient({ user, data }: { user: any, dat
                                 <td className="px-4 py-3">
                                   <div className="flex flex-col text-[10px] font-mono text-slate-600 gap-0.5">
                                     <span title={res.id}>Patient: {res.id.substring(0, 8)}…</span>
-                                    <span>Clerk: {res.clerkId?.substring(0, 12) || '—'}…</span>
+                                    <span title={res.clerkId || ''}>ID: {res.clerkId?.substring(0, 12) || res.id.substring(0, 8)}…</span>
                                   </div>
                                 </td>
                                 <td className="px-4 py-3">
