@@ -26,8 +26,10 @@ import {
   Check,
   Share2,
   Moon,
-  AlertCircle
+  AlertCircle,
+  Building2,
 } from 'lucide-react'
+import HospitalCareHistoryPanel from '@/components/dashboard/HospitalCareHistoryPanel'
 import {
   Dialog,
   DialogContent,
@@ -37,6 +39,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 import ProgressChart from '@/components/dashboard/ProgressChart'
+import type { DashboardData } from '@/types'
 import { generateFatherJoinCode, markNotificationsRead } from '@/app/actions'
 import NearestHospitalsDialog from '@/components/dashboard/NearestHospitalsDialog'
 import { pusherClient } from '@/lib/pusher-client'
@@ -51,22 +54,6 @@ import {
   Tooltip, 
   ResponsiveContainer 
 } from 'recharts'
-
-interface DashboardData {
-  user: any
-  pregnancy: any
-  appointments: any[]
-  labs: any[]
-  vitals: any[]
-  careContact?: any
-  notifications?: any[]
-  clinicRecommendations?: {
-    title: string
-    content: string
-    source: string
-    date?: string
-  }[]
-}
 
 export default function PregnantWomanClient({ user, data }: { user: any, data: DashboardData | null }) {
   // Calculate real gestational age from LMP
@@ -534,6 +521,26 @@ export default function PregnantWomanClient({ user, data }: { user: any, data: D
                 </Tabs>
               </CardContent>
             </Card>
+
+            {/* National care across hospitals */}
+            {(data?.careHistory?.length ?? 0) > 0 && (
+              <div className="space-y-3">
+                <div className="flex items-center gap-2 px-1">
+                  <Building2 className="w-5 h-5 text-[#D48BA1]" />
+                  <h3 className="text-xl font-bold text-foreground">Your care across hospitals</h3>
+                </div>
+                <p className="text-xs text-slate-500 px-1 leading-relaxed">
+                  When you visit another facility, they can update your national MCH record. You receive a
+                  notification each time — your home clinic sees the same history.
+                </p>
+                <HospitalCareHistoryPanel
+                  history={data!.careHistory!}
+                  facilitySummary={data?.careFacilitySummary}
+                  homeHospitalName={data?.pregnancy?.hospital?.name}
+                  compact
+                />
+              </div>
+            )}
 
             {/* Clinic recommendations */}
             <div className="space-y-4">

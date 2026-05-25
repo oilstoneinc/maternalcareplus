@@ -530,6 +530,7 @@ export default function HospitalDashboardClient({ user, data }: { user: any, dat
                               <th className="px-4 py-3">Phone / Email</th>
                               <th className="px-4 py-3">Patient & ID</th>
                               <th className="px-4 py-3">Primary Onboarding Facility</th>
+                              <th className="px-4 py-3">Care trail</th>
                               <th className="px-4 py-3 text-right">Action</th>
                             </tr>
                           </thead>
@@ -563,6 +564,18 @@ export default function HospitalDashboardClient({ user, data }: { user: any, dat
                                     <span className="font-semibold text-slate-700 text-xs">{res.onboardedHospitalName}</span>
                                     <span className="text-[10px] text-muted-foreground">{res.onboardedHospitalLocation}</span>
                                   </div>
+                                </td>
+                                <td className="px-4 py-3">
+                                  <span className="text-xs text-slate-600">
+                                    {res.facilitiesInHistory > 0
+                                      ? `${res.facilitiesInHistory} facilit${res.facilitiesInHistory === 1 ? 'y' : 'ies'}`
+                                      : '—'}
+                                  </span>
+                                  {res.lastCareFacility && (
+                                    <span className="block text-[10px] text-muted-foreground">
+                                      Last: {res.lastCareFacility}
+                                    </span>
+                                  )}
                                 </td>
                                 <td className="px-4 py-3 text-right">
                                   {res.pregnancyId ? (

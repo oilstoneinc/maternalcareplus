@@ -9,6 +9,7 @@ const EVENT_TITLES: Record<string, string> = {
   'labs-update': 'Lab or scan results added',
   appointment: 'Visit scheduled',
   message: 'New message',
+  facility_visit: 'Care at another hospital',
 }
 
 export async function notifyPatientForPregnancy(

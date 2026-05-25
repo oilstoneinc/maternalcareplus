@@ -12,6 +12,26 @@ export interface DashboardData {
     source: string
     date?: string
   }[]
+  careHistory?: {
+    id: string
+    action: string
+    actionLabel: string
+    summary: string
+    hospitalName: string
+    hospitalCity: string
+    hospitalRegion: string
+    isVisitingFacility: boolean
+    staffName: string | null
+    createdAt: string
+  }[]
+  careFacilitySummary?: {
+    hospitalName: string
+    city: string
+    region: string
+    visitCount: number
+    lastVisit: string
+    isHome: boolean
+  }[]
 }
 
 export interface HospitalDashboardData {

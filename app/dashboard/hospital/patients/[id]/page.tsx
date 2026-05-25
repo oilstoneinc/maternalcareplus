@@ -6,6 +6,8 @@ import { ensureMCHSchema } from '@/lib/db/ensure-mch-schema'
 import { users, pregnancies, appointments, vitalSigns, labTests, hospitals } from '@/lib/db/schema'
 import { eq, and, or, desc } from 'drizzle-orm'
 import PatientProfileClient from './patient-profile-client'
+import { getHospitalCareHistory, getCareHistoryFacilitySummary } from '@/lib/hospital-care-history'
+import { logHospitalRegistryAccess } from '@/app/actions'
 
 export default async function PatientProfilePage({ params }: { params: Promise<{ id: string }> }) {
   try {
@@ -76,7 +78,18 @@ export default async function PatientProfilePage({ params }: { params: Promise<{
       ),
     })
 
-    // Prepare safe data
+    const isVisitingPatient = pregnancy.hospitalId !== dbUser.hospitalId
+    if (isVisitingPatient) {
+      await logHospitalRegistryAccess(pregnancyId)
+    }
+
+    const currentHospital = await db.query.hospitals.findFirst({
+      where: eq(hospitals.id, dbUser.hospitalId),
+    })
+
+    const careHistory = await getHospitalCareHistory(pregnancyId, 50)
+    const careFacilitySummary = await getCareHistoryFacilitySummary(pregnancyId)
+
     const safeData = JSON.parse(JSON.stringify({
       pregnancy,
       patient,
@@ -85,7 +98,11 @@ export default async function PatientProfilePage({ params }: { params: Promise<{
       labs,
       onboardingHospital,
       currentHospitalId: dbUser.hospitalId,
-      availableMidwives
+      currentHospital,
+      isVisitingPatient,
+      availableMidwives,
+      careHistory,
+      careFacilitySummary,
     }))
 
     return <PatientProfileClient data={safeData} />

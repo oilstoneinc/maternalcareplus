@@ -6,7 +6,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { ArrowLeft, Activity, Calendar as CalendarIcon, FileText, Plus, BookOpen, Users, FlaskConical, MessageCircle, Pencil, Check, X } from 'lucide-react'
+import { ArrowLeft, Activity, Calendar as CalendarIcon, FileText, Plus, BookOpen, Users, FlaskConical, MessageCircle, Pencil, Check, X, Building2 } from 'lucide-react'
+import HospitalCareHistoryPanel from '@/components/dashboard/HospitalCareHistoryPanel'
 import Link from 'next/link'
 import { recordAntenatalVisit, recordVitals, recordLabOrScan, assignMidwifeToPregnancy, scheduleNextVisit, updatePregnancyBloodType, updatePatientAge, updatePregnancyMedicalInfo, updatePregnancyStandingAdvice } from '@/app/actions'
 import { Input } from '@/components/ui/input'
@@ -45,7 +46,20 @@ function calcAgeYears(dateOfBirth: string | Date | null | undefined): number | n
 }
 
 export default function PatientProfileClient({ data }: { data: any }) {
-  const { patient, pregnancy, vitals, appointments, labs, onboardingHospital, currentHospitalId, availableMidwives } = data
+  const {
+    patient,
+    pregnancy,
+    vitals,
+    appointments,
+    labs,
+    onboardingHospital,
+    currentHospitalId,
+    currentHospital,
+    isVisitingPatient,
+    availableMidwives,
+    careHistory = [],
+    careFacilitySummary = [],
+  } = data
   const router = useRouter()
   const [activeTab, setActiveTab] = useState('overview')
   const [showVitalForm, setShowVitalForm] = useState(false)
@@ -259,6 +273,20 @@ export default function PatientProfileClient({ data }: { data: any }) {
           </div>
         </div>
 
+        {isVisitingPatient && (
+          <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 flex items-start gap-3">
+            <Building2 className="h-5 w-5 text-amber-700 shrink-0 mt-0.5" />
+            <div className="text-sm">
+              <p className="font-bold text-amber-900">Visiting patient — national MCH continuity</p>
+              <p className="text-amber-800/90 mt-1 leading-relaxed">
+                Home facility: <strong>{onboardingHospital?.name}</strong> ({onboardingHospital?.city}). You are
+                documenting care at <strong>{currentHospital?.name || 'your hospital'}</strong>. Updates are saved to
+                her unified record; she is notified, and other hospitals can see this timeline.
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* Quick Stats Grid */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <Card className="bg-white">
@@ -353,8 +381,9 @@ export default function PatientProfileClient({ data }: { data: any }) {
 
         {/* Tabs Content */}
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-4 bg-white rounded-xl p-1 shadow-sm">
+          <TabsList className="grid w-full grid-cols-2 sm:grid-cols-5 bg-white rounded-xl p-1 shadow-sm">
             <TabsTrigger value="overview" className="rounded-lg">Overview</TabsTrigger>
+            <TabsTrigger value="care-history" className="rounded-lg">Care history</TabsTrigger>
             <TabsTrigger value="vitals" className="rounded-lg">Vitals & Checkups</TabsTrigger>
             <TabsTrigger value="appointments" className="rounded-lg">Appointments</TabsTrigger>
             <TabsTrigger value="labs" className="rounded-lg">Lab Results</TabsTrigger>
@@ -401,6 +430,14 @@ export default function PatientProfileClient({ data }: { data: any }) {
             <MedicalHistoryEditor pregnancy={pregnancy} onSaved={() => router.refresh()} />
 
             <StandingAdviceEditor pregnancy={pregnancy} onSaved={() => router.refresh()} />
+          </TabsContent>
+
+          <TabsContent value="care-history" className="mt-6">
+            <HospitalCareHistoryPanel
+              history={careHistory}
+              facilitySummary={careFacilitySummary}
+              homeHospitalName={onboardingHospital?.name}
+            />
           </TabsContent>
 
           <TabsContent value="vitals" className="mt-6 space-y-6">

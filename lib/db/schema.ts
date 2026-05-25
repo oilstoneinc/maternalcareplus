@@ -349,6 +349,24 @@ export const hospitalInvites = pgTable('hospital_invites', {
 export type HospitalInvite = typeof hospitalInvites.$inferSelect
 export type NewHospitalInvite = typeof hospitalInvites.$inferInsert
 
+/** National MCH trail when a mother receives care at multiple facilities */
+export const hospitalCareEncounters = pgTable('hospital_care_encounters', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  pregnancyId: uuid('pregnancy_id').references(() => pregnancies.id).notNull(),
+  patientUserId: uuid('patient_user_id').references(() => users.id).notNull(),
+  hospitalId: uuid('hospital_id').references(() => hospitals.id).notNull(),
+  homeHospitalId: uuid('home_hospital_id').references(() => hospitals.id).notNull(),
+  isVisitingFacility: boolean('is_visiting_facility').default(false).notNull(),
+  staffUserId: uuid('staff_user_id').references(() => users.id),
+  action: text('action').notNull(),
+  summary: text('summary').notNull(),
+  metadata: json('metadata').$type<Record<string, unknown>>(),
+  createdAt: timestamp('created_at').defaultNow(),
+})
+
+export type HospitalCareEncounter = typeof hospitalCareEncounters.$inferSelect
+export type NewHospitalCareEncounter = typeof hospitalCareEncounters.$inferInsert
+
 // Partnership requests from hospitals seeking access
 export const partnershipRequests = pgTable('partnership_requests', {
   id: uuid('id').defaultRandom().primaryKey(),

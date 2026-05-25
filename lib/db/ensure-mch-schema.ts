@@ -113,6 +113,21 @@ export async function ensureMCHSchema() {
         "created_at" timestamp DEFAULT now()
       )
     `,
+    sql`
+      CREATE TABLE IF NOT EXISTS "hospital_care_encounters" (
+        "id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+        "pregnancy_id" uuid NOT NULL,
+        "patient_user_id" uuid NOT NULL,
+        "hospital_id" uuid NOT NULL,
+        "home_hospital_id" uuid NOT NULL,
+        "is_visiting_facility" boolean DEFAULT false NOT NULL,
+        "staff_user_id" uuid,
+        "action" text NOT NULL,
+        "summary" text NOT NULL,
+        "metadata" json,
+        "created_at" timestamp DEFAULT now()
+      )
+    `,
   ]
 
   for (const statement of statements) {

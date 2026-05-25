@@ -3,6 +3,11 @@
 import { db } from '@/lib/db'
 import { users, pregnancies, appointments, labTests, partnerAccess, messages, User, NewUser, NewPregnancy, NewMessage, hospitals, vitalSigns, previousPregnancies, deliveries, postnatalCare, children, immunizations, childGrowth, hospitalInvites, partnershipRequests, notifications } from '@/lib/db/schema'
 import {
+  recordFacilityCareEvent,
+  getHospitalCareHistory,
+  getCareHistoryFacilitySummary,
+} from '@/lib/hospital-care-history'
+import {
   setVerifiedPregnancyDevice,
   getVerifiedPregnancyId,
   setPartnerReadonlySession,
@@ -260,6 +265,15 @@ export async function getPatientDashboardData(): Promise<DashboardData | null> {
       visitRecommendations,
     })
 
+    let careHistory: Awaited<ReturnType<typeof getHospitalCareHistory>> = []
+    let careFacilitySummary: Awaited<ReturnType<typeof getCareHistoryFacilitySummary>> = []
+    try {
+      careHistory = await getHospitalCareHistory(pregnancy.id, 30)
+      careFacilitySummary = await getCareHistoryFacilitySummary(pregnancy.id)
+    } catch (e) {
+      console.error('Error fetching care history:', e)
+    }
+
     return {
       user: dbUser,
       pregnancy: {
@@ -272,6 +286,8 @@ export async function getPatientDashboardData(): Promise<DashboardData | null> {
       careContact,
       notifications: patientNotifications,
       clinicRecommendations,
+      careHistory,
+      careFacilitySummary,
     }
   } catch (err) {
     console.error('CRITICAL ERROR in getPatientDashboardData:', err)
@@ -1056,6 +1072,13 @@ export async function recordVitals(formData: {
       'Your clinic has recorded new vital signs.',
       'vitals-update'
     )
+    await recordFacilityCareEvent({
+      pregnancyId,
+      staffUserId: dbUser.id,
+      staffHospitalId: dbUser.hospitalId,
+      action: 'vitals',
+      summary: formData.notes?.trim() || 'Vital signs recorded at clinic',
+    })
     revalidatePregnancyPaths(pregnancyId)
     return { success: true }
   } catch (error: unknown) {
@@ -1108,8 +1131,11 @@ export async function updatePregnancyMedicalInfo(
     })
     if (!pregnancy) return { success: false, error: 'Pregnancy not found' }
 
-    if (dbUser.role !== 'admin' && pregnancy.hospitalId !== dbUser.hospitalId) {
+    if (dbUser.role !== 'admin' && !['hospital_staff', 'midwife'].includes(dbUser.role)) {
       return { success: false, error: 'Not authorized for this patient' }
+    }
+    if (!dbUser.hospitalId && dbUser.role !== 'admin') {
+      return { success: false, error: 'Link your account to a hospital first' }
     }
 
     const update: Partial<typeof pregnancies.$inferInsert> = {
@@ -1151,6 +1177,13 @@ export async function updatePregnancyMedicalInfo(
       )
     }
 
+    await recordFacilityCareEvent({
+      pregnancyId,
+      staffUserId: dbUser.id,
+      staffHospitalId: dbUser.hospitalId,
+      action: 'medical_update',
+      summary: 'Allergies, medications, or medical history updated',
+    })
     revalidatePregnancyPaths(pregnancyId)
     return { success: true }
   } catch (err: unknown) {
@@ -1252,6 +1285,13 @@ export async function recordAntenatalVisit(formData: any) {
       notifyParts.push('Your prescribed medications list was updated.')
     }
     await notifyPregnancyUpdate(pregnancyId, notifyParts.join(' '))
+    await recordFacilityCareEvent({
+      pregnancyId,
+      staffUserId: dbUser.id,
+      staffHospitalId: hospitalId || dbUser.hospitalId,
+      action: 'anc_visit',
+      summary: `ANC visit documented${gestationalAge != null ? ` at ${gestationalAge} weeks` : ''}`,
+    })
     revalidatePregnancyPaths(pregnancyId)
     return { success: true }
   } catch (error: unknown) {
@@ -1310,6 +1350,13 @@ export async function recordLabOrScan(formData: {
         : 'New lab results were added to your record.',
       'labs-update'
     )
+    await recordFacilityCareEvent({
+      pregnancyId,
+      staffUserId: dbUser.id,
+      staffHospitalId: dbUser.hospitalId,
+      action: 'lab_scan',
+      summary: isScan ? `Imaging: ${testName}` : `Lab: ${testName}`,
+    })
     revalidatePregnancyPaths(pregnancyId)
     return { success: true }
   } catch (error: unknown) {
@@ -1331,7 +1378,7 @@ export async function updatePregnancyStandingAdvice(pregnancyId: string, advice:
     })
     if (!pregnancy) return { success: false, error: 'Pregnancy not found' }
 
-    if (dbUser.role !== 'admin' && pregnancy.hospitalId !== dbUser.hospitalId) {
+    if (dbUser.role !== 'admin' && !['hospital_staff', 'midwife'].includes(dbUser.role)) {
       return { success: false, error: 'Not authorized' }
     }
 
@@ -1348,6 +1395,13 @@ export async function updatePregnancyStandingAdvice(pregnancyId: string, advice:
       'clinical_update',
       'mch-update'
     )
+    await recordFacilityCareEvent({
+      pregnancyId,
+      staffUserId: dbUser.id,
+      staffHospitalId: dbUser.hospitalId,
+      action: 'mch_advice',
+      summary: 'Standing health advice updated for patient dashboard',
+    })
     revalidatePregnancyPaths(pregnancyId)
     return { success: true }
   } catch (err: unknown) {
@@ -1710,7 +1764,7 @@ export async function updatePregnancyTimeline(
     })
     if (!pregnancy) return { success: false, error: 'Pregnancy not found' }
 
-    if (dbUser.role !== 'admin' && pregnancy.hospitalId !== dbUser.hospitalId) {
+    if (dbUser.role !== 'admin' && !['hospital_staff', 'midwife'].includes(dbUser.role)) {
       return { success: false, error: 'Not authorized for this patient' }
     }
 
@@ -1750,6 +1804,13 @@ export async function updatePregnancyTimeline(
       pregnancyId,
       'Your pregnancy dates and progress were updated by your clinic.'
     )
+    await recordFacilityCareEvent({
+      pregnancyId,
+      staffUserId: dbUser.id,
+      staffHospitalId: dbUser.hospitalId,
+      action: 'timeline_update',
+      summary: 'Pregnancy timeline (LMP/EDD/weeks) updated',
+    })
     revalidatePregnancyPaths(pregnancyId)
     return { success: true }
   } catch (err: unknown) {
@@ -2045,6 +2106,48 @@ export async function recordChildGrowth(data: any) {
   }
 }
 
+/** Log when clinical staff opens a visiting patient's record from the national registry */
+export async function logHospitalRegistryAccess(pregnancyId: string) {
+  try {
+    const { dbUser } = await requireClinicalStaff()
+    if (!dbUser.hospitalId) return { success: false }
+
+    const pregnancy = await db.query.pregnancies.findFirst({
+      where: eq(pregnancies.id, pregnancyId),
+    })
+    if (!pregnancy) return { success: false }
+
+    const isVisiting = pregnancy.hospitalId !== dbUser.hospitalId
+    if (!isVisiting) return { success: true, logged: false }
+
+    const hospital = await db.query.hospitals.findFirst({
+      where: eq(hospitals.id, dbUser.hospitalId),
+    })
+
+    await recordFacilityCareEvent({
+      pregnancyId,
+      staffUserId: dbUser.id,
+      staffHospitalId: dbUser.hospitalId,
+      action: 'registry_access',
+      summary: `${hospital?.name || 'Facility'} opened her national MCH record for continuity of care`,
+    })
+
+    return { success: true, logged: true }
+  } catch (err) {
+    console.warn('logHospitalRegistryAccess:', err)
+    return { success: false }
+  }
+}
+
+export async function getPregnancyCareHistory(pregnancyId: string) {
+  const { dbUser } = await requireClinicalStaff()
+  if (!dbUser) throw new Error('Unauthorized')
+
+  const history = await getHospitalCareHistory(pregnancyId, 50)
+  const facilitySummary = await getCareHistoryFacilitySummary(pregnancyId)
+  return JSON.parse(JSON.stringify({ history, facilitySummary }))
+}
+
 /**
  * Search all pregnant women nationally (cross-hospital registry)
  */
@@ -2120,6 +2223,14 @@ export async function searchGlobalPatients(queryText: string) {
           })
         : null
 
+      let facilityCount = 0
+      let lastFacilityName: string | null = null
+      if (pregnancy?.id) {
+        const summary = await getCareHistoryFacilitySummary(pregnancy.id)
+        facilityCount = summary.length
+        lastFacilityName = summary[0]?.hospitalName ?? null
+      }
+
       results.push({
         id: patient.id,
         name: `${patient.firstName} ${patient.lastName}`.trim() || patient.email,
@@ -2132,6 +2243,8 @@ export async function searchGlobalPatients(queryText: string) {
         onboardedHospitalLocation: onboardingHospital
           ? `${onboardingHospital.city}, ${onboardingHospital.region}`
           : '—',
+        facilitiesInHistory: facilityCount,
+        lastCareFacility: lastFacilityName,
       })
     }
 
@@ -2396,7 +2509,7 @@ export async function updatePregnancyBloodType(pregnancyId: string, combinedBloo
     })
     if (!pregnancy) return { success: false, error: 'Pregnancy not found' }
 
-    if (dbUser.role !== 'admin' && pregnancy.hospitalId !== dbUser.hospitalId) {
+    if (dbUser.role !== 'admin' && !['hospital_staff', 'midwife'].includes(dbUser.role)) {
       return { success: false, error: 'Not authorized for this patient' }
     }
 
@@ -2416,6 +2529,13 @@ export async function updatePregnancyBloodType(pregnancyId: string, combinedBloo
       `Your blood type was updated to ${trimmed} in your medical record.`,
       'mch-update'
     )
+    await recordFacilityCareEvent({
+      pregnancyId,
+      staffUserId: dbUser.id,
+      staffHospitalId: dbUser.hospitalId,
+      action: 'blood_type_update',
+      summary: `Blood type set to ${trimmed}`,
+    })
     revalidatePregnancyPaths(pregnancyId)
     revalidatePath('/dashboard/hospital')
 
@@ -2450,7 +2570,7 @@ export async function updatePatientAge(patientUserId: string, ageYears: number) 
       return { success: false, error: 'No active pregnancy record for this patient.' }
     }
 
-    if (dbUser.role !== 'admin' && pregnancy.hospitalId !== dbUser.hospitalId) {
+    if (dbUser.role !== 'admin' && !['hospital_staff', 'midwife'].includes(dbUser.role)) {
       return { success: false, error: 'Not authorized for this patient' }
     }
 
@@ -2470,6 +2590,13 @@ export async function updatePatientAge(patientUserId: string, ageYears: number) 
       'clinical_update',
       'mch-update'
     )
+    await recordFacilityCareEvent({
+      pregnancyId: pregnancy.id,
+      staffUserId: dbUser.id,
+      staffHospitalId: dbUser.hospitalId,
+      action: 'medical_update',
+      summary: `Patient age updated to ${age} years`,
+    })
     revalidatePregnancyPaths(pregnancy.id)
     revalidatePath('/dashboard/hospital')
 
@@ -2532,8 +2659,11 @@ export async function scheduleNextVisit(
     })
     if (!pregnancy) return { success: false, error: 'Pregnancy not found' }
 
-    if (dbUser.role !== 'admin' && pregnancy.hospitalId !== dbUser.hospitalId) {
+    if (dbUser.role !== 'admin' && !['hospital_staff', 'midwife'].includes(dbUser.role)) {
       return { success: false, error: 'Not authorized for this patient' }
+    }
+    if (!dbUser.hospitalId && dbUser.role !== 'admin') {
+      return { success: false, error: 'Link your account to a hospital first' }
     }
 
     const visitDate = new Date(scheduledDate)
@@ -2543,7 +2673,7 @@ export async function scheduleNextVisit(
 
     const [created] = await db.insert(appointments).values({
       pregnancyId,
-      hospitalId: pregnancy.hospitalId,
+      hospitalId: dbUser.hospitalId || pregnancy.hospitalId,
       midwifeId: pregnancy.midwifeId ?? dbUser.id,
       scheduledDate: visitDate,
       status: 'scheduled',
@@ -2556,6 +2686,13 @@ export async function scheduleNextVisit(
       'appointment',
       'appointment'
     )
+    await recordFacilityCareEvent({
+      pregnancyId,
+      staffUserId: dbUser.id,
+      staffHospitalId: dbUser.hospitalId,
+      action: 'appointment_scheduled',
+      summary: `Visit scheduled for ${visitDate.toLocaleDateString()}`,
+    })
     revalidatePregnancyPaths(pregnancyId)
     revalidatePath('/dashboard/hospital')
 
