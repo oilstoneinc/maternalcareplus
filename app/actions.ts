@@ -7,12 +7,6 @@ import {
   getHospitalCareHistory,
   getCareHistoryFacilitySummary,
 } from '@/lib/hospital-care-history'
-import {
-  setVerifiedPregnancyDevice,
-  getVerifiedPregnancyId,
-  setPartnerReadonlySession,
-  getPartnerSessionPregnancyId,
-} from '@/lib/partner-session'
 import { currentUser, clerkClient } from '@clerk/nextjs/server'
 import { HospitalDashboardData, DashboardData, Message } from '@/types'
 import { eq, desc, asc, and, or, sql, ilike, inArray } from 'drizzle-orm'
@@ -274,6 +268,33 @@ export async function getPatientDashboardData(): Promise<DashboardData | null> {
       console.error('Error fetching care history:', e)
     }
 
+    let linkedPartner: {
+      email: string
+      firstName: string
+      lastName: string
+      accessActive: boolean
+    } | null = null
+    try {
+      const access = await db.query.partnerAccess.findFirst({
+        where: eq(partnerAccess.pregnantWomanId, dbUser.id),
+      })
+      if (access) {
+        const partner = await db.query.users.findFirst({
+          where: eq(users.id, access.partnerId),
+        })
+        if (partner) {
+          linkedPartner = {
+            email: partner.email,
+            firstName: partner.firstName,
+            lastName: partner.lastName,
+            accessActive: !!access.isActive,
+          }
+        }
+      }
+    } catch (e) {
+      console.error('Error fetching linked partner:', e)
+    }
+
     return {
       user: dbUser,
       pregnancy: {
@@ -288,6 +309,7 @@ export async function getPatientDashboardData(): Promise<DashboardData | null> {
       clinicRecommendations,
       careHistory,
       careFacilitySummary,
+      linkedPartner,
     }
   } catch (err) {
     console.error('CRITICAL ERROR in getPatientDashboardData:', err)
@@ -513,21 +535,12 @@ export async function getFatherDashboardData() {
   if (!dbUser) throw new Error('Unauthorized')
 
   let pregnancy: (typeof pregnancies.$inferSelect) | null = null
-  const partnerPregnancyId = await getPartnerSessionPregnancyId(user.id)
-  const isReadOnlyPartner =
-    dbUser.role === 'pregnant_woman' && !!partnerPregnancyId
-
-  if (isReadOnlyPartner && partnerPregnancyId) {
-    pregnancy =
-      (await db.query.pregnancies.findFirst({
-        where: and(
-          eq(pregnancies.id, partnerPregnancyId),
-          eq(pregnancies.userId, dbUser.id)
-        ),
-      })) ?? null
-  } else if (dbUser.role === 'father' || dbUser.role === 'admin') {
+  if (dbUser.role === 'father' || dbUser.role === 'admin') {
     const access = await db.query.partnerAccess.findFirst({
-      where: eq(partnerAccess.partnerId, dbUser.id),
+      where: and(
+        eq(partnerAccess.partnerId, dbUser.id),
+        eq(partnerAccess.isActive, true)
+      ),
     })
     pregnancy = access?.pregnancyId
       ? (await db.query.pregnancies.findFirst({
@@ -590,6 +603,14 @@ export async function getFatherDashboardData() {
       })
     : []
 
+  let pendingVerification = false
+  if ((dbUser.role === 'father') && !pregnancy) {
+    const pending = await db.query.partnerAccess.findFirst({
+      where: eq(partnerAccess.partnerId, dbUser.id),
+    })
+    pendingVerification = !!pending && !pending.isActive
+  }
+
   return JSON.parse(
     JSON.stringify({
       user: dbUser,
@@ -597,7 +618,8 @@ export async function getFatherDashboardData() {
       appointments: upcomingAppointments,
       labs,
       clinicRecommendations,
-      readOnly: isReadOnlyPartner,
+      readOnly: dbUser.role === 'father',
+      pendingVerification,
     })
   )
 }
@@ -962,6 +984,8 @@ export async function onboardPatient(formData: any) {
       console.log(`[onboardPatient] Created new patient record ${newUser.id} in DB`)
     }
 
+    let activePregnancyId: string | null = null
+
     // 3. Create or update Pregnancy record if applicable
     if ((formData.role || 'pregnant_woman') === 'pregnant_woman' && formData.lmp) {
       let hospitalId = dbUser.hospitalId;
@@ -975,7 +999,7 @@ export async function onboardPatient(formData: any) {
       })
 
       if (!existingPregnancy) {
-        await db.insert(pregnancies).values({
+        const [createdPregnancy] = await db.insert(pregnancies).values({
           userId: newUser.id,
           hospitalId: formData.hospitalId || hospitalId,
           gravidity: parseInt(formData.gravidity) || 1,
@@ -983,7 +1007,8 @@ export async function onboardPatient(formData: any) {
           lmp: new Date(formData.lmp),
           edd: new Date(new Date(formData.lmp).setDate(new Date(formData.lmp).getDate() + 280)), // Rule of thumb
           status: 'active',
-        })
+        }).returning()
+        activePregnancyId = createdPregnancy.id
         console.log(`[onboardPatient] Instantiated new pregnancy record for user ${newUser.id}`)
       } else {
         // Update existing pregnancy record
@@ -996,8 +1021,23 @@ export async function onboardPatient(formData: any) {
             edd: new Date(new Date(formData.lmp).setDate(new Date(formData.lmp).getDate() + 280)),
           })
           .where(eq(pregnancies.id, existingPregnancy.id))
+        activePregnancyId = existingPregnancy.id
         console.log(`[onboardPatient] Updated existing pregnancy record ${existingPregnancy.id} for user ${newUser.id}`)
       }
+    }
+
+    let partnerInvite: { email: string; invited: boolean; error?: string } | null = null
+    const partnerEmail = (formData.partnerEmail || formData.fatherEmail || '').trim().toLowerCase()
+    if (partnerEmail && activePregnancyId) {
+      partnerInvite = await invitePartnerDuringOnboarding({
+        partnerEmail,
+        partnerFirstName: formData.partnerFirstName || formData.fatherFirstName,
+        partnerLastName: formData.partnerLastName || formData.fatherLastName,
+        pregnancyId: activePregnancyId,
+        pregnantWomanId: newUser.id,
+        patientEmail: emailLower,
+        origin,
+      })
     }
 
     // 4. Send programmatic Clerk Invitation to trigger automatic email delivery
@@ -1025,12 +1065,113 @@ export async function onboardPatient(formData: any) {
       data: {
         email: emailLower, 
         isInvitationFlow: true,
-        loginUrl: `${origin}/sign-up`
+        loginUrl: `${origin}/sign-up`,
+        partnerInvite,
       }
     }
   } catch (error: any) {
     console.error('Onboarding error:', error)
     return { success: false, error: error?.errors?.[0]?.message || 'Failed to onboard patient' }
+  }
+}
+
+/** Invite partner/father during hospital patient onboarding (own account, father role) */
+async function invitePartnerDuringOnboarding(params: {
+  partnerEmail: string
+  partnerFirstName?: string
+  partnerLastName?: string
+  pregnancyId: string
+  pregnantWomanId: string
+  patientEmail: string
+  origin: string
+}): Promise<{ email: string; invited: boolean; error?: string }> {
+  const emailLower = params.partnerEmail.trim().toLowerCase()
+  if (!emailLower) return { email: '', invited: false, error: 'Partner email required' }
+  if (emailLower === params.patientEmail) {
+    return { email: emailLower, invited: false, error: 'Partner email must be different from the patient email' }
+  }
+
+  let fatherUser = await db.query.users.findFirst({
+    where: eq(users.email, emailLower),
+  })
+
+  if (fatherUser && !['father', 'pregnant_woman'].includes(fatherUser.role)) {
+    return {
+      email: emailLower,
+      invited: false,
+      error: 'That email is already registered as hospital staff',
+    }
+  }
+
+  if (fatherUser?.role === 'pregnant_woman') {
+    return { email: emailLower, invited: false, error: 'That email belongs to a patient account' }
+  }
+
+  if (!fatherUser) {
+    const inviteToken = `INV-FTR-${Math.random().toString(36).substring(2, 10).toUpperCase()}`
+    const [inserted] = await db.insert(users).values({
+      clerkId: inviteToken,
+      email: emailLower,
+      firstName: (params.partnerFirstName || 'Partner').trim(),
+      lastName: (params.partnerLastName || '').trim(),
+      role: 'father',
+      isVerified: false,
+      isActive: true,
+    }).returning()
+    fatherUser = inserted
+  } else {
+    await db
+      .update(users)
+      .set({
+        firstName: (params.partnerFirstName || fatherUser.firstName).trim(),
+        lastName: (params.partnerLastName || fatherUser.lastName).trim(),
+        role: 'father',
+        updatedAt: new Date(),
+      })
+      .where(eq(users.id, fatherUser.id))
+  }
+
+  const existingAccess = await db.query.partnerAccess.findFirst({
+    where: and(
+      eq(partnerAccess.partnerId, fatherUser.id),
+      eq(partnerAccess.pregnancyId, params.pregnancyId)
+    ),
+  })
+
+  if (!existingAccess) {
+    await db.insert(partnerAccess).values({
+      pregnantWomanId: params.pregnantWomanId,
+      partnerId: fatherUser.id,
+      pregnancyId: params.pregnancyId,
+      canViewAppointments: true,
+      canViewLabResults: true,
+      canViewProgress: true,
+      canReceiveNotifications: true,
+      isActive: false,
+    })
+  }
+
+  try {
+    const client = await clerkClient()
+    await client.invitations.createInvitation({
+      emailAddress: emailLower,
+      redirectUrl: `${origin}/sign-up`,
+      publicMetadata: {
+        role: 'father',
+        pregnancyId: params.pregnancyId,
+        pregnantWomanId: params.pregnantWomanId,
+      },
+      ignoreExisting: true,
+    })
+    console.log(`[onboardPatient] Partner invitation sent to ${emailLower}`)
+    return { email: emailLower, invited: true }
+  } catch (clerkErr: unknown) {
+    console.error('[onboardPatient] Partner Clerk invitation failed:', clerkErr)
+    return {
+      email: emailLower,
+      invited: false,
+      error: 'Partner record created but email invitation failed — resend from Clerk dashboard',
+    }
   }
 }
 
@@ -1365,9 +1506,6 @@ export async function recordLabOrScan(formData: {
   }
 }
 
-/**
- * Generate a join code for a father to link to a pregnancy
- */
 /** Standing advice shown on patient "Recommended for You" (editable by hospital) */
 export async function updatePregnancyStandingAdvice(pregnancyId: string, advice: string) {
   try {
@@ -1411,6 +1549,7 @@ export async function updatePregnancyStandingAdvice(pregnancyId: string, advice:
   }
 }
 
+/** Mother generates a one-time code for her invited partner to unlock read-only access */
 export async function generateFatherJoinCode(pregnancyId: string) {
   const user = await currentUser()
   if (!user) throw new Error('Unauthorized')
@@ -1418,39 +1557,26 @@ export async function generateFatherJoinCode(pregnancyId: string) {
   const dbUser = await db.query.users.findFirst({
     where: eq(users.clerkId, user.id),
   })
-  if (!dbUser) return { success: false, error: 'Unauthorized' }
+  if (!dbUser || dbUser.role !== 'pregnant_woman') {
+    return { success: false, error: 'Unauthorized' }
+  }
 
   const pregnancy = await db.query.pregnancies.findFirst({
     where: eq(pregnancies.id, pregnancyId),
   })
-  if (!pregnancy) return { success: false, error: 'Pregnancy not found' }
-
-  if (
-    dbUser.role === 'pregnant_woman' &&
-    pregnancy.userId !== dbUser.id
-  ) {
+  if (!pregnancy || pregnancy.userId !== dbUser.id) {
     return { success: false, error: 'Not your pregnancy record' }
   }
 
-  if (dbUser.role === 'pregnant_woman') {
-    const verifiedId = await getVerifiedPregnancyId(user.id)
-    if (verifiedId !== pregnancyId) {
-      return {
-        success: false,
-        error:
-          'Open the app on your trusted device to generate a partner code, then share it with your partner.',
-      }
-    }
-  }
-
   const joinCode = Math.random().toString(36).substring(2, 8).toUpperCase()
-  const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000) // 24 hours
+  const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000)
 
   try {
-    await db.update(pregnancies)
+    await db
+      .update(pregnancies)
       .set({
         fatherJoinCode: joinCode,
-        fatherJoinCodeExpires: expiresAt
+        fatherJoinCodeExpires: expiresAt,
       })
       .where(eq(pregnancies.id, pregnancyId))
 
@@ -1462,11 +1588,8 @@ export async function generateFatherJoinCode(pregnancyId: string) {
   }
 }
 
-/**
- * Partner / father signs in with the mother's account on a new device and must enter
- * the code she generated on her phone before accessing the pregnant woman dashboard.
- */
-export async function verifyPartnerAccessCode(joinCode: string) {
+/** Father enters mother's code after completing hospital email registration */
+export async function linkFatherViaToken(joinCode: string) {
   const user = await currentUser()
   if (!user) return { success: false, error: 'Unauthorized' }
 
@@ -1474,18 +1597,17 @@ export async function verifyPartnerAccessCode(joinCode: string) {
     where: eq(users.clerkId, user.id),
   })
 
-  if (!dbUser || dbUser.role !== 'pregnant_woman') {
+  if (!dbUser || dbUser.role !== 'father') {
     return {
       success: false,
-      error: 'Sign in with the mother\'s email and password, then enter her invite code.',
+      error: 'Sign in with your partner invitation email from the hospital.',
     }
   }
 
   try {
     const pregnancy = await db.query.pregnancies.findFirst({
       where: and(
-        eq(pregnancies.fatherJoinCode, joinCode.toUpperCase()),
-        eq(pregnancies.userId, dbUser.id),
+        eq(pregnancies.fatherJoinCode, joinCode.toUpperCase().trim()),
         sql`${pregnancies.fatherJoinCodeExpires} > NOW()`
       ),
     })
@@ -1493,11 +1615,33 @@ export async function verifyPartnerAccessCode(joinCode: string) {
     if (!pregnancy) {
       return {
         success: false,
-        error: 'Invalid or expired code. Ask her to generate a new code on her device.',
+        error: 'Invalid or expired code. Ask your partner to generate a new code.',
       }
     }
 
-    await setPartnerReadonlySession(user.id, pregnancy.id)
+    const pendingAccess = await db.query.partnerAccess.findFirst({
+      where: and(
+        eq(partnerAccess.partnerId, dbUser.id),
+        eq(partnerAccess.pregnancyId, pregnancy.id)
+      ),
+    })
+
+    if (!pendingAccess) {
+      return {
+        success: false,
+        error: 'Your email was not registered for this pregnancy. Contact the hospital.',
+      }
+    }
+
+    if (pendingAccess.isActive) {
+      revalidatePath('/dashboard/father')
+      return { success: true }
+    }
+
+    await db
+      .update(partnerAccess)
+      .set({ isActive: true, updatedAt: new Date() })
+      .where(eq(partnerAccess.id, pendingAccess.id))
 
     await db
       .update(pregnancies)
@@ -1508,20 +1652,11 @@ export async function verifyPartnerAccessCode(joinCode: string) {
       .where(eq(pregnancies.id, pregnancy.id))
 
     revalidatePath('/dashboard/father')
-    revalidatePath('/dashboard/pregnant-woman/partner-access')
+    revalidatePath('/dashboard/pregnant-woman')
     return { success: true }
   } catch (error) {
-    console.error('verifyPartnerAccessCode error:', error)
+    console.error('linkFatherViaToken error:', error)
     return { success: false, error: 'Verification failed' }
-  }
-}
-
-/** @deprecated Fathers use the mother's sign-in + partner access code instead */
-export async function linkFatherViaToken(joinCode: string) {
-  return {
-    success: false,
-    error:
-      'Partner accounts are no longer used. Sign in with the mother\'s email and password, then enter her invite code.',
   }
 }
 
@@ -2448,8 +2583,10 @@ export async function updateMCHChecklists(pregnancyId: string, mchDataUpdate: an
     const user = await currentUser()
     if (!user) return { success: false, error: 'Unauthorized' }
 
-    const { hasPartnerReadonlySession } = await import('@/lib/partner-session')
-    if (await hasPartnerReadonlySession(user.id)) {
+    const dbUser = await db.query.users.findFirst({
+      where: eq(users.clerkId, user.id),
+    })
+    if (dbUser?.role === 'father') {
       return { success: false, error: 'Read-only partner view cannot edit the MCH book' }
     }
 

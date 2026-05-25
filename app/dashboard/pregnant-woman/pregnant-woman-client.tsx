@@ -24,7 +24,6 @@ import {
   UserPlus,
   Copy,
   Check,
-  Share2,
   Moon,
   AlertCircle,
   Building2,
@@ -121,7 +120,9 @@ export default function PregnantWomanClient({ user, data }: { user: any, data: D
     }))
     .reverse()
 
-  const [shareCode, setShareCode] = useState<string | null>(data?.pregnancy?.fatherJoinCode || null)
+  const [shareCode, setShareCode] = useState<string | null>(
+    data?.pregnancy?.fatherJoinCode || null
+  )
   const [isGenerating, setIsGenerating] = useState(false)
   const [copied, setCopied] = useState(false)
   const [realtimeNotification, setRealtimeNotification] = useState<string | null>(null)
@@ -205,17 +206,6 @@ export default function PregnantWomanClient({ user, data }: { user: any, data: D
     }
   }, [data?.pregnancy?.id, data?.user?.id, router])
 
-  const handleOpenNotifications = async () => {
-    await markNotificationsRead()
-    setNotificationList((prev) => prev.map((n) => ({ ...n, isRead: true })))
-  }
-
-  useEffect(() => {
-    if (data?.pregnancy) {
-      setShareCode(data.pregnancy.fatherJoinCode)
-    }
-  }, [data])
-
   const handleGenerateCode = async () => {
     if (!data?.pregnancy?.id) return
     setIsGenerating(true)
@@ -237,6 +227,11 @@ export default function PregnantWomanClient({ user, data }: { user: any, data: D
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
     }
+  }
+
+  const handleOpenNotifications = async () => {
+    await markNotificationsRead()
+    setNotificationList((prev) => prev.map((n) => ({ ...n, isRead: true })))
   }
 
   return (
@@ -608,7 +603,7 @@ export default function PregnantWomanClient({ user, data }: { user: any, data: D
           {/* Right Sidebar Area */}
           <div className="space-y-8">
             
-            {/* Partner Invite Code */}
+            {/* Partner (hospital invite) */}
             <Card className="border-none shadow-lg bg-primary/5 overflow-hidden relative group ring-1 ring-primary/10">
               <div className="absolute -right-4 -top-4 opacity-5 group-hover:scale-110 transition-transform">
                 <UserPlus className="w-24 h-24 text-primary" />
@@ -619,55 +614,73 @@ export default function PregnantWomanClient({ user, data }: { user: any, data: D
                   Support your Partner
                 </CardTitle>
                 <CardDescription className="text-indigo-700/70 text-[10px]">
-                  Partner signs in with your email and password on his device, then enters this code
+                  {data?.linkedPartner
+                    ? data.linkedPartner.accessActive
+                      ? 'Partner has verified access to your records'
+                      : 'After your partner registers, share a code so only they can view your records'
+                    : 'Ask your hospital to add partner email when registering you'}
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4 pt-2">
-                <ol className="text-[10px] text-indigo-800/80 space-y-1 list-decimal list-inside font-medium">
-                  <li>Tap <strong>Generate Invite Code</strong> (valid 24 hours, one-time use)</li>
-                  <li>Partner opens <strong>Sign In</strong> and uses your login details</li>
-                  <li>He enters this code to open his <strong>read-only</strong> dashboard (not your full record)</li>
-                </ol>
-                {shareCode ? (
-                  <div className="space-y-3">
-                    <div className="bg-white p-3 rounded-xl border border-indigo-100 flex items-center justify-between shadow-sm">
-                      <span className="font-mono text-lg font-black tracking-widest text-indigo-600">
-                        {shareCode}
-                      </span>
-                      <Button 
-                        variant="ghost" 
-                        size="icon" 
-                        onClick={copyToClipboard}
-                        className="h-8 w-8 text-indigo-400 hover:text-indigo-600"
-                      >
-                        {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-                      </Button>
+                {data?.linkedPartner ? (
+                  <>
+                    <div className="bg-white p-3 rounded-xl border border-indigo-100 text-xs space-y-1">
+                      <p className="font-bold text-indigo-900">
+                        {data.linkedPartner.firstName} {data.linkedPartner.lastName}
+                      </p>
+                      <p className="text-indigo-700/80">{data.linkedPartner.email}</p>
+                      <p className="text-[10px] text-slate-500 pt-1">
+                        {data.linkedPartner.accessActive
+                          ? 'Read-only access is active.'
+                          : 'They sign in with this email, then you send them the code below.'}
+                      </p>
                     </div>
-                    <div className="flex gap-2">
-                      <Button 
-                        size="sm" 
-                        variant="outline" 
-                        className="flex-1 text-[10px] border-indigo-200 text-indigo-600 hover:bg-white"
-                        onClick={handleGenerateCode}
-                        disabled={isGenerating}
-                      >
-                        Refresh Code
-                      </Button>
-                      <Button size="sm" className="flex-1 text-[10px] btn-pink shadow-md">
-                        <Share2 className="h-3 w-3 mr-1" />
-                        Share
-                      </Button>
-                    </div>
-                    <p className="text-[10px] text-center text-muted-foreground font-medium uppercase tracking-tighter">Expires in 24 hours</p>
-                  </div>
+                    {!data.linkedPartner.accessActive && (
+                      <>
+                        {shareCode ? (
+                          <div className="space-y-3">
+                            <div className="bg-white p-3 rounded-xl border border-indigo-100 flex items-center justify-between shadow-sm">
+                              <span className="font-mono text-lg font-black tracking-widest text-indigo-600">
+                                {shareCode}
+                              </span>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={copyToClipboard}
+                                className="h-8 w-8 text-indigo-400 hover:text-indigo-600"
+                              >
+                                {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                              </Button>
+                            </div>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="w-full text-[10px] border-indigo-200 text-indigo-600 hover:bg-white"
+                              onClick={handleGenerateCode}
+                              disabled={isGenerating}
+                            >
+                              {isGenerating ? 'Generating...' : 'Generate new code'}
+                            </Button>
+                            <p className="text-[10px] text-center text-muted-foreground">
+                              Expires in 24 hours
+                            </p>
+                          </div>
+                        ) : (
+                          <Button
+                            className="w-full bg-indigo-600 hover:bg-indigo-700 shadow-md"
+                            onClick={handleGenerateCode}
+                            disabled={isGenerating}
+                          >
+                            {isGenerating ? 'Generating...' : 'Generate partner code'}
+                          </Button>
+                        )}
+                      </>
+                    )}
+                  </>
                 ) : (
-                  <Button 
-                    className="w-full bg-indigo-600 hover:bg-indigo-700 shadow-md"
-                    onClick={handleGenerateCode}
-                    disabled={isGenerating}
-                  >
-                    {isGenerating ? 'Generating...' : 'Generate Invite Code'}
-                  </Button>
+                  <p className="text-[10px] text-indigo-800/80 font-medium">
+                    Partner gets a separate invite email, then you share a code to unlock their read-only view.
+                  </p>
                 )}
               </CardContent>
             </Card>

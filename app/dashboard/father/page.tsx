@@ -1,11 +1,11 @@
 import { currentUser } from '@clerk/nextjs/server'
 import { redirect } from 'next/navigation'
+import { requireRole } from '@/lib/clerk'
 import { getFatherDashboardData } from '@/app/actions'
-import { requirePartnerDashboardAccess } from '@/lib/require-partner-dashboard'
 import FatherDashboardClient from './father-client'
 
 export default async function FatherDashboard() {
-  await requirePartnerDashboardAccess()
+  await requireRole(['father', 'admin'])
 
   const user = await currentUser()
   if (!user) redirect('/sign-in')

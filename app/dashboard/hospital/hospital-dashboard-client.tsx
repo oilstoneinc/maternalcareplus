@@ -1035,7 +1035,13 @@ function PregnancyQuickActions({
 // Patient Onboarding Form Component
 function PatientOnboardingForm({ onSuccess }: { onSuccess: () => void }) {
   const [loading, setLoading] = useState(false)
-  const [successData, setSuccessData] = useState<{email: string, password?: string, loginUrl: string, isInvitationFlow?: boolean} | null>(null)
+  const [successData, setSuccessData] = useState<{
+    email: string
+    password?: string
+    loginUrl: string
+    isInvitationFlow?: boolean
+    partnerInvite?: { email: string; invited: boolean; error?: string } | null
+  } | null>(null)
   const [copied, setCopied] = useState(false)
   
   const [formData, setFormData] = useState({
@@ -1056,7 +1062,10 @@ function PatientOnboardingForm({ onSuccess }: { onSuccess: () => void }) {
     height: '',
     prePregnancyWeight: '',
     medicalHistory: '',
-    allergies: ''
+    allergies: '',
+    partnerEmail: '',
+    partnerFirstName: '',
+    partnerLastName: '',
   })
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -1082,9 +1091,14 @@ function PatientOnboardingForm({ onSuccess }: { onSuccess: () => void }) {
 
   const copyCreds = () => {
     if (!successData) return
-    const text = successData.isInvitationFlow
+    let text = successData.isInvitationFlow
       ? `Patient Onboarded Successfully!\nEmail Address: ${successData.email}\nAn invitation email has been sent directly to the patient to complete registration and set their own secure password.`
       : `Patient Login Details:\nEmail: ${successData.email}\nPassword: ${successData.password}\nLogin at: ${successData.loginUrl}`
+    if (successData.partnerInvite?.invited) {
+      text += `\n\nPartner invitation sent to: ${successData.partnerInvite.email}`
+    } else if (successData.partnerInvite?.error) {
+      text += `\n\nPartner: ${successData.partnerInvite.error}`
+    }
     navigator.clipboard.writeText(text)
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
@@ -1129,6 +1143,18 @@ function PatientOnboardingForm({ onSuccess }: { onSuccess: () => void }) {
             <p className="text-xs font-medium text-gray-500 uppercase">Onboarding Signup Link</p>
             <p className="text-sm text-blue-600 truncate">{successData.loginUrl}</p>
           </div>
+          {successData.partnerInvite && (
+            <div>
+              <p className="text-xs font-medium text-gray-500 uppercase">Partner / Father</p>
+              {successData.partnerInvite.invited ? (
+                <p className="text-sm font-bold text-indigo-600">
+                  Invitation sent to {successData.partnerInvite.email}
+                </p>
+              ) : (
+                <p className="text-sm text-amber-700">{successData.partnerInvite.error || 'Not invited'}</p>
+              )}
+            </div>
+          )}
           
           <button 
             onClick={copyCreds}
@@ -1231,6 +1257,55 @@ function PatientOnboardingForm({ onSuccess }: { onSuccess: () => void }) {
           onChange={(e) => setFormData({...formData, address: e.target.value})}
           className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-transparent"
         />
+      </div>
+
+      <div className="border-t pt-6">
+        <h3 className="text-lg font-semibold mb-2">Partner / Father (optional)</h3>
+        <p className="text-xs text-gray-500 mb-4">
+          If provided, he receives his own invite email with read-only access — he does not use the
+          mother&apos;s password.
+        </p>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+          <div>
+            <label htmlFor="partnerFirstName" className="block text-sm font-medium text-gray-700 mb-2">
+              Partner first name
+            </label>
+            <input
+              type="text"
+              id="partnerFirstName"
+              value={formData.partnerFirstName}
+              onChange={(e) => setFormData({ ...formData, partnerFirstName: e.target.value })}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#D48BA1]"
+              placeholder="Optional"
+            />
+          </div>
+          <div>
+            <label htmlFor="partnerLastName" className="block text-sm font-medium text-gray-700 mb-2">
+              Partner last name
+            </label>
+            <input
+              type="text"
+              id="partnerLastName"
+              value={formData.partnerLastName}
+              onChange={(e) => setFormData({ ...formData, partnerLastName: e.target.value })}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#D48BA1]"
+              placeholder="Optional"
+            />
+          </div>
+          <div>
+            <label htmlFor="partnerEmail" className="block text-sm font-medium text-gray-700 mb-2">
+              Partner email
+            </label>
+            <input
+              type="email"
+              id="partnerEmail"
+              value={formData.partnerEmail}
+              onChange={(e) => setFormData({ ...formData, partnerEmail: e.target.value })}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#D48BA1]"
+              placeholder="partner@email.com"
+            />
+          </div>
+        </div>
       </div>
 
       <div className="border-t pt-6">

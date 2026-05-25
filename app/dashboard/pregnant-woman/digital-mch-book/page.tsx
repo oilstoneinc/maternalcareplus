@@ -1,7 +1,6 @@
 import { currentUser } from '@clerk/nextjs/server'
 import { redirect } from 'next/navigation'
 import { requireRole } from '@/lib/clerk'
-import { requirePregnantWomanDeviceAccess } from '@/lib/require-pregnant-woman-device'
 import { getMCHBookDataForPregnantWoman, serializeMCHBookData } from '@/lib/mch-book-data'
 import DigitalMCHBookClient from './digital-mch-book-client'
 
@@ -10,7 +9,6 @@ export const dynamic = 'force-dynamic'
 export default async function DigitalMCHBookPage() {
   try {
     await requireRole('pregnant_woman')
-    await requirePregnantWomanDeviceAccess()
     const user = await currentUser()
     if (!user) redirect('/sign-in')
 

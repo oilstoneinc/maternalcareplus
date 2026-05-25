@@ -15,17 +15,17 @@ export default function PartnerSignUpPage() {
         <div className="w-16 h-16 bg-indigo-50 rounded-2xl flex items-center justify-center mx-auto mb-6">
           <Lock className="w-8 h-8 text-indigo-600" />
         </div>
-        <h1 className="text-2xl font-black text-slate-900 mb-3">Partner registration is closed</h1>
+        <h1 className="text-2xl font-black text-slate-900 mb-3">Partner access is invite-only</h1>
         <p className="text-sm text-slate-600 font-medium leading-relaxed mb-8">
-          For your security, partners do not create separate accounts. Sign in with the{' '}
-          <strong>mother&apos;s email and password</strong>, then enter the 6-character code she
-          generates on her phone — you then get a <strong>read-only partner dashboard</strong>.
+          When the hospital registers a pregnant woman, they can add your email. You will receive your
+          own invitation to create a <strong>father</strong> account with read-only access to her
+          pregnancy dashboard and MCH book.
         </p>
         <Link
           href="/sign-in"
           className="inline-flex w-full items-center justify-center gap-2 py-4 text-sm font-black rounded-2xl text-white bg-indigo-600 hover:bg-indigo-700 transition-all"
         >
-          Go to Sign In
+          Sign in after you receive your invite
         </Link>
         <Link
           href="/"

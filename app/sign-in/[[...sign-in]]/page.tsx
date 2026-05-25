@@ -3,31 +3,19 @@
 import { Suspense } from 'react'
 import { SignIn } from '@clerk/nextjs'
 import { HeartPulse } from 'lucide-react'
-import { useSearchParams } from 'next/navigation'
 
 function SignInContent() {
-  const searchParams = useSearchParams()
-  const partnerHint = searchParams.get('partner') === 'mother-account'
-
   return (
     <>
-      {partnerHint && (
-        <div className="w-full max-w-md mb-4 p-4 rounded-2xl bg-indigo-50 border border-indigo-100 text-sm text-indigo-900 font-medium text-center leading-relaxed">
-          Partners: sign in with the <strong>mother&apos;s email and password</strong>, enter her invite
-          code, then view her pregnancy on a <strong>read-only dashboard</strong>.
-        </div>
-      )}
-
       <p className="text-center text-sm text-slate-500 mb-4 max-w-md leading-relaxed">
-        <strong>Fathers / partners:</strong> use the pregnant woman&apos;s sign-in details (same email
-        and password). After sign-in, enter the code she generates under{' '}
-        <strong>Support your Partner</strong> on her phone. You will see a read-only partner dashboard, not her full record.
+        <strong>Mothers and partners</strong> each use the email address the hospital registered.
+        Partners receive a separate invitation with read-only access.
       </p>
 
       <SignIn
         routing="path"
         path="/sign-in"
-        fallbackRedirectUrl="/dashboard/pregnant-woman/partner-access"
+        fallbackRedirectUrl="/dashboard"
         appearance={{
           elements: {
             rootBox: 'w-full max-w-[440px] shadow-2xl rounded-2xl overflow-hidden',

@@ -20,7 +20,7 @@ export default async function HomePage() {
       case 'pregnant_woman':
         redirect('/dashboard/pregnant-woman')
       case 'father':
-        redirect('/sign-in?partner=mother-account')
+        redirect('/dashboard/father')
       case 'midwife':
         redirect('/dashboard/midwife')
       case 'hospital_staff':

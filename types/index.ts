@@ -32,6 +32,12 @@ export interface DashboardData {
     lastVisit: string
     isHome: boolean
   }[]
+  linkedPartner?: {
+    email: string
+    firstName: string
+    lastName: string
+    accessActive: boolean
+  } | null
 }
 
 export interface HospitalDashboardData {

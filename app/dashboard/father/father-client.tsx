@@ -27,7 +27,7 @@ import {
 } from 'lucide-react'
 import Link from 'next/link'
 import { useState } from 'react'
-import { verifyPartnerAccessCode } from '@/app/actions'
+import { linkFatherViaToken } from '@/app/actions'
 import ProgressChart from '@/components/dashboard/ProgressChart'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -46,25 +46,26 @@ export default function FatherDashboardClient({ user, data }: FatherDashboardPro
   const handleJoin = async (e: React.FormEvent) => {
     e.preventDefault()
     if (joinCode.length < 6) return
-    
+
     setIsJoining(true)
     try {
-      const result = await verifyPartnerAccessCode(joinCode)
+      const result = await linkFatherViaToken(joinCode)
       if (result.success) {
-        toast.success('Access granted — opening read-only dashboard')
+        toast.success('Access granted — welcome to your partner dashboard')
         window.location.href = '/dashboard/father'
       } else {
         toast.error(result.error || 'Failed to verify code')
       }
-    } catch (error) {
+    } catch {
       toast.error('An error occurred')
     } finally {
       setIsJoining(false)
     }
   }
 
-  // Unlinked state (legacy father accounts only)
   if (!data?.pregnancy) {
+    const awaitingCode = !!data?.pendingVerification
+
     return (
       <div className="min-h-[80vh] flex items-center justify-center p-4">
         <Card className="max-w-md w-full border-none shadow-2xl bg-white/80 backdrop-blur-xl">
@@ -72,31 +73,42 @@ export default function FatherDashboardClient({ user, data }: FatherDashboardPro
             <div className="w-20 h-20 bg-indigo-100 rounded-3xl flex items-center justify-center mx-auto mb-4 shadow-inner">
               <Lock className="w-10 h-10 text-indigo-600" />
             </div>
-            <CardTitle className="text-2xl font-black text-indigo-950">Welcome, Dad! 🤜🤛</CardTitle>
+            <CardTitle className="text-2xl font-black text-indigo-950">Welcome, Dad!</CardTitle>
             <CardDescription className="text-indigo-700/60 font-medium">
-              Sign in with the mother&apos;s email and password, then enter her invite code. Or enter a code below if you already signed in.
+              {awaitingCode
+                ? 'Your account is registered. Enter the security code your partner shares with you to view her pregnancy records.'
+                : 'Sign in with the email the hospital used for your partner invitation. If you have not been invited, ask the clinic to add your email.'}
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleJoin} className="space-y-6">
-              <div className="space-y-2">
-                <Input
-                  value={joinCode}
-                  onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
-                  placeholder="EX: MC-XXXX"
-                  className="text-center text-2xl font-black tracking-[0.5em] h-16 border-2 border-indigo-100 focus:border-indigo-600 focus:ring-indigo-600 rounded-2xl uppercase placeholder:tracking-normal placeholder:font-medium placeholder:text-lg"
-                  maxLength={6}
-                />
-              </div>
-              <Button 
-                type="submit" 
-                disabled={isJoining || joinCode.length < 6}
-                className="w-full h-16 text-lg font-bold bg-indigo-600 hover:bg-indigo-700 shadow-xl shadow-indigo-200 rounded-2xl group"
-              >
-                {isJoining ? 'Verifying...' : 'Link Account'}
-                <ArrowRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
-              </Button>
-            </form>
+            {awaitingCode ? (
+              <form onSubmit={handleJoin} className="space-y-6">
+                <div className="space-y-2">
+                  <Input
+                    value={joinCode}
+                    onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
+                    placeholder="Partner code"
+                    className="text-center text-2xl font-black tracking-[0.5em] h-16 border-2 border-indigo-100 focus:border-indigo-600 focus:ring-indigo-600 rounded-2xl uppercase placeholder:tracking-normal placeholder:font-medium placeholder:text-lg"
+                    maxLength={6}
+                  />
+                </div>
+                <Button
+                  type="submit"
+                  disabled={isJoining || joinCode.length < 6}
+                  className="w-full h-16 text-lg font-bold bg-indigo-600 hover:bg-indigo-700 shadow-xl shadow-indigo-200 rounded-2xl group"
+                >
+                  {isJoining ? 'Verifying...' : 'Unlock Partner Access'}
+                  <ArrowRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                </Button>
+                <p className="text-[10px] text-center text-muted-foreground">
+                  Codes expire in 24 hours. Ask your partner to generate a new one from her dashboard if needed.
+                </p>
+              </form>
+            ) : (
+              <p className="text-center text-sm text-indigo-800/80">
+                After you accept the hospital invitation email, return here. Your partner will send you a code to unlock read-only access.
+              </p>
+            )}
           </CardContent>
         </Card>
       </div>

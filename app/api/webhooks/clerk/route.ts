@@ -2,8 +2,8 @@ import { Webhook } from 'svix'
 import { headers } from 'next/headers'
 import { WebhookEvent, createClerkClient } from '@clerk/nextjs/server'
 import { db } from '@/lib/db'
-import { users, hospitals } from '@/lib/db/schema'
-import { eq } from 'drizzle-orm'
+import { users, hospitals, partnerAccess } from '@/lib/db/schema'
+import { eq, and } from 'drizzle-orm'
 
 export async function POST(req: Request) {
   const WEBHOOK_SECRET = process.env.WEBHOOK_SECRET
@@ -48,6 +48,8 @@ export async function POST(req: Request) {
     const metadataRole = (unsafe_metadata?.role || public_metadata?.role) as string;
     const role = (metadataRole as any) || 'hospital_staff';
     const phone = (unsafe_metadata?.phone as string) || null;
+    const invitePregnancyId = (public_metadata?.pregnancyId || unsafe_metadata?.pregnancyId) as string | undefined;
+    const invitePregnantWomanId = (public_metadata?.pregnantWomanId || unsafe_metadata?.pregnantWomanId) as string | undefined;
 
     try {
       // 1. Check if there is an existing pre-registered user matching this email address
@@ -100,6 +102,33 @@ export async function POST(req: Request) {
             publicMetadata: { role: role }
          });
          console.log(`Pushed default role '${role}' to Clerk metadata for user ${id}`);
+      }
+
+      if (role === 'father' && invitePregnancyId && invitePregnantWomanId) {
+        const linkedUser = await db.query.users.findFirst({
+          where: eq(users.clerkId, id),
+        })
+        if (linkedUser) {
+          const existingAccess = await db.query.partnerAccess.findFirst({
+            where: and(
+              eq(partnerAccess.partnerId, linkedUser.id),
+              eq(partnerAccess.pregnancyId, invitePregnancyId)
+            ),
+          })
+          if (!existingAccess) {
+            await db.insert(partnerAccess).values({
+              pregnantWomanId: invitePregnantWomanId,
+              partnerId: linkedUser.id,
+              pregnancyId: invitePregnancyId,
+              canViewAppointments: true,
+              canViewLabResults: true,
+              canViewProgress: true,
+              canReceiveNotifications: true,
+              isActive: false,
+            })
+          }
+          await db.update(users).set({ role: 'father' }).where(eq(users.clerkId, id))
+        }
       }
 
       // If it's a hospital staff, ensure a hospital record exists
