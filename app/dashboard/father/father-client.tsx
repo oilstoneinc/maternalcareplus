@@ -22,8 +22,10 @@ import {
   Eye,
   FileText,
   FlaskConical,
-  Beaker
+  Beaker,
+  BookOpen
 } from 'lucide-react'
+import Link from 'next/link'
 import { useState } from 'react'
 import { verifyPartnerAccessCode } from '@/app/actions'
 import ProgressChart from '@/components/dashboard/ProgressChart'
@@ -153,6 +155,27 @@ export default function FatherDashboardClient({ user, data }: FatherDashboardPro
           {readOnly ? <Eye className="h-5 w-5 text-indigo-600" /> : <ShieldCheck className="h-5 w-5 text-indigo-600" />}
         </div>
       </header>
+
+      {readOnly && (
+        <Card className="border-none shadow-md ring-1 ring-indigo-100">
+          <CardContent className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex items-start gap-3">
+              <div className="p-2 rounded-xl bg-indigo-100 text-indigo-600">
+                <BookOpen className="h-5 w-5" />
+              </div>
+              <div>
+                <p className="font-bold text-slate-900">Digital MCH Record Book</p>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  View the same national MCH chapters — appointments, vitals, delivery, and child records (read only).
+                </p>
+              </div>
+            </div>
+            <Button asChild className="bg-indigo-600 hover:bg-indigo-700 font-bold shrink-0">
+              <Link href="/dashboard/father/mch-book">Open MCH Book</Link>
+            </Button>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Pregnancy Progress Card */}
       <Card className="border-none bg-gradient-to-br from-indigo-500 to-purple-600 text-white overflow-hidden shadow-xl relative">

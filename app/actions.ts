@@ -86,6 +86,7 @@ function calcGestationalAgeWeeks(lmp: Date | string | null | undefined): number 
 function revalidatePregnancyPaths(pregnancyId: string) {
   revalidatePath('/dashboard/pregnant-woman')
   revalidatePath('/dashboard/pregnant-woman/digital-mch-book')
+  revalidatePath('/dashboard/father/mch-book')
   revalidatePath('/dashboard/father')
   revalidatePath('/dashboard/hospital')
   revalidatePath('/dashboard/midwife')
@@ -501,20 +502,21 @@ export async function getFatherDashboardData() {
     dbUser.role === 'pregnant_woman' && !!partnerPregnancyId
 
   if (isReadOnlyPartner && partnerPregnancyId) {
-    pregnancy = await db.query.pregnancies.findFirst({
-      where: and(
-        eq(pregnancies.id, partnerPregnancyId),
-        eq(pregnancies.userId, dbUser.id)
-      ),
-    })
+    pregnancy =
+      (await db.query.pregnancies.findFirst({
+        where: and(
+          eq(pregnancies.id, partnerPregnancyId),
+          eq(pregnancies.userId, dbUser.id)
+        ),
+      })) ?? null
   } else if (dbUser.role === 'father' || dbUser.role === 'admin') {
     const access = await db.query.partnerAccess.findFirst({
       where: eq(partnerAccess.partnerId, dbUser.id),
     })
     pregnancy = access?.pregnancyId
-      ? await db.query.pregnancies.findFirst({
+      ? (await db.query.pregnancies.findFirst({
           where: eq(pregnancies.id, access.pregnancyId),
-        })
+        })) ?? null
       : null
   }
 
@@ -2332,6 +2334,11 @@ export async function updateMCHChecklists(pregnancyId: string, mchDataUpdate: an
     await ensureMCHSchema()
     const user = await currentUser()
     if (!user) return { success: false, error: 'Unauthorized' }
+
+    const { hasPartnerReadonlySession } = await import('@/lib/partner-session')
+    if (await hasPartnerReadonlySession(user.id)) {
+      return { success: false, error: 'Read-only partner view cannot edit the MCH book' }
+    }
 
     const existing = await db.query.pregnancies.findFirst({
       where: eq(pregnancies.id, pregnancyId)

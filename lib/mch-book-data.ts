@@ -15,6 +15,7 @@ import {
   hospitals,
 } from '@/lib/db/schema'
 import { eq, and, desc, asc } from 'drizzle-orm'
+import { getPartnerSessionPregnancyId } from '@/lib/partner-session'
 
 async function safeQuery<T>(label: string, fn: () => Promise<T>, fallback: T): Promise<T> {
   try {
@@ -141,6 +142,27 @@ export async function getMCHBookDataByPregnancyId(pregnancyId: string): Promise<
     immunizations: immunizationsData,
     growth: growthData,
   }
+}
+
+/** Partner read-only: requires active partner session cookie for this pregnancy */
+export async function getMCHBookDataForPartner(clerkId: string) {
+  const partnerPregnancyId = await getPartnerSessionPregnancyId(clerkId)
+  if (!partnerPregnancyId) return { book: null as MCHBookData | null }
+
+  const dbUser = await db.query.users.findFirst({
+    where: eq(users.clerkId, clerkId),
+  })
+  if (!dbUser || dbUser.role !== 'pregnant_woman') {
+    return { book: null as MCHBookData | null }
+  }
+
+  const pregnancy = await db.query.pregnancies.findFirst({
+    where: and(eq(pregnancies.id, partnerPregnancyId), eq(pregnancies.userId, dbUser.id)),
+  })
+  if (!pregnancy) return { book: null as MCHBookData | null }
+
+  const book = await getMCHBookDataByPregnancyId(pregnancy.id)
+  return { book }
 }
 
 export async function getMCHBookDataForPregnantWoman(clerkId: string) {

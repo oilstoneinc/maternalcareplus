@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { 
-  ArrowLeft, BookOpen, History, Activity, Baby, UserCheck, Save,
+  ArrowLeft, BookOpen, History, Activity, Baby, UserCheck, Save, Eye,
   CheckCircle2, AlertCircle, HeartPulse, Camera, Award, FileText, ChevronRight
 } from 'lucide-react'
 import Link from 'next/link'
@@ -26,7 +26,17 @@ import {
   ResponsiveContainer 
 } from 'recharts'
 
-export default function DigitalMCHBookClient({ data }: { data: any }) {
+export default function DigitalMCHBookClient({
+  data,
+  readOnly = false,
+  backHref = '/dashboard/pregnant-woman',
+  titleBadge = 'My Digital MCH Record Book',
+}: {
+  data: any
+  readOnly?: boolean
+  backHref?: string
+  titleBadge?: string
+}) {
   const {
     pregnancy,
     mother,
@@ -96,7 +106,11 @@ export default function DigitalMCHBookClient({ data }: { data: any }) {
   const formatDate = (date: any) => date ? new Date(date).toLocaleDateString() : 'N/A'
 
   useEffect(() => {
-    if (!process.env.NEXT_PUBLIC_PUSHER_APP_KEY || process.env.NEXT_PUBLIC_PUSHER_APP_KEY === 'dummy_key') {
+    if (
+      readOnly ||
+      !process.env.NEXT_PUBLIC_PUSHER_APP_KEY ||
+      process.env.NEXT_PUBLIC_PUSHER_APP_KEY === 'dummy_key'
+    ) {
       return
     }
 
@@ -121,7 +135,7 @@ export default function DigitalMCHBookClient({ data }: { data: any }) {
       channel.unbind('labs-update', onUpdate)
       pusherClient.unsubscribe(channelName)
     }
-  }, [pregnancy.id, router, toast])
+  }, [pregnancy.id, router, toast, readOnly])
 
   const handleSaveSweetMemories = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -183,15 +197,23 @@ export default function DigitalMCHBookClient({ data }: { data: any }) {
       {/* Top Header Navigation */}
       <div className="bg-white border-b border-slate-200 sticky top-0 z-10 px-4 md:px-8 py-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 shadow-sm">
         <div className="flex items-center gap-4">
-          <Link href="/dashboard/pregnant-woman">
+          <Link href={backHref}>
             <Button variant="outline" size="icon" className="rounded-full shadow-sm hover:bg-slate-50">
               <ArrowLeft className="w-5 h-5" />
             </Button>
           </Link>
           <div>
-            <div className="flex items-center gap-2">
-              <Badge variant="outline" className="bg-pink-50 text-pink-600 border-pink-100 uppercase tracking-wider text-[10px] font-bold">
-                My Digital MCH Record Book
+            <div className="flex items-center gap-2 flex-wrap">
+              <Badge
+                variant="outline"
+                className={
+                  readOnly
+                    ? 'bg-indigo-50 text-indigo-700 border-indigo-100 uppercase tracking-wider text-[10px] font-bold'
+                    : 'bg-pink-50 text-pink-600 border-pink-100 uppercase tracking-wider text-[10px] font-bold'
+                }
+              >
+                {readOnly && <Eye className="w-3 h-3 mr-1 inline" />}
+                {titleBadge}
               </Badge>
               {pregnancy.status === 'completed' && <Badge className="bg-green-500">Completed</Badge>}
             </div>
@@ -1106,29 +1128,45 @@ export default function DigitalMCHBookClient({ data }: { data: any }) {
                    <CardDescription className="text-slate-600 font-medium">A premium digital keepsake to record your baby's precious first milestones</CardDescription>
                  </CardHeader>
                  <CardContent>
-                    <form onSubmit={handleSaveSweetMemories} className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <div className="space-y-2">
-                        <Label className="text-slate-600 font-bold">Date of First Smile</Label>
-                        <Input name="first_smile" type="date" defaultValue={mchData.sweet_memories?.first_smile} className="bg-white border-slate-200" />
+                    {readOnly ? (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {[
+                          ['Date of First Smile', mchData.sweet_memories?.first_smile],
+                          ['Date of First Tooth', mchData.sweet_memories?.first_tooth],
+                          ['Date of First Step', mchData.sweet_memories?.first_step],
+                          ['Baby\'s First Word', mchData.sweet_memories?.first_word],
+                        ].map(([label, value]) => (
+                          <div key={String(label)} className="space-y-1 p-4 rounded-2xl bg-white border border-slate-100">
+                            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">{label}</p>
+                            <p className="text-sm font-bold text-slate-800">{value ? String(value) : '—'}</p>
+                          </div>
+                        ))}
                       </div>
-                      <div className="space-y-2">
-                        <Label className="text-slate-600 font-bold">Date of First Tooth</Label>
-                        <Input name="first_tooth" type="date" defaultValue={mchData.sweet_memories?.first_tooth} className="bg-white border-slate-200" />
-                      </div>
-                      <div className="space-y-2">
-                        <Label className="text-slate-600 font-bold">Date of First Step</Label>
-                        <Input name="first_step" type="date" defaultValue={mchData.sweet_memories?.first_step} className="bg-white border-slate-200" />
-                      </div>
-                      <div className="space-y-2">
-                        <Label className="text-slate-600 font-bold">Baby's First Word</Label>
-                        <Input name="first_word" defaultValue={mchData.sweet_memories?.first_word} placeholder="e.g. Mama, Dada" className="bg-white border-slate-200" />
-                      </div>
-                      <div className="md:col-span-2 pt-4">
-                        <Button type="submit" disabled={loading} className="bg-pink-600 hover:bg-pink-700 text-white rounded-full px-6 font-bold">
-                          <Save className="w-4 h-4 mr-2" /> {loading ? 'Saving Keepsake...' : 'Save Sweet Keepsake'}
-                        </Button>
-                      </div>
-                    </form>
+                    ) : (
+                      <form onSubmit={handleSaveSweetMemories} className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="space-y-2">
+                          <Label className="text-slate-600 font-bold">Date of First Smile</Label>
+                          <Input name="first_smile" type="date" defaultValue={mchData.sweet_memories?.first_smile} className="bg-white border-slate-200" />
+                        </div>
+                        <div className="space-y-2">
+                          <Label className="text-slate-600 font-bold">Date of First Tooth</Label>
+                          <Input name="first_tooth" type="date" defaultValue={mchData.sweet_memories?.first_tooth} className="bg-white border-slate-200" />
+                        </div>
+                        <div className="space-y-2">
+                          <Label className="text-slate-600 font-bold">Date of First Step</Label>
+                          <Input name="first_step" type="date" defaultValue={mchData.sweet_memories?.first_step} className="bg-white border-slate-200" />
+                        </div>
+                        <div className="space-y-2">
+                          <Label className="text-slate-600 font-bold">Baby&apos;s First Word</Label>
+                          <Input name="first_word" defaultValue={mchData.sweet_memories?.first_word} placeholder="e.g. Mama, Dada" className="bg-white border-slate-200" />
+                        </div>
+                        <div className="md:col-span-2 pt-4">
+                          <Button type="submit" disabled={loading} className="bg-pink-600 hover:bg-pink-700 text-white rounded-full px-6 font-bold">
+                            <Save className="w-4 h-4 mr-2" /> {loading ? 'Saving Keepsake...' : 'Save Sweet Keepsake'}
+                          </Button>
+                        </div>
+                      </form>
+                    )}
                  </CardContent>
                </Card>
              </div>
