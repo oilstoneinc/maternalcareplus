@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { User } from '@clerk/nextjs/server'
+import { useClerk } from '@clerk/nextjs'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import Link from 'next/link'
@@ -36,7 +37,8 @@ import {
   Trash2,
   ShieldAlert,
   Clock,
-  RefreshCw
+  RefreshCw,
+  LogOut
 } from 'lucide-react'
 
 interface Pregnancy {
@@ -69,6 +71,7 @@ interface Patient {
 
 export default function HospitalDashboardClient({ user, data }: { user: any, data: any }) {
   const router = useRouter()
+  const { signOut } = useClerk()
   const [activeTab, setActiveTab] = useState('overview')
   const [loginLogs, setLoginLogs] = useState<any[]>([])
   const [loadingLogs, setLoadingLogs] = useState(false)
@@ -307,6 +310,15 @@ export default function HospitalDashboardClient({ user, data }: { user: any, dat
             >
               <Download className="w-4 h-4 mr-2" />
               {exporting ? 'Exporting…' : 'Export Data'}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => signOut(() => router.push('/sign-in'))}
+              className="border-slate-200 text-slate-600 hover:text-red-600 hover:border-red-200 font-bold py-5 rounded-xl"
+            >
+              <LogOut className="w-4 h-4 mr-2" />
+              Sign Out
             </Button>
           </div>
         </div>

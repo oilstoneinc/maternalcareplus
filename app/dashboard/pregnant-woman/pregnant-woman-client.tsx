@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { User } from '@clerk/nextjs/server'
+import { useClerk } from '@clerk/nextjs'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
@@ -27,6 +28,7 @@ import {
   Moon,
   AlertCircle,
   Building2,
+  LogOut,
 } from 'lucide-react'
 import HospitalCareHistoryPanel from '@/components/dashboard/HospitalCareHistoryPanel'
 import {
@@ -129,6 +131,7 @@ export default function PregnantWomanClient({ user, data }: { user: any, data: D
   const [realtimeNotification, setRealtimeNotification] = useState<string | null>(null)
   const [notificationList, setNotificationList] = useState<any[]>(data?.notifications || [])
   const router = useRouter()
+  const { signOut } = useClerk()
 
   const hospitalPhone = data?.pregnancy?.hospital?.phone as string | undefined
   const registeredHospitalId = data?.pregnancy?.hospitalId as string | undefined
@@ -332,6 +335,14 @@ export default function PregnantWomanClient({ user, data }: { user: any, data: D
                 </DialogContent>
               </Dialog>
             )}
+            <Button
+              variant="outline"
+              onClick={() => signOut(() => router.push('/sign-in'))}
+              className="rounded-full shadow-sm bg-white border-muted text-slate-600 hover:text-red-600 hover:border-red-200 w-full sm:w-auto"
+            >
+              <LogOut className="w-4 h-4 mr-2" />
+              Sign Out
+            </Button>
           </div>
         </header>
 

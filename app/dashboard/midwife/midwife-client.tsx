@@ -27,7 +27,8 @@ import {
   ChevronRight,
   Phone,
   Mail,
-  Heart
+  Heart,
+  LogOut
 } from 'lucide-react'
 import {
   BarChart,
@@ -47,7 +48,8 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import SessionTimeoutGuard from '@/components/SessionTimeoutGuard'
-import ShiftCodeGate from '@/components/ShiftCodeGate'
+import { useClerk } from '@clerk/nextjs'
+import { useRouter } from 'next/navigation'
 
 interface MidwifeDashboardProps {
   user: any
@@ -85,10 +87,11 @@ export default function MidwifeDashboardClient({ user, data }: MidwifeDashboardP
   ]
 
   const staffName = [user?.firstName, user?.lastName].filter(Boolean).join(' ') || 'Midwife'
+  const { signOut } = useClerk()
+  const router = useRouter()
 
   return (
     <SessionTimeoutGuard role="midwife" staffName={staffName} sessionHours={8}>
-    <ShiftCodeGate dbUser={data?.midwife} hospital={data?.hospital}>
     <div className="p-4 space-y-6 max-w-7xl mx-auto bg-background min-h-screen">
       {/* Header */}
       <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -114,6 +117,14 @@ export default function MidwifeDashboardClient({ user, data }: MidwifeDashboardP
           <button className="p-2 rounded-full border border-border bg-background hover:bg-muted transition-colors">
             <Filter className="h-4 w-4" />
           </button>
+          <Button
+            variant="outline"
+            onClick={() => signOut(() => router.push('/sign-in'))}
+            className="rounded-full border-border text-slate-600 hover:text-red-600 hover:border-red-200 font-bold"
+          >
+            <LogOut className="h-4 w-4 mr-2" />
+            Sign Out
+          </Button>
         </div>
       </header>
 
@@ -354,7 +365,6 @@ export default function MidwifeDashboardClient({ user, data }: MidwifeDashboardP
         </div>
       )}
     </div>
-    </ShiftCodeGate>
     </SessionTimeoutGuard>
   )
 }
