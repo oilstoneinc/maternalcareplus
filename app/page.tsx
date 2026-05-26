@@ -1,10 +1,7 @@
-import { HeartPulse, CalendarCheck, Baby, MessageCircle, Activity, ShieldCheck, ArrowRight, Lock, Users, Target, Building, BookOpen, MapPin } from 'lucide-react'
+import { HeartPulse, CalendarCheck, Baby, MessageCircle, Activity, ShieldCheck, ArrowRight, Lock, BookOpen } from 'lucide-react'
 import Image from 'next/image'
 import { currentUser } from '@clerk/nextjs/server'
 import { redirect } from 'next/navigation'
-import { db } from '@/lib/db'
-import { hospitals } from '@/lib/db/schema'
-import { eq } from 'drizzle-orm'
 
 import PartnerCardClient from '@/components/partner-card-client'
 import ContactFormClient from '@/components/contact-form-client'
@@ -32,17 +29,6 @@ export default async function HomePage() {
     }
   }
 
-  // Fetch active partner hospitals
-  let partnerHospitalsList: any[] = []
-  try {
-    partnerHospitalsList = await db.query.hospitals.findMany({
-      where: eq(hospitals.isActive, true),
-      orderBy: (hospitals, { asc }) => [asc(hospitals.name)]
-    })
-  } catch (error) {
-    console.error("Database Error fetching hospitals:", error)
-  }
-
   return (
     <div className="min-h-screen bg-[#F6F4F3] font-sans scroll-smooth">
       {/* Premium Header */}
@@ -60,7 +46,7 @@ export default async function HomePage() {
             {/* Desktop Navigation */}
             <nav className="hidden md:flex space-x-8">
               <a href="#features" className="text-sm font-bold text-slate-600 hover:text-[#D48BA1] transition-colors">Features</a>
-              <a href="#partners" className="text-sm font-bold text-slate-600 hover:text-[#D48BA1] transition-colors">Partner Hospitals</a>
+              <a href="#institutions" className="text-sm font-bold text-slate-600 hover:text-[#D48BA1] transition-colors">Institutional Access</a>
               <a href="#contact" className="text-sm font-bold text-slate-600 hover:text-[#D48BA1] transition-colors">Contact Us</a>
             </nav>
 
@@ -197,48 +183,11 @@ export default async function HomePage() {
       </section>
 
 
-      {/* Partner Hospitals Section */}
-      <section id="partners" className="py-24 bg-[#F6F4F3]">
+      {/* Institutional access */}
+      <section id="institutions" className="py-24 bg-[#F6F4F3]">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center max-w-3xl mx-auto mb-16">
-            <span className="inline-flex items-center px-3 py-1 rounded-full bg-blue-100 text-blue-700 border border-blue-200 font-bold text-[10px] uppercase tracking-widest mb-4">
-              Clinical Network
-            </span>
-            <h2 className="text-4xl font-black text-slate-900 tracking-tight sm:text-5xl">
-              Partner Hospitals
-            </h2>
-            <p className="mt-6 text-lg text-slate-500 font-medium leading-relaxed">
-              We collaborate with premier healthcare institutions to deliver seamless care. Explore our growing network of authorized facilities.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-16">
-            {partnerHospitalsList.length > 0 ? (
-              partnerHospitalsList.map(hospital => (
-                <div key={hospital.id} className="bg-white p-8 rounded-3xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
-                  <div className="w-12 h-12 bg-blue-50 rounded-xl flex items-center justify-center mb-6">
-                    <Building className="w-6 h-6 text-blue-500" />
-                  </div>
-                  <h3 className="text-xl font-black text-slate-900 mb-2">{hospital.name}</h3>
-                  <div className="space-y-1 mt-4">
-                    <p className="text-sm font-semibold text-slate-600 flex items-center gap-2">
-                      <MapPin className="w-4 h-4 text-slate-400" /> {hospital.city}, {hospital.region}
-                    </p>
-                    <p className="text-sm font-semibold text-slate-600 flex items-center gap-2">
-                      <HeartPulse className="w-4 h-4 text-slate-400" /> {hospital.type}
-                    </p>
-                  </div>
-                </div>
-              ))
-            ) : (
-              <div className="col-span-full text-center py-12 bg-white rounded-3xl border border-slate-100">
-                <p className="text-slate-500 font-bold">Network expansion currently in progress.</p>
-              </div>
-            )}
-          </div>
-          
           <div className="max-w-3xl mx-auto">
-             <PartnerCardClient />
+            <PartnerCardClient />
           </div>
         </div>
       </section>
