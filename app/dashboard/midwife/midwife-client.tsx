@@ -48,6 +48,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import SessionTimeoutGuard from '@/components/SessionTimeoutGuard'
+import ShiftCodeGate from '@/components/ShiftCodeGate'
 import { useClerk } from '@clerk/nextjs'
 import { useRouter } from 'next/navigation'
 
@@ -92,6 +93,7 @@ export default function MidwifeDashboardClient({ user, data }: MidwifeDashboardP
 
   return (
     <SessionTimeoutGuard role="midwife" staffName={staffName} sessionHours={8}>
+    <ShiftCodeGate dbUser={data?.midwife} hospital={data?.hospital}>
     <div className="p-4 space-y-6 max-w-7xl mx-auto bg-background min-h-screen">
       {/* Header */}
       <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -365,6 +367,7 @@ export default function MidwifeDashboardClient({ user, data }: MidwifeDashboardP
         </div>
       )}
     </div>
+    </ShiftCodeGate>
     </SessionTimeoutGuard>
   )
 }

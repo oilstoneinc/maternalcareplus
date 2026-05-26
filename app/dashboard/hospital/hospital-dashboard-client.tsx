@@ -8,8 +8,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import Link from 'next/link'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
-import { searchGlobalPatients, scheduleNextVisit, assignMidwifeToPregnancy, addHospitalStaffMember, exportHospitalPatientsCsv, removeHospitalStaffMember, getHospitalStaffLoginHistory } from '@/app/actions'
+import { searchGlobalPatients, scheduleNextVisit, assignMidwifeToPregnancy, addHospitalStaffMember, exportHospitalPatientsCsv, removeHospitalStaffMember, getHospitalStaffLoginHistory, generateHospitalShiftCode } from '@/app/actions'
 import SessionTimeoutGuard from '@/components/SessionTimeoutGuard'
+import ShiftCodeGate from '@/components/ShiftCodeGate'
 import {
   Dialog,
   DialogContent,
@@ -37,6 +38,7 @@ import {
   Trash2,
   ShieldAlert,
   Clock,
+  Lock,
   RefreshCw,
   LogOut
 } from 'lucide-react'
@@ -273,6 +275,7 @@ export default function HospitalDashboardClient({ user, data }: { user: any, dat
 
   return (
     <SessionTimeoutGuard role="hospital_staff" staffName={staffName} sessionHours={8}>
+    <ShiftCodeGate dbUser={data?.dbUser} hospital={data?.hospital}>
     <div className="min-h-screen bg-[#F6F4F3] p-4 md:p-6">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
@@ -1036,6 +1039,60 @@ export default function HospitalDashboardClient({ user, data }: { user: any, dat
 
               {/* Right Column: Security Standards */}
               <div className="space-y-6">
+                <Card className="border-slate-100 shadow-sm bg-slate-900 text-white">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2 text-white">
+                      <Lock className="h-5 w-5 text-teal-400" />
+                      Daily Security Hub
+                    </CardTitle>
+                    <CardDescription className="text-slate-400 font-medium">
+                      Control access for hospital staff duty shifts.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <p className="text-xs text-slate-300 leading-relaxed font-light">
+                      Staff must verify their identity with today's shift code immediately after logging in. The code automatically expires at the end of the day (23:59).
+                    </p>
+
+                    <div className="bg-slate-800/80 rounded-2xl p-5 border border-slate-700/50 text-center space-y-3">
+                      <p className="text-[10px] font-black text-teal-400 uppercase tracking-widest">Active Shift Code</p>
+                      
+                      <div className="py-4 px-6 bg-slate-950 rounded-2xl font-mono text-3xl font-black tracking-widest text-teal-300 border border-slate-800 shadow-inner">
+                        {data?.hospital?.shiftCode || 'NOT SET'}
+                      </div>
+                      
+                      {data?.hospital?.shiftCodeExpiresAt && (
+                        <p className="text-[10px] text-slate-400">
+                          Expires: {new Date(data.hospital.shiftCodeExpiresAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </p>
+                      )}
+                    </div>
+
+                    <Button
+                      onClick={async () => {
+                        const confirmCmd = window.confirm('Generate a new shift code? This will require staff on duty to re-verify using the new code.')
+                        if (!confirmCmd) return
+                        try {
+                          const res = await generateHospitalShiftCode()
+                          if (res.success && res.shiftCode) {
+                            alert(`New Daily Shift Code generated: ${res.shiftCode}`)
+                            window.location.reload()
+                          } else {
+                            alert(res.error || 'Failed to generate shift code')
+                          }
+                        } catch (err) {
+                          console.error(err)
+                          alert('Error generating shift code')
+                        }
+                      }}
+                      className="w-full bg-teal-600 hover:bg-teal-700 font-bold py-6 rounded-2xl shadow-xl shadow-teal-500/10 flex items-center justify-center gap-2"
+                    >
+                      <RefreshCw className="h-4 w-4 text-white" />
+                      {data?.hospital?.shiftCode ? 'Regenerate Code' : 'Generate Shift Code'}
+                    </Button>
+                  </CardContent>
+                </Card>
+
                 <Card className="border-slate-100 shadow-sm bg-white">
                   <CardHeader>
                     <CardTitle className="text-slate-800 flex items-center gap-2 text-sm font-black uppercase tracking-wider">
@@ -1161,6 +1218,7 @@ export default function HospitalDashboardClient({ user, data }: { user: any, dat
         </DialogContent>
       </Dialog>
     </div>
+    </ShiftCodeGate>
     </SessionTimeoutGuard>
   )
 }

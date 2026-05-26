@@ -99,8 +99,8 @@ export default function ShiftCodeGate({ dbUser, hospital, children }: ShiftCodeG
     })
   }
 
-  // Bypass for non-clinical roles if they ever hit this gate
-  if (userRole && userRole !== 'midwife' && userRole !== 'hospital_staff' && userRole !== 'admin') {
+  // Only hospital_staff and midwife must verify — admin (main hospital account) goes straight through
+  if (!userRole || userRole === 'admin' || (userRole !== 'hospital_staff' && userRole !== 'midwife')) {
     return <>{children}</>
   }
 
