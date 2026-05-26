@@ -7,9 +7,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import Link from 'next/link'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
-import { searchGlobalPatients, scheduleNextVisit, assignMidwifeToPregnancy, addHospitalStaffMember, exportHospitalPatientsCsv, removeHospitalStaffMember, getHospitalStaffLoginHistory, generateHospitalShiftCode } from '@/app/actions'
+import { searchGlobalPatients, scheduleNextVisit, assignMidwifeToPregnancy, addHospitalStaffMember, exportHospitalPatientsCsv, removeHospitalStaffMember, getHospitalStaffLoginHistory } from '@/app/actions'
 import SessionTimeoutGuard from '@/components/SessionTimeoutGuard'
-import ShiftCodeGate from '@/components/ShiftCodeGate'
 import {
   Dialog,
   DialogContent,
@@ -272,7 +271,6 @@ export default function HospitalDashboardClient({ user, data }: { user: any, dat
 
   return (
     <SessionTimeoutGuard role="hospital_staff" staffName={staffName} sessionHours={8}>
-    <ShiftCodeGate dbUser={data?.dbUser} hospital={data?.hospital}>
     <div className="min-h-screen bg-[#F6F4F3] p-4 md:p-6">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
@@ -1209,7 +1207,6 @@ export default function HospitalDashboardClient({ user, data }: { user: any, dat
         </DialogContent>
       </Dialog>
     </div>
-    </ShiftCodeGate>
     </SessionTimeoutGuard>
   )
 }
