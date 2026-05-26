@@ -99,8 +99,16 @@ export default function ShiftCodeGate({ dbUser, hospital, children }: ShiftCodeG
     })
   }
 
-  // Only hospital_staff and midwife must verify — admin (main hospital account) goes straight through
-  if (!userRole || userRole === 'admin' || (userRole !== 'hospital_staff' && userRole !== 'midwife')) {
+  // Main hospital account (whose email matches the hospital's contact email) and super admins bypass this gate
+  const isMainHospitalAccount = dbUser?.email && hospital?.email && dbUser.email.toLowerCase() === hospital.email.toLowerCase()
+  const isSuperAdmin = userRole === 'admin'
+
+  if (isSuperAdmin || isMainHospitalAccount) {
+    return <>{children}</>
+  }
+
+  // Bypass for non-clinical roles (like pregnant_woman, father) if they ever hit this
+  if (userRole !== 'hospital_staff' && userRole !== 'midwife') {
     return <>{children}</>
   }
 
