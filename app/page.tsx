@@ -5,6 +5,8 @@ import { redirect } from 'next/navigation'
 
 import PartnerCardClient from '@/components/partner-card-client'
 import ContactFormClient from '@/components/contact-form-client'
+import MarketingHeaderActions from '@/components/marketing-header-actions'
+import InstallAppFooter from '@/components/install-app-footer'
 
 export const dynamic = 'force-dynamic'
 
@@ -50,18 +52,7 @@ export default async function HomePage() {
               <a href="#contact" className="text-sm font-bold text-slate-600 hover:text-[#D48BA1] transition-colors">Contact Us</a>
             </nav>
 
-            {/* Action Buttons */}
-            <div className="flex items-center gap-4">
-              <a href="/sign-in" className="hidden sm:inline-flex text-sm font-bold text-slate-600 hover:text-slate-900 transition-colors">
-                Provider Login
-              </a>
-              <a 
-                href="/sign-in" 
-                className="inline-flex items-center justify-center px-6 py-2.5 border border-transparent text-sm font-black rounded-full text-white bg-slate-900 hover:bg-slate-800 shadow-md transition-all hover:scale-105"
-              >
-                Patient Portal <ArrowRight className="ml-2 w-4 h-4" />
-              </a>
-            </div>
+            <MarketingHeaderActions />
           </div>
         </div>
       </header>
@@ -205,6 +196,7 @@ export default async function HomePage() {
             <h2 className="text-2xl font-black text-slate-900 mb-4">MaternalCare Plus</h2>
             <p className="text-slate-500 font-bold mb-8 italic">"Precision in Maternal Healthcare"</p>
             <p className="text-slate-400 font-bold text-sm tracking-widest uppercase">© 2026 MaternalCare Plus | Secure Portal v1.0</p>
+            <InstallAppFooter />
          </div>
       </footer>
     </div>

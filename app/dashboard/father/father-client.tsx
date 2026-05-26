@@ -32,6 +32,7 @@ import ProgressChart from '@/components/dashboard/ProgressChart'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { toast } from 'sonner'
+import InstallAppFooter from '@/components/install-app-footer'
 
 interface FatherDashboardProps {
   user: any
@@ -384,6 +385,10 @@ export default function FatherDashboardClient({ user, data }: FatherDashboardPro
           <Info className="h-5 w-5" /> Help Guide
         </button>
       </div>
+
+      <footer className="rounded-2xl border border-indigo-100 bg-white/80 px-6 py-4 shadow-sm">
+        <InstallAppFooter />
+      </footer>
     </div>
   )
 }

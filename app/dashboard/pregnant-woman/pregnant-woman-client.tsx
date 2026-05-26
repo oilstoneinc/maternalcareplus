@@ -41,6 +41,7 @@ import ProgressChart from '@/components/dashboard/ProgressChart'
 import type { DashboardData } from '@/types'
 import { generateFatherJoinCode, markNotificationsRead } from '@/app/actions'
 import NearestHospitalsDialog from '@/components/dashboard/NearestHospitalsDialog'
+import InstallAppFooter from '@/components/install-app-footer'
 import { pusherClient } from '@/lib/pusher-client'
 import { useRouter } from 'next/navigation'
 import { Sparkles as SparklesIcon } from 'lucide-react'
@@ -881,6 +882,10 @@ export default function PregnantWomanClient({ user, data }: { user: any, data: D
             </Card>
           </div>
         </div>
+
+        <footer className="mt-12 rounded-2xl border border-slate-100 bg-white/80 px-6 py-4 shadow-sm">
+          <InstallAppFooter />
+        </footer>
       </div>
     </div>
   )

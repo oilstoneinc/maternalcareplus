@@ -3,7 +3,7 @@ import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
 import { ClerkProvider } from '@clerk/nextjs'
 import { ThemeProvider } from '@/components/theme-provider'
-import PwaProvider from '@/components/pwa-provider'
+import { PwaInstallProvider } from '@/components/pwa-install-context'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -30,15 +30,16 @@ export default function RootLayout({
     <html lang="en">
       <body className={inter.className}>
         <ClerkProvider>
-          <ThemeProvider
-            attribute="class"
-            defaultTheme="light"
-            enableSystem
-            disableTransitionOnChange
-          >
-            {children}
-            <PwaProvider />
-          </ThemeProvider>
+          <PwaInstallProvider>
+            <ThemeProvider
+              attribute="class"
+              defaultTheme="light"
+              enableSystem
+              disableTransitionOnChange
+            >
+              {children}
+            </ThemeProvider>
+          </PwaInstallProvider>
         </ClerkProvider>
       </body>
     </html>
