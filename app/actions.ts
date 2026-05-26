@@ -1,7 +1,7 @@
 'use server'
 
 import { db } from '@/lib/db'
-import { users, pregnancies, appointments, labTests, partnerAccess, messages, User, NewUser, NewPregnancy, NewMessage, hospitals, vitalSigns, previousPregnancies, deliveries, postnatalCare, children, immunizations, childGrowth, hospitalInvites, partnershipRequests, notifications } from '@/lib/db/schema'
+import { users, pregnancies, appointments, labTests, partnerAccess, messages, User, NewUser, NewPregnancy, NewMessage, hospitals, vitalSigns, previousPregnancies, deliveries, postnatalCare, children, immunizations, childGrowth, hospitalInvites, partnershipRequests, notifications, staffLoginLogs } from '@/lib/db/schema'
 import {
   recordFacilityCareEvent,
   getHospitalCareHistory,
@@ -482,6 +482,7 @@ export async function getHospitalDashboardData(): Promise<HospitalDashboardData 
       appointments: todayAppointments,
       upcomingAppointments: enrichedAppointments,
       messageThreads,
+      dbUser,
     }))
   } catch (error) {
     console.error('Error in getHospitalDashboardData:', error)
@@ -511,12 +512,15 @@ export async function getMidwifeDashboardData() {
     limit: 20,
   })
 
-  // Get recent messages
-  // const recentMessages = ...
+  // Get hospital details
+  const hospital = dbUser.hospitalId
+    ? await db.query.hospitals.findFirst({ where: eq(hospitals.id, dbUser.hospitalId) })
+    : null
 
   return JSON.parse(JSON.stringify({
     midwife: dbUser,
     patients,
+    hospital,
   }))
 }
 
@@ -948,6 +952,7 @@ export async function onboardPatient(formData: any) {
           phone: formData.phone || existingUser.phone,
           address: formData.address || existingUser.address,
           hospitalId: dbUser.hospitalId || existingUser.hospitalId,
+          ghanaCardId: formData.ghanaCardId ? formData.ghanaCardId.trim() : existingUser.ghanaCardId,
           updatedAt: new Date(),
           ...existingDobUpdate,
         })
@@ -979,6 +984,7 @@ export async function onboardPatient(formData: any) {
         hospitalId: dbUser.hospitalId,
         dateOfBirth: newUserDob,
         isVerified: false,
+        ghanaCardId: formData.ghanaCardId ? formData.ghanaCardId.trim() : null,
       }).returning()
       newUser = inserted
       console.log(`[onboardPatient] Created new patient record ${newUser.id} in DB`)
@@ -2317,6 +2323,7 @@ export async function searchGlobalPatients(queryText: string) {
       ilike(users.email, cleanQuery),
       ilike(users.phone, cleanQuery),
       ilike(users.clerkId, cleanQuery),
+      ilike(users.ghanaCardId, cleanQuery),
       sql`(${users.firstName} || ' ' || ${users.lastName}) ILIKE ${cleanQuery}`,
       sql`CAST(${users.id} AS TEXT) ILIKE ${cleanQuery}`,
     ]
@@ -2372,6 +2379,7 @@ export async function searchGlobalPatients(queryText: string) {
         email: patient.email,
         phone: patient.phone,
         clerkId: patient.clerkId,
+        ghanaCardId: patient.ghanaCardId,
         pregnancyId: pregnancy?.id ?? null,
         pregnancyStatus: pregnancy?.status ?? null,
         onboardedHospitalName: onboardingHospital?.name ?? 'Not assigned',
@@ -3001,6 +3009,239 @@ export async function addHospitalStaffMember(formData: {
     console.error('addHospitalStaffMember error:', err)
     const message = err instanceof Error ? err.message : 'Failed to add staff'
     return { success: false, error: message }
+  }
+}
+
+/** Deactivates clinical staff and revokes their Clerk access account */
+export async function removeHospitalStaffMember(staffUserId: string) {
+  try {
+    const { dbUser } = await requireClinicalStaff()
+    if (!dbUser.hospitalId) {
+      return { success: false, error: 'Complete your hospital profile first.' }
+    }
+
+    const targetUser = await db.query.users.findFirst({
+      where: eq(users.id, staffUserId),
+    })
+
+    if (!targetUser) {
+      return { success: false, error: 'Staff member not found.' }
+    }
+
+    if (targetUser.hospitalId !== dbUser.hospitalId) {
+      return { success: false, error: 'You are not authorized to delete staff from another facility.' }
+    }
+
+    // Attempt to delete from Clerk if they have a fully registered account
+    if (targetUser.clerkId && targetUser.clerkId.startsWith('user_')) {
+      try {
+        const client = await clerkClient()
+        await client.users.deleteUser(targetUser.clerkId)
+      } catch (clerkErr) {
+        console.warn('[removeHospitalStaffMember] Clerk user delete warning:', clerkErr)
+      }
+    }
+
+    // Set user to inactive and disconnect hospital to maintain historic care logs
+    await db
+      .update(users)
+      .set({
+        isActive: false,
+        hospitalId: null,
+        updatedAt: new Date(),
+      })
+      .where(eq(users.id, staffUserId))
+
+    revalidatePath('/dashboard/hospital')
+    return { success: true }
+  } catch (err: unknown) {
+    console.error('removeHospitalStaffMember error:', err)
+    return { success: false, error: 'Failed to delete staff member' }
+  }
+}
+
+/** Generates a time-limited 6-digit daily shift code for clinical staff login */
+export async function generateHospitalShiftCode() {
+  try {
+    const { dbUser } = await requireClinicalStaff()
+    if (!dbUser.hospitalId) {
+      return { success: false, error: 'Complete your hospital profile first.' }
+    }
+
+    // Limit code generation to hospital staff / administrators
+    if (dbUser.role !== 'hospital_staff' && dbUser.role !== 'admin') {
+      return { success: false, error: 'Only hospital administrators can generate shift codes.' }
+    }
+
+    // Generate random 6-digit shift code
+    const shiftCode = Math.floor(100000 + Math.random() * 900000).toString()
+    
+    // Code expires at the end of today (23:59:59.999 local/server time)
+    const expiresAt = new Date()
+    expiresAt.setHours(23, 59, 59, 999)
+
+    await db
+      .update(hospitals)
+      .set({
+        shiftCode,
+        shiftCodeExpiresAt: expiresAt,
+        updatedAt: new Date(),
+      })
+      .where(eq(hospitals.id, dbUser.hospitalId))
+
+    revalidatePath('/dashboard/hospital')
+    return { success: true, shiftCode }
+  } catch (err: unknown) {
+    console.error('generateHospitalShiftCode error:', err)
+    return { success: false, error: 'Failed to generate shift code' }
+  }
+}
+
+/** Verifies a daily shift code submitted by a midwife or staff member */
+export async function verifyHospitalShiftCode(code: string) {
+  try {
+    const user = await currentUser()
+    if (!user) return { success: false, error: 'Not authenticated' }
+
+    const dbUser = await db.query.users.findFirst({
+      where: eq(users.clerkId, user.id),
+    })
+
+    if (!dbUser) return { success: false, error: 'User profile not found in database' }
+    if (!dbUser.hospitalId) return { success: false, error: 'You are not linked to any hospital.' }
+
+    const hospital = await db.query.hospitals.findFirst({
+      where: eq(hospitals.id, dbUser.hospitalId),
+    })
+
+    if (!hospital) return { success: false, error: 'Hospital record not found' }
+
+    if (!hospital.shiftCode || !hospital.shiftCodeExpiresAt) {
+      return { success: false, error: 'No shift code has been generated by your hospital today. Please contact your hospital administrator.' }
+    }
+
+    if (new Date() > new Date(hospital.shiftCodeExpiresAt)) {
+      return { success: false, error: 'The shift code has expired. Please ask your administrator to generate a new code.' }
+    }
+
+    if (hospital.shiftCode !== code.trim()) {
+      return { success: false, error: 'Incorrect shift code. Please try again.' }
+    }
+
+    // Set code and timestamp verified
+    await db
+      .update(users)
+      .set({
+        lastShiftCodeVerified: code.trim(),
+        lastShiftCodeVerifiedAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(eq(users.id, dbUser.id))
+
+    // Record login entry in staffLoginLogs
+    const [newLog] = await db.insert(staffLoginLogs).values({
+      userId: dbUser.id,
+      hospitalId: dbUser.hospitalId,
+      loginTime: new Date(),
+      status: 'active',
+    }).returning({ id: staffLoginLogs.id })
+
+    revalidatePath('/dashboard/hospital')
+    revalidatePath('/dashboard/midwife')
+
+    return { success: true, logId: newLog?.id }
+  } catch (err: unknown) {
+    console.error('verifyHospitalShiftCode error:', err)
+    return { success: false, error: 'Verification failed' }
+  }
+}
+
+/** Logs a midwife or staff out and clears session state in database */
+export async function logStaffSessionEnd(durationSeconds?: number) {
+  try {
+    const user = await currentUser()
+    if (!user) return { success: false, error: 'Not authenticated' }
+
+    const dbUser = await db.query.users.findFirst({
+      where: eq(users.clerkId, user.id),
+    })
+
+    if (!dbUser) return { success: false, error: 'User not found' }
+
+    // Find the latest active log for this user
+    const latestActiveLog = await db.query.staffLoginLogs.findFirst({
+      where: and(
+        eq(staffLoginLogs.userId, dbUser.id),
+        eq(staffLoginLogs.status, 'active')
+      ),
+      orderBy: desc(staffLoginLogs.loginTime),
+    })
+
+    if (latestActiveLog) {
+      const logoutTime = new Date()
+      let duration = durationSeconds
+      if (!duration) {
+        duration = Math.max(0, Math.floor((logoutTime.getTime() - latestActiveLog.loginTime.getTime()) / 1000))
+      }
+
+      await db
+        .update(staffLoginLogs)
+        .set({
+          logoutTime,
+          sessionDuration: duration,
+          status: 'logged_out',
+        })
+        .where(eq(staffLoginLogs.id, latestActiveLog.id))
+    }
+
+    // Reset user shift code verification status in DB so they have to verify again on next login
+    await db
+      .update(users)
+      .set({
+        lastShiftCodeVerified: null,
+        lastShiftCodeVerifiedAt: null,
+        updatedAt: new Date(),
+      })
+      .where(eq(users.id, dbUser.id))
+
+    revalidatePath('/dashboard/hospital')
+    revalidatePath('/dashboard/midwife')
+    return { success: true }
+  } catch (err: unknown) {
+    console.error('logStaffSessionEnd error:', err)
+    return { success: false, error: 'Failed to record logout' }
+  }
+}
+
+/** Fetches the daily duty and session history logs for all staff linked to this hospital */
+export async function getHospitalStaffLoginHistory() {
+  try {
+    const { dbUser } = await requireClinicalStaff()
+    if (!dbUser.hospitalId) {
+      return []
+    }
+
+    const logs = await db
+      .select({
+        id: staffLoginLogs.id,
+        loginTime: staffLoginLogs.loginTime,
+        logoutTime: staffLoginLogs.logoutTime,
+        sessionDuration: staffLoginLogs.sessionDuration,
+        status: staffLoginLogs.status,
+        staffName: sql<string>`concat(${users.firstName}, ' ', ${users.lastName})`,
+        staffRole: users.role,
+        staffEmail: users.email,
+      })
+      .from(staffLoginLogs)
+      .innerJoin(users, eq(staffLoginLogs.userId, users.id))
+      .where(eq(staffLoginLogs.hospitalId, dbUser.hospitalId))
+      .orderBy(desc(staffLoginLogs.loginTime))
+      .limit(50)
+
+    return JSON.parse(JSON.stringify(logs))
+  } catch (err: unknown) {
+    console.error('getHospitalStaffLoginHistory error:', err)
+    return []
   }
 }
 

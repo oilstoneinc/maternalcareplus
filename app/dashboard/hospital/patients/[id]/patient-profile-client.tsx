@@ -314,7 +314,7 @@ export default function PatientProfileClient({ data }: { data: any }) {
           <Card className="bg-white">
             <CardContent className="p-4 flex flex-col justify-center gap-2">
               <div className="flex items-center justify-between gap-2">
-                <p className="text-sm text-slate-500 font-medium">Blood Type</p>
+              <p className="text-sm text-slate-500 font-medium">Blood Type</p>
                 {!editingBloodType && (
                   <Button
                     type="button"
@@ -453,7 +453,7 @@ export default function PatientProfileClient({ data }: { data: any }) {
                 </Button>
                 <Button onClick={() => { setShowVitalForm(true); setShowQuickVitals(false) }} className="bg-[#D48BA1] hover:bg-[#c47a90] font-bold rounded-xl shadow-md">
                   <Plus className="w-4 h-4 mr-2" /> Full ANC Visit
-                </Button>
+              </Button>
               </div>
             </div>
 
@@ -1142,7 +1142,7 @@ function VitalForm({ pregnancyId, hospitalId, onComplete, pregnancy }: { pregnan
           </div>
         </div>
       </div>
-
+      
       <div className="border-t border-slate-200 pt-5">
         <h4 className="font-semibold mb-4 text-slate-800">Additional assessments</h4>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">

@@ -4,6 +4,24 @@ import { db } from '@/lib/db'
 /** Ensures MCH-related tables/columns exist (production DB may predate schema additions). */
 export async function ensureMCHSchema() {
   const statements = [
+    sql`ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "ghana_card_id" text UNIQUE`,
+    sql`ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "last_shift_code_verified" text`,
+    sql`ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "last_shift_code_verified_at" timestamp`,
+    sql`ALTER TABLE "hospitals" ADD COLUMN IF NOT EXISTS "shift_code" text`,
+    sql`ALTER TABLE "hospitals" ADD COLUMN IF NOT EXISTS "shift_code_expires_at" timestamp`,
+    sql`
+      CREATE TABLE IF NOT EXISTS "staff_login_logs" (
+        "id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+        "user_id" uuid NOT NULL,
+        "hospital_id" uuid NOT NULL,
+        "login_time" timestamp DEFAULT now() NOT NULL,
+        "logout_time" timestamp,
+        "session_duration" integer,
+        "ip_address" text,
+        "user_agent" text,
+        "status" text DEFAULT 'active' NOT NULL
+      )
+    `,
     sql`ALTER TABLE "pregnancies" ADD COLUMN IF NOT EXISTS "mch_data" json`,
     sql`ALTER TABLE "pregnancies" ADD COLUMN IF NOT EXISTS "midwife_id" uuid`,
     sql`ALTER TABLE "pregnancies" ADD COLUMN IF NOT EXISTS "iptp_doses" integer DEFAULT 0`,

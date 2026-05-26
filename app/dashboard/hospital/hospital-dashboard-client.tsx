@@ -7,7 +7,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import Link from 'next/link'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
-import { searchGlobalPatients, scheduleNextVisit, assignMidwifeToPregnancy, addHospitalStaffMember, exportHospitalPatientsCsv } from '@/app/actions'
+import { searchGlobalPatients, scheduleNextVisit, assignMidwifeToPregnancy, addHospitalStaffMember, exportHospitalPatientsCsv, removeHospitalStaffMember, getHospitalStaffLoginHistory, generateHospitalShiftCode } from '@/app/actions'
+import SessionTimeoutGuard from '@/components/SessionTimeoutGuard'
+import ShiftCodeGate from '@/components/ShiftCodeGate'
 import {
   Dialog,
   DialogContent,
@@ -31,7 +33,12 @@ import {
   TrendingUp,
   AlertTriangle,
   HeartPulse,
-  UserCog
+  UserCog,
+  Trash2,
+  ShieldAlert,
+  Clock,
+  Lock,
+  RefreshCw
 } from 'lucide-react'
 
 interface Pregnancy {
@@ -65,6 +72,36 @@ interface Patient {
 export default function HospitalDashboardClient({ user, data }: { user: any, data: any }) {
   const router = useRouter()
   const [activeTab, setActiveTab] = useState('overview')
+  const [loginLogs, setLoginLogs] = useState<any[]>([])
+  const [loadingLogs, setLoadingLogs] = useState(false)
+
+  useEffect(() => {
+    if (activeTab === 'staff') {
+      setLoadingLogs(true)
+      getHospitalStaffLoginHistory()
+        .then(setLoginLogs)
+        .catch(console.error)
+        .finally(() => setLoadingLogs(false))
+    }
+  }, [activeTab])
+
+  const handleDeleteStaff = async (staffId: string) => {
+    if (!window.confirm('Are you sure you want to remove this staff member from your facility? This will revoke their Clerk login access immediately.')) {
+      return
+    }
+    try {
+      const res = await removeHospitalStaffMember(staffId)
+      if (res.success) {
+        alert('Staff member removed successfully.')
+        router.refresh()
+      } else {
+        alert(res.error || 'Failed to remove staff member')
+      }
+    } catch (err) {
+      console.error(err)
+      alert('Error removing staff member')
+    }
+  }
   const careStaff: { id: string; firstName: string; lastName: string; role: string }[] =
     data?.careStaff || []
 
@@ -231,7 +268,11 @@ export default function HospitalDashboardClient({ user, data }: { user: any, dat
     }
   }
 
+  const staffName = [user?.firstName, user?.lastName].filter(Boolean).join(' ') || 'Staff'
+
   return (
+    <SessionTimeoutGuard role="hospital_staff" staffName={staffName} sessionHours={8}>
+    <ShiftCodeGate dbUser={data?.dbUser} hospital={data?.hospital}>
     <div className="min-h-screen bg-[#F6F4F3] p-4 md:p-6">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
@@ -326,7 +367,7 @@ export default function HospitalDashboardClient({ user, data }: { user: any, dat
 
         {/* Main Content */}
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-2 sm:grid-cols-5">
+          <TabsList className="grid w-full grid-cols-2 sm:grid-cols-6">
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="messages" className="relative">
               Messages
@@ -347,6 +388,7 @@ export default function HospitalDashboardClient({ user, data }: { user: any, dat
             <TabsTrigger value="patients">Patients</TabsTrigger>
             <TabsTrigger value="pregnancies">Pregnancies</TabsTrigger>
             <TabsTrigger value="appointments">Appointments</TabsTrigger>
+            <TabsTrigger value="staff">Staff & Duty Logs</TabsTrigger>
           </TabsList>
 
           <TabsContent value="overview" className="space-y-6">
@@ -555,6 +597,11 @@ export default function HospitalDashboardClient({ user, data }: { user: any, dat
                                 </td>
                                 <td className="px-4 py-3">
                                   <div className="flex flex-col text-[10px] font-mono text-slate-600 gap-0.5">
+                                    {res.ghanaCardId && (
+                                      <span className="font-bold text-teal-800 bg-teal-50 px-1.5 py-0.5 rounded border border-teal-100 mb-1 w-max">
+                                        GH-Card: {res.ghanaCardId}
+                                      </span>
+                                    )}
                                     <span title={res.id}>Patient: {res.id.substring(0, 8)}…</span>
                                     <span title={res.clerkId || ''}>ID: {res.clerkId?.substring(0, 12) || res.id.substring(0, 8)}…</span>
                                   </div>
@@ -804,6 +851,255 @@ export default function HospitalDashboardClient({ user, data }: { user: any, dat
               </CardContent>
             </Card>
           </TabsContent>
+
+          <TabsContent value="staff" className="space-y-6">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              
+              {/* Left 2 Columns: Active Staff List & Action */}
+              <div className="lg:col-span-2 space-y-6">
+                <Card className="border-slate-100 shadow-sm bg-white">
+                  <CardHeader className="flex flex-row justify-between items-center bg-slate-50/50">
+                    <div>
+                      <CardTitle className="text-slate-800 flex items-center gap-2">
+                        <Users className="h-5 w-5 text-[#D48BA1]" />
+                        Active Hospital & Care Staff
+                      </CardTitle>
+                      <CardDescription>
+                        Manage midwives, doctors, and nursing personnel linked to this facility.
+                      </CardDescription>
+                    </div>
+                    <Button 
+                      onClick={() => setShowAddStaff(true)}
+                      size="sm"
+                      className="bg-[#D48BA1] hover:bg-[#c47a90] font-bold text-white rounded-xl"
+                    >
+                      <Plus className="w-4 h-4 mr-1.5" /> Add Staff
+                    </Button>
+                  </CardHeader>
+                  <CardContent className="pt-6">
+                    {careStaff.length === 0 ? (
+                      <p className="text-sm text-slate-500 font-medium py-4 text-center">
+                        No care staff registered at this facility yet. Click "Add Staff" to invite active personnel.
+                      </p>
+                    ) : (
+                      <div className="overflow-x-auto border border-slate-100 rounded-xl bg-white">
+                        <table className="w-full text-left border-collapse">
+                          <thead className="bg-slate-50 text-[10px] font-black text-slate-900 uppercase tracking-widest">
+                            <tr className="border-b border-slate-100">
+                              <th className="px-4 py-3">Staff Name</th>
+                              <th className="px-4 py-3">Role</th>
+                              <th className="px-4 py-3">Status</th>
+                              <th className="px-4 py-3 text-right">Actions</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100 text-sm">
+                            {careStaff.map((staff) => (
+                              <tr key={staff.id} className="hover:bg-slate-50/50 transition-colors">
+                                <td className="px-4 py-3 font-bold text-slate-800">
+                                  {staff.firstName} {staff.lastName}
+                                </td>
+                                <td className="px-4 py-3">
+                                  <Badge variant="outline" className="capitalize text-slate-600 border-slate-200">
+                                    {staff.role.replace('_', ' ')}
+                                  </Badge>
+                                </td>
+                                <td className="px-4 py-3">
+                                  <Badge className="bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                    Active
+                                  </Badge>
+                                </td>
+                                <td className="px-4 py-3 text-right">
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => handleDeleteStaff(staff.id)}
+                                    className="text-rose-600 hover:text-rose-700 hover:bg-rose-50 rounded-xl transition-all"
+                                  >
+                                    <Trash2 className="h-4 w-4 mr-1.5" /> Remove
+                                  </Button>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+
+                {/* Duty & Login Audit Trail Table */}
+                <Card className="border-slate-100 shadow-sm bg-white">
+                  <CardHeader className="bg-slate-50/50">
+                    <CardTitle className="text-slate-800 flex items-center gap-2">
+                      <Clock className="h-5 w-5 text-teal-600" />
+                      Staff Duty & Login Audit History
+                    </CardTitle>
+                    <CardDescription>
+                      Real-time clinical audit trail of all staff logins, shift code validations, and active duty time.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="pt-6">
+                    {loadingLogs ? (
+                      <div className="text-center py-10 text-slate-500">
+                        <RefreshCw className="h-8 w-8 animate-spin mx-auto mb-3 text-teal-600" />
+                        <p className="font-semibold text-sm">Loading security logs...</p>
+                      </div>
+                    ) : loginLogs.length === 0 ? (
+                      <div className="text-center py-8 text-slate-500">
+                        <ShieldAlert className="w-12 h-12 mx-auto mb-3 opacity-30 text-slate-400" />
+                        <p className="font-medium">No duty logs on record today</p>
+                        <p className="text-xs mt-1">Logs are created automatically when staff verify their daily shift code.</p>
+                      </div>
+                    ) : (
+                      <div className="overflow-x-auto border border-slate-100 rounded-xl bg-white">
+                        <table className="w-full text-left border-collapse">
+                          <thead className="bg-slate-50 text-[10px] font-black text-slate-900 uppercase tracking-widest">
+                            <tr className="border-b border-slate-100">
+                              <th className="px-4 py-3">Personnel</th>
+                              <th className="px-4 py-3">Role</th>
+                              <th className="px-4 py-3">Logged In</th>
+                              <th className="px-4 py-3">Logged Out</th>
+                              <th className="px-4 py-3">Duty Duration</th>
+                              <th className="px-4 py-3">Status</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100 text-sm">
+                            {loginLogs.map((log) => {
+                              const durationMin = log.sessionDuration ? Math.round(log.sessionDuration / 60) : null
+                              const durationStr = durationMin 
+                                ? durationMin >= 60 
+                                  ? `${Math.floor(durationMin / 60)}h ${durationMin % 60}m`
+                                  : `${durationMin} min`
+                                : '—'
+
+                              return (
+                                <tr key={log.id} className="hover:bg-slate-50/50 transition-colors">
+                                  <td className="px-4 py-3">
+                                    <div className="flex flex-col">
+                                      <span className="font-bold text-slate-800">{log.staffName}</span>
+                                      <span className="text-[10px] text-slate-400">{log.staffEmail}</span>
+                                    </div>
+                                  </td>
+                                  <td className="px-4 py-3 capitalize text-xs text-slate-600">
+                                    {log.staffRole.replace('_', ' ')}
+                                  </td>
+                                  <td className="px-4 py-3 text-xs font-semibold text-slate-700">
+                                    {new Date(log.loginTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                    <span className="block text-[9px] text-slate-400 font-normal">
+                                      {new Date(log.loginTime).toLocaleDateString()}
+                                    </span>
+                                  </td>
+                                  <td className="px-4 py-3 text-xs text-slate-600">
+                                    {log.logoutTime 
+                                      ? <>
+                                          {new Date(log.logoutTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                          <span className="block text-[9px] text-slate-400">
+                                            {new Date(log.logoutTime).toLocaleDateString()}
+                                          </span>
+                                        </>
+                                      : '—'
+                                    }
+                                  </td>
+                                  <td className="px-4 py-3 text-xs font-medium text-slate-800">
+                                    {durationStr}
+                                  </td>
+                                  <td className="px-4 py-3">
+                                    <Badge 
+                                      className={
+                                        log.status === 'active' 
+                                          ? 'bg-teal-50 text-teal-700 border border-teal-200' 
+                                          : 'bg-slate-100 text-slate-700 border border-slate-200'
+                                      }
+                                    >
+                                      {log.status}
+                                    </Badge>
+                                  </td>
+                                </tr>
+                              )
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Right 1 Column: Daily Shift Code Control Panel */}
+              <div className="space-y-6">
+                <Card className="border-slate-100 shadow-lg bg-slate-900 text-white overflow-hidden relative">
+                  <div className="absolute top-0 right-0 p-6 opacity-5">
+                    <Lock className="h-32 w-32 rotate-12" />
+                  </div>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2 text-white">
+                      <Lock className="h-5 w-5 text-teal-400" />
+                      Daily Security Hub
+                    </CardTitle>
+                    <CardDescription className="text-slate-400 font-medium">
+                      Control access to maternal medical records at your clinic.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <p className="text-xs text-slate-300 leading-relaxed font-light">
+                      Staff must verify their identity with today's shift code immediately after logging in. The code automatically expires at the end of the day (23:59).
+                    </p>
+
+                    <div className="bg-slate-800/80 rounded-2xl p-5 border border-slate-700/50 text-center space-y-3">
+                      <p className="text-[10px] font-black text-teal-400 uppercase tracking-widest">Active Shift Code</p>
+                      
+                      <div className="py-4 px-6 bg-slate-950 rounded-2xl font-mono text-3xl font-black tracking-widest text-teal-300 border border-slate-800 shadow-inner">
+                        {data?.hospital?.shiftCode || 'NOT SET'}
+                      </div>
+                      
+                      {data?.hospital?.shiftCodeExpiresAt && (
+                        <p className="text-[10px] text-slate-400">
+                          Expires: {new Date(data.hospital.shiftCodeExpiresAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </p>
+                      )}
+                    </div>
+
+                    <Button
+                      onClick={async () => {
+                        const confirmCmd = window.confirm('Generate a new shift code? This will require staff on duty to re-verify using the new code.')
+                        if (!confirmCmd) return
+                        try {
+                          const res = await generateHospitalShiftCode()
+                          if (res.success && res.shiftCode) {
+                            alert(`New Daily Shift Code generated: ${res.shiftCode}`)
+                            window.location.reload()
+                          } else {
+                            alert(res.error || 'Failed to generate shift code')
+                          }
+                        } catch (err) {
+                          console.error(err)
+                          alert('Error generating shift code')
+                        }
+                      }}
+                      className="w-full bg-teal-600 hover:bg-teal-700 font-bold py-6 rounded-2xl shadow-xl shadow-teal-500/10 flex items-center justify-center gap-2"
+                    >
+                      <RefreshCw className="h-4 w-4" />
+                      {data?.hospital?.shiftCode ? 'Regenerate Code' : 'Generate Shift Code'}
+                    </Button>
+                  </CardContent>
+                </Card>
+
+                <Card className="border-slate-100 shadow-sm bg-white">
+                  <CardHeader>
+                    <CardTitle className="text-slate-800 flex items-center gap-2 text-sm font-black uppercase tracking-wider">
+                      <ShieldAlert className="h-5 w-5 text-amber-500" /> Security Standards
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="text-xs text-slate-500 space-y-2 leading-relaxed">
+                    <p>• <strong>Automatic Timeout:</strong> Inactive staff terminals are automatically locked and signed out after 8 hours of inactivity.</p>
+                    <p>• <strong>Shift Verification:</strong> Restricts patient record lookup to authorized clinical staff physically present on duty.</p>
+                    <p>• <strong>Duty Audits:</strong> Complete transparency of who accessed records at any given point during shifts.</p>
+                  </CardContent>
+                </Card>
+              </div>
+
+            </div>
+          </TabsContent>
         </Tabs>
       </div>
 
@@ -913,6 +1209,8 @@ export default function HospitalDashboardClient({ user, data }: { user: any, dat
         </DialogContent>
       </Dialog>
     </div>
+    </ShiftCodeGate>
+    </SessionTimeoutGuard>
   )
 }
 
@@ -1047,6 +1345,7 @@ function PatientOnboardingForm({ onSuccess }: { onSuccess: () => void }) {
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
+    ghanaCardId: '',
     email: '',
     phone: '',
     dateOfBirth: '',
@@ -1202,6 +1501,22 @@ function PatientOnboardingForm({ onSuccess }: { onSuccess: () => void }) {
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#D48BA1] focus:border-transparent"
             />
         </div>
+      </div>
+
+      {/* Ghana Card ID — National ID field */}
+      <div className="bg-teal-50 border border-teal-200 rounded-xl p-4">
+        <label htmlFor="ghanaCardId" className="block text-sm font-bold text-teal-800 mb-1">
+          Ghana Card ID <span className="font-normal text-teal-600">(National ID — strongly recommended)</span>
+        </label>
+        <p className="text-[11px] text-teal-600 mb-2">Used to uniquely identify the patient across all MCH facilities nationally.</p>
+        <input
+          type="text"
+          id="ghanaCardId"
+          placeholder="GHA-XXXXXXXXX-X"
+          value={formData.ghanaCardId}
+          onChange={(e) => setFormData({ ...formData, ghanaCardId: e.target.value.toUpperCase() })}
+          className="w-full px-4 py-2 border border-teal-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent font-mono font-bold text-teal-900 placeholder:font-normal placeholder:text-teal-300"
+        />
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

@@ -1,0 +1,747 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MaternalCare Plus — Investor Pitch Deck</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+
+    :root {
+      --pink: #D48BA1;
+      --pink-light: #e6a8bc;
+      --green: #8ABD8A;
+      --bg: #F6F4F3;
+      --slate-900: #0f172a;
+      --slate-600: #475569;
+      --slate-500: #64748b;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    @page {
+      size: 10in 7.5in;
+      margin: 0;
+    }
+
+    body {
+      font-family: 'Inter', system-ui, sans-serif;
+      background: #e2e8f0;
+      color: var(--slate-900);
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+
+    .slide {
+      width: 10in;
+      height: 7.5in;
+      padding: 0.65in 0.75in;
+      page-break-after: always;
+      page-break-inside: avoid;
+      position: relative;
+      overflow: hidden;
+      background: var(--bg);
+      display: flex;
+      flex-direction: column;
+    }
+
+    .slide:last-child { page-break-after: auto; }
+
+    .slide--cover {
+      background: linear-gradient(135deg, var(--pink) 0%, var(--pink-light) 45%, #f8e8ed 100%);
+      color: white;
+      justify-content: center;
+    }
+
+    .slide--dark {
+      background: linear-gradient(145deg, #1e293b 0%, #0f172a 100%);
+      color: white;
+    }
+
+    .slide--white { background: #fff; }
+
+    .logo {
+      font-size: 11pt;
+      font-weight: 900;
+      letter-spacing: -0.02em;
+    }
+
+    .logo span { color: var(--pink); }
+    .slide--cover .logo span,
+    .slide--dark .logo span { color: #fff; opacity: 0.95; }
+
+    .footer {
+      position: absolute;
+      bottom: 0.45in;
+      left: 0.75in;
+      right: 0.75in;
+      display: flex;
+      justify-content: space-between;
+      font-size: 8pt;
+      font-weight: 600;
+      color: var(--slate-500);
+    }
+
+    .slide--cover .footer,
+    .slide--dark .footer { color: rgba(255,255,255,0.55); }
+
+    h1 {
+      font-size: 42pt;
+      font-weight: 900;
+      line-height: 1.05;
+      letter-spacing: -0.03em;
+      margin-top: 0.15in;
+    }
+
+    h2 {
+      font-size: 26pt;
+      font-weight: 900;
+      letter-spacing: -0.02em;
+      margin-bottom: 0.2in;
+      color: var(--slate-900);
+    }
+
+    .slide--dark h2,
+    .slide--cover h2 { color: white; }
+
+    h3 {
+      font-size: 13pt;
+      font-weight: 800;
+      margin-bottom: 0.08in;
+      color: var(--pink);
+    }
+
+    .slide--dark h3 { color: var(--pink-light); }
+
+    .subtitle {
+      font-size: 14pt;
+      font-weight: 500;
+      line-height: 1.45;
+      max-width: 6.5in;
+      margin-top: 0.15in;
+      opacity: 0.92;
+    }
+
+    .tag {
+      display: inline-block;
+      padding: 0.06in 0.14in;
+      border-radius: 999px;
+      font-size: 8pt;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      background: rgba(255,255,255,0.2);
+      border: 1px solid rgba(255,255,255,0.35);
+      margin-bottom: 0.12in;
+    }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.28in;
+      flex: 1;
+      margin-top: 0.15in;
+    }
+
+    .grid-3 {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 0.2in;
+      margin-top: 0.15in;
+    }
+
+    .card {
+      background: white;
+      border-radius: 14px;
+      padding: 0.22in;
+      border: 1px solid #e2e8f0;
+      box-shadow: 0 4px 20px rgba(15,23,42,0.06);
+    }
+
+    .slide--dark .card {
+      background: rgba(255,255,255,0.08);
+      border-color: rgba(255,255,255,0.12);
+      color: white;
+    }
+
+    .card p {
+      font-size: 9.5pt;
+      line-height: 1.45;
+      color: var(--slate-600);
+      font-weight: 500;
+    }
+
+    .slide--dark .card p { color: rgba(255,255,255,0.75); }
+
+    .stat {
+      font-size: 28pt;
+      font-weight: 900;
+      color: var(--pink);
+      line-height: 1;
+    }
+
+    .slide--dark .stat { color: var(--pink-light); }
+
+    .stat-label {
+      font-size: 8.5pt;
+      font-weight: 700;
+      color: var(--slate-500);
+      margin-top: 0.04in;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    ul.bullets {
+      list-style: none;
+      margin-top: 0.1in;
+    }
+
+    ul.bullets li {
+      font-size: 10pt;
+      font-weight: 500;
+      line-height: 1.5;
+      color: var(--slate-600);
+      padding-left: 0.2in;
+      position: relative;
+      margin-bottom: 0.06in;
+    }
+
+    ul.bullets li::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 0.45em;
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--pink);
+    }
+
+    .slide--dark ul.bullets li { color: rgba(255,255,255,0.85); }
+
+    .flow {
+      display: flex;
+      align-items: stretch;
+      gap: 0.12in;
+      margin-top: 0.2in;
+      flex: 1;
+    }
+
+    .flow-step {
+      flex: 1;
+      background: white;
+      border-radius: 12px;
+      padding: 0.18in;
+      border: 2px solid #fce7f3;
+      text-align: center;
+    }
+
+    .flow-step strong {
+      display: block;
+      font-size: 9pt;
+      font-weight: 800;
+      color: var(--pink);
+      margin-bottom: 0.06in;
+    }
+
+    .flow-step span {
+      font-size: 8.5pt;
+      font-weight: 500;
+      color: var(--slate-600);
+      line-height: 1.35;
+    }
+
+    .flow-arrow {
+      display: flex;
+      align-items: center;
+      font-size: 18pt;
+      color: var(--pink);
+      font-weight: 900;
+    }
+
+    .pill-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.08in;
+      margin-top: 0.12in;
+    }
+
+    .pill {
+      font-size: 8pt;
+      font-weight: 700;
+      padding: 0.05in 0.12in;
+      border-radius: 999px;
+      background: #fdf2f8;
+      color: #9d174d;
+      border: 1px solid #fbcfe8;
+    }
+
+    .slide--dark .pill {
+      background: rgba(212,139,161,0.2);
+      color: #fce7f3;
+      border-color: rgba(212,139,161,0.4);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 9pt;
+      margin-top: 0.12in;
+    }
+
+    th, td {
+      padding: 0.1in 0.12in;
+      text-align: left;
+      border-bottom: 1px solid #e2e8f0;
+    }
+
+    th {
+      font-weight: 800;
+      color: var(--slate-900);
+      background: #f8fafc;
+    }
+
+    .cta-box {
+      margin-top: auto;
+      background: linear-gradient(90deg, var(--pink), var(--pink-light));
+      color: white;
+      padding: 0.25in 0.3in;
+      border-radius: 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .cta-box strong { font-size: 14pt; font-weight: 900; }
+    .cta-box p { font-size: 10pt; font-weight: 500; opacity: 0.95; margin-top: 0.04in; }
+
+    .contact-line { font-size: 11pt; font-weight: 700; }
+
+    @media print {
+      body { background: white; }
+      .slide { margin: 0; box-shadow: none; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- SLIDE 1: Cover -->
+  <section class="slide slide--cover">
+    <div class="tag">Investor &amp; Partner Deck · 2026</div>
+    <div class="logo">Maternal<span>Care</span>+</div>
+    <h1 style="margin-top: 0.25in;">The Standard in<br />Maternal Care</h1>
+    <p class="subtitle" style="max-width: 7in;">
+      A secure, closed-loop digital platform connecting hospitals, midwives, mothers, and partners —
+      replacing paper MCH books with real-time antenatal care, nationwide visibility, and privacy-first access.
+    </p>
+    <div class="footer">
+      <span>Confidential</span>
+      <span>maternalcareplus.com</span>
+    </div>
+  </section>
+
+  <!-- SLIDE 2: Problem -->
+  <section class="slide slide--white">
+    <div class="logo">Maternal<span>Care</span>+</div>
+    <h2>The problem</h2>
+    <p class="subtitle" style="color: var(--slate-600); font-size: 11pt;">
+      Maternal outcomes depend on continuity of care — yet records, communication, and family engagement remain fragmented.
+    </p>
+    <div class="grid-2">
+      <div class="card">
+        <div class="stat">287K+</div>
+        <div class="stat-label">Global maternal deaths / year (WHO)</div>
+        <p style="margin-top: 0.12in;">Most are preventable with timely antenatal visits, tracked vitals, and coordinated handoffs between facilities.</p>
+      </div>
+      <div class="card">
+        <h3>For health systems</h3>
+        <ul class="bullets">
+          <li>Paper MCH books are lost, damaged, or left at home</li>
+          <li>No single view when patients move between hospitals</li>
+          <li>Manual onboarding and poor visibility into high-risk pregnancies</li>
+          <li>Limited tools for partner education and engagement</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3>For mothers &amp; families</h3>
+        <ul class="bullets">
+          <li>Little visibility between clinic visits</li>
+          <li>Lab results and advice arrive late or not at all</li>
+          <li>Partners excluded from structured, secure updates</li>
+          <li>No trusted digital channel to reach care teams</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3>For clinicians</h3>
+        <ul class="bullets">
+          <li>Duplicate data entry across registers</li>
+          <li>No real-time alerts on clinical updates</li>
+          <li>Hard to export data for reporting and audits</li>
+          <li>Chat and coordination happen on personal phones</li>
+        </ul>
+      </div>
+    </div>
+    <div class="footer"><span>02 — Problem</span><span>MaternalCare Plus</span></div>
+  </section>
+
+  <!-- SLIDE 3: Solution -->
+  <section class="slide slide--dark">
+    <div class="logo">Maternal<span>Care</span>+</div>
+    <h2>Our solution</h2>
+    <p class="subtitle" style="opacity: 0.85; font-size: 11pt;">
+      One platform. Four roles. Hospital-controlled access. Mothers own their journey; partners join with consent.
+    </p>
+    <div class="grid-3">
+      <div class="card">
+        <h3>Hospitals</h3>
+        <p>Onboard patients, manage digital MCH records, labs, vitals, appointments, national registry search, and export — with real-time notifications.</p>
+      </div>
+      <div class="card">
+        <h3>Mothers</h3>
+        <p>Mobile-first dashboard: gestational progress, clinic recommendations, care history across facilities, digital MCH book, and secure messaging.</p>
+      </div>
+      <div class="card">
+        <h3>Partners</h3>
+        <p>Separate accounts via hospital invite + mother-issued access code — read-only view of progress, labs, and MCH book.</p>
+      </div>
+    </div>
+    <div class="cta-box" style="margin-top: 0.25in;">
+      <div>
+        <strong>Closed-loop, invite-only care</strong>
+        <p>Patients cannot self-register without a hospital. Providers cannot access without institutional approval.</p>
+      </div>
+    </div>
+    <div class="footer"><span>03 — Solution</span><span>MaternalCare Plus</span></div>
+  </section>
+
+  <!-- SLIDE 4: How it works -->
+  <section class="slide slide--white">
+    <div class="logo">Maternal<span>Care</span>+</div>
+    <h2>How it works</h2>
+    <div class="flow">
+      <div class="flow-step"><strong>1</strong><span>Hospital requests institutional access &amp; is verified by admin</span></div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step"><strong>2</strong><span>Staff onboard mother (+ optional partner email) via secure invite</span></div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step"><strong>3</strong><span>Mother signs in, tracks pregnancy, receives real-time clinic updates</span></div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step"><strong>4</strong><span>Partner completes invite, enters mother’s code for read-only access</span></div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step"><strong>5</strong><span>Any authorized facility logs care → mother notified + national trail</span></div>
+    </div>
+    <div class="pill-row">
+      <span class="pill">Clerk multi-role auth</span>
+      <span class="pill">Neon PostgreSQL</span>
+      <span class="pill">Pusher real-time</span>
+      <span class="pill">PWA installable</span>
+      <span class="pill">Role-based dashboards</span>
+    </div>
+    <div class="footer"><span>04 — Workflow</span><span>MaternalCare Plus</span></div>
+  </section>
+
+  <!-- SLIDE 5: Hospital features -->
+  <section class="slide slide--white">
+    <div class="logo">Maternal<span>Care</span>+</div>
+    <h2>Hospital &amp; clinical portal</h2>
+    <div class="grid-2">
+      <div>
+        <ul class="bullets">
+          <li><strong>Patient onboarding</strong> — invite mother &amp; partner by email; pregnancy record created instantly</li>
+          <li><strong>Digital MCH book</strong> — allergies, meds, obstetric history, immunizations, growth charts</li>
+          <li><strong>Clinical updates</strong> — vitals, labs/scans, standing advice surfaced to patient “Recommended for You”</li>
+          <li><strong>Real-time notifications</strong> — mothers alerted when records change (Pusher)</li>
+          <li><strong>National registry search</strong> — find patients by name, phone, email, or ID across hospitals</li>
+          <li><strong>Cross-facility care history</strong> — visiting hospitals log encounters; home facility + mother see full trail</li>
+          <li><strong>Export data</strong> — CSV export for reporting and audits</li>
+          <li><strong>Staff &amp; chat</strong> — add staff, secure in-app messaging with patients</li>
+        </ul>
+      </div>
+      <div class="card" style="background: linear-gradient(160deg, #fdf2f8, #fff); border-color: #fbcfe8;">
+        <h3>Provider value</h3>
+        <p style="margin-top: 0.1in;"><strong>Reduce leakage</strong> — mothers stay in your digital ecosystem between visits.</p>
+        <p style="margin-top: 0.1in;"><strong>Risk visibility</strong> — gestational age, labs, and visit advice in one place.</p>
+        <p style="margin-top: 0.1in;"><strong>Network effects</strong> — facilities that join the registry improve continuity for every patient.</p>
+        <div class="pill-row">
+          <span class="pill">Invite-only</span>
+          <span class="pill">Audit-friendly</span>
+          <span class="pill">tel: hospital contact</span>
+        </div>
+      </div>
+    </div>
+    <div class="footer"><span>05 — Hospitals</span><span>MaternalCare Plus</span></div>
+  </section>
+
+  <!-- SLIDE 6: Patient & partner -->
+  <section class="slide slide--white">
+    <div class="logo">Maternal<span>Care</span>+</div>
+    <h2>Mother &amp; partner experience</h2>
+    <div class="grid-2">
+      <div class="card">
+        <h3>Pregnant woman app</h3>
+        <ul class="bullets">
+          <li>Gestational progress, EDD, vitals charts</li>
+          <li>Upcoming visits &amp; clinic-recorded recommendations</li>
+          <li>Care history when treated at other network hospitals</li>
+          <li>Digital MCH book (read/write for mother)</li>
+          <li>Nearest hospitals &amp; direct call to registered facility</li>
+          <li>Install as PWA on phone or desktop</li>
+          <li>Generate partner access code after hospital registers partner</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3>Partner / father app</h3>
+        <ul class="bullets">
+          <li>Own login — never shared with mother’s account</li>
+          <li>Hospital email invite → registration → mother’s security code</li>
+          <li>Read-only dashboard: progress, labs, clinic advice</li>
+          <li>Read-only MCH book view</li>
+          <li>Supports family engagement without exposing edit rights</li>
+        </ul>
+      </div>
+    </div>
+    <p style="font-size: 9pt; color: var(--slate-500); font-weight: 600; margin-top: 0.15in;">
+      Privacy by design: partner access requires hospital registration + active mother authorization.
+    </p>
+    <div class="footer"><span>06 — Patients</span><span>MaternalCare Plus</span></div>
+  </section>
+
+  <!-- SLIDE 7: National registry -->
+  <section class="slide slide--dark">
+    <div class="logo">Maternal<span>Care</span>+</div>
+    <h2>National MCH continuity</h2>
+    <p class="subtitle" style="opacity: 0.85; font-size: 11pt;">
+      A visiting hospital can care for a registered patient while the home facility and mother retain full visibility.
+    </p>
+    <div class="grid-2">
+      <div class="card">
+        <h3>Registry search</h3>
+        <p>Authorized staff search by patient name, phone, email, or national ID — not internal system IDs.</p>
+        <p style="margin-top: 0.1in;">View care trail: which facilities treated the patient, when, and summary of actions.</p>
+      </div>
+      <div class="card">
+        <h3>Automatic care logging</h3>
+        <p>Clinical actions (vitals, labs, advice, profile updates) create encounter records and notify the mother in real time.</p>
+        <p style="margin-top: 0.1in;">Mother dashboard shows facility summary + chronological history panel.</p>
+      </div>
+    </div>
+    <div class="cta-box" style="margin-top: 0.2in;">
+      <div>
+        <strong>Built for multi-facility health systems</strong>
+        <p>Ideal for countries scaling digital MCH registers across public and private providers.</p>
+      </div>
+    </div>
+    <div class="footer"><span>07 — Registry</span><span>MaternalCare Plus</span></div>
+  </section>
+
+  <!-- SLIDE 8: Technology -->
+  <section class="slide slide--white">
+    <div class="logo">Maternal<span>Care</span>+</div>
+    <h2>Technology &amp; security</h2>
+    <table>
+      <thead>
+        <tr><th>Layer</th><th>Stack</th><th>Why it matters</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Application</td><td>Next.js 16, React, TypeScript</td><td>Fast, SEO-friendly marketing + secure app routes</td></tr>
+        <tr><td>Auth</td><td>Clerk (roles: mother, father, midwife, hospital, admin)</td><td>Enterprise SSO-ready; metadata-driven routing</td></tr>
+        <tr><td>Data</td><td>Neon PostgreSQL + Drizzle ORM</td><td>Relational integrity for clinical records</td></tr>
+        <tr><td>Realtime</td><td>Pusher</td><td>Instant notifications on record updates</td></tr>
+        <tr><td>Deploy</td><td>Vercel + HTTPS</td><td>Global edge, automatic SSL</td></tr>
+        <tr><td>Mobile</td><td>PWA (installable)</td><td>No app store required; works on iOS &amp; Android</td></tr>
+      </tbody>
+    </table>
+    <div class="pill-row" style="margin-top: 0.15in;">
+      <span class="pill">Invite-only registration</span>
+      <span class="pill">Role-based access control</span>
+      <span class="pill">Partner consent code</span>
+      <span class="pill">Webhook-provisioned users</span>
+      <span class="pill">Export &amp; audit logs (roadmap)</span>
+    </div>
+    <div class="footer"><span>08 — Technology</span><span>MaternalCare Plus</span></div>
+  </section>
+
+  <!-- SLIDE 9: Market -->
+  <section class="slide slide--white">
+    <div class="logo">Maternal<span>Care</span>+</div>
+    <h2>Market opportunity</h2>
+    <div class="grid-3">
+      <div class="card">
+        <div class="stat">$12B+</div>
+        <div class="stat-label">Digital women's health (global, growing)</div>
+        <p style="margin-top: 0.1in;">Antenatal digitization is a policy priority across Africa and emerging markets.</p>
+      </div>
+      <div class="card">
+        <div class="stat">1.2M+</div>
+        <div class="stat-label">Births / year (Ghana example)</div>
+        <p style="margin-top: 0.1in;">Each pregnancy = 8–12+ touchpoints — ideal for a subscription-per-facility model.</p>
+      </div>
+      <div class="card">
+        <div class="stat">100%</div>
+        <div class="stat-label">Paper MCH book replacement</div>
+        <p style="margin-top: 0.1in;">Governments and NGOs fund MCH digitization — clear budget line for buyers.</p>
+      </div>
+    </div>
+    <h3 style="margin-top: 0.2in;">Initial beachhead</h3>
+    <ul class="bullets">
+      <li>Private hospitals &amp; CHPS-linked facilities seeking premium patient experience</li>
+      <li>Regional chains wanting standardized antenatal workflows</li>
+      <li>Ministry / NGO pilots for national digital MCH register</li>
+    </ul>
+    <div class="footer"><span>09 — Market</span><span>MaternalCare Plus</span></div>
+  </section>
+
+  <!-- SLIDE 10: Business model -->
+  <section class="slide slide--white">
+    <div class="logo">Maternal<span>Care</span>+</div>
+    <h2>Business model</h2>
+    <div class="grid-2">
+      <div class="card">
+        <h3>B2B — Hospitals (primary)</h3>
+        <ul class="bullets">
+          <li><strong>SaaS subscription</strong> per facility / per bed / per active pregnancy</li>
+          <li><strong>Onboarding fee</strong> for training, data migration, branding</li>
+          <li><strong>Network tier</strong> for national registry &amp; cross-facility modules</li>
+          <li><strong>Enterprise</strong> — SLA, custom integrations (DHIS2, OpenMRS)</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3>Future revenue</h3>
+        <ul class="bullets">
+          <li>Analytics &amp; population health dashboards for ministries</li>
+          <li>SMS / WhatsApp reminder packs (Twilio)</li>
+          <li>Insurer &amp; employer wellness partnerships</li>
+          <li>White-label for NGO programs</li>
+        </ul>
+      </div>
+    </div>
+    <p style="font-size: 9.5pt; color: var(--slate-500); font-weight: 600; margin-top: 0.15in;">
+      Mothers &amp; partners: <strong>free</strong> (paid by provider). Aligns incentives with hospitals as buyer.
+    </p>
+    <div class="footer"><span>10 — Business model</span><span>MaternalCare Plus</span></div>
+  </section>
+
+  <!-- SLIDE 11: Traction -->
+  <section class="slide slide--dark">
+    <div class="logo">Maternal<span>Care</span>+</div>
+    <h2>Traction &amp; product status</h2>
+    <div class="grid-2">
+      <div>
+        <ul class="bullets">
+          <li><strong>MVP live</strong> — full role-based dashboards deployed on modern stack</li>
+          <li><strong>Hospital onboarding</strong> — patient + partner invite flow, digital MCH book</li>
+          <li><strong>Real-time clinical notifications</strong> to mothers</li>
+          <li><strong>National registry search</strong> + cross-hospital care history</li>
+          <li><strong>Partner security model</strong> — hospital invite + mother access code</li>
+          <li><strong>PWA</strong> — install on mobile &amp; desktop without app stores</li>
+          <li><strong>Institutional access requests</strong> via public website</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3>Near-term roadmap</h3>
+        <ul class="bullets">
+          <li>SMS appointment reminders</li>
+          <li>DHIS2 / national EMR integrations</li>
+          <li>Offline-first MCH book sync</li>
+          <li>Midwife field app optimizations</li>
+          <li>Advanced analytics for MOH reporting</li>
+        </ul>
+      </div>
+    </div>
+    <div class="footer"><span>11 — Traction</span><span>MaternalCare Plus</span></div>
+  </section>
+
+  <!-- SLIDE 12: Competition -->
+  <section class="slide slide--white">
+    <div class="logo">Maternal<span>Care</span>+</div>
+    <h2>Why we win</h2>
+    <table>
+      <thead>
+        <tr><th></th><th>Paper MCH book</th><th>Generic EMR</th><th>Consumer pregnancy apps</th><th><strong>MaternalCare Plus</strong></th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Hospital-controlled onboarding</td><td>—</td><td>Partial</td><td>✗</td><td><strong>✓</strong></td></tr>
+        <tr><td>Digital MCH book (national format)</td><td>✗</td><td>Partial</td><td>✗</td><td><strong>✓</strong></td></tr>
+        <tr><td>Cross-facility care trail</td><td>✗</td><td>Silos</td><td>✗</td><td><strong>✓</strong></td></tr>
+        <tr><td>Partner access w/ consent</td><td>✗</td><td>✗</td><td>Partial</td><td><strong>✓</strong></td></tr>
+        <tr><td>Real-time mother notifications</td><td>✗</td><td>Rare</td><td>N/A</td><td><strong>✓</strong></td></tr>
+        <tr><td>Installable PWA (low data)</td><td>—</td><td>Desktop-heavy</td><td>App store only</td><td><strong>✓</strong></td></tr>
+      </tbody>
+    </table>
+    <div class="footer"><span>12 — Differentiation</span><span>MaternalCare Plus</span></div>
+  </section>
+
+  <!-- SLIDE 13: Team placeholder -->
+  <section class="slide slide--white">
+    <div class="logo">Maternal<span>Care</span>+</div>
+    <h2>Team</h2>
+    <p class="subtitle" style="color: var(--slate-600); font-size: 11pt;">
+      <!-- CUSTOMIZE: Replace with your founders, advisors, and clinical champions -->
+      Founding team combining healthcare operations, software engineering, and maternal health program delivery.
+    </p>
+    <div class="grid-3" style="margin-top: 0.25in;">
+      <div class="card" style="text-align: center; min-height: 1.8in;">
+        <h3>[Founder / CEO]</h3>
+        <p style="margin-top: 0.1in;">Vision, partnerships, hospital sales</p>
+        <p style="margin-top: 0.08in; font-size: 8pt; color: var(--slate-500);">[LinkedIn] · [Email]</p>
+      </div>
+      <div class="card" style="text-align: center; min-height: 1.8in;">
+        <h3>[CTO / Product]</h3>
+        <p style="margin-top: 0.1in;">Platform architecture, security, delivery</p>
+        <p style="margin-top: 0.08in; font-size: 8pt; color: var(--slate-500);">[LinkedIn] · [Email]</p>
+      </div>
+      <div class="card" style="text-align: center; min-height: 1.8in;">
+        <h3>[Clinical advisor]</h3>
+        <p style="margin-top: 0.1in;">Obstetrics / midwifery governance, MOH relations</p>
+        <p style="margin-top: 0.08in; font-size: 8pt; color: var(--slate-500);">[Title] · [Institution]</p>
+      </div>
+    </div>
+    <div class="footer"><span>13 — Team</span><span>MaternalCare Plus</span></div>
+  </section>
+
+  <!-- SLIDE 14: The ask -->
+  <section class="slide slide--cover" style="background: linear-gradient(145deg, #1e293b 0%, #334155 50%, var(--pink) 100%);">
+    <div class="tag">Partnership &amp; investment</div>
+    <h2 style="color: white; font-size: 32pt; margin-top: 0.1in;">The ask</h2>
+    <div class="grid-2" style="margin-top: 0.2in;">
+      <div>
+        <p class="subtitle" style="font-size: 12pt;">
+          <strong style="color: #fff;">Seeking:</strong> Seed / pilot funding and anchor hospital partners
+          to scale onboarding across 3–5 facilities in Year 1.
+        </p>
+        <ul class="bullets" style="margin-top: 0.15in;">
+          <li style="color: rgba(255,255,255,0.9);">Use of funds: engineering, clinical QA, hospital success, compliance</li>
+          <li style="color: rgba(255,255,255,0.9);">12-month goal: 2,000+ active pregnancies on platform</li>
+          <li style="color: rgba(255,255,255,0.9);">MOH / NGO letter of support for registry pilot</li>
+        </ul>
+      </div>
+      <div class="card" style="background: rgba(255,255,255,0.12); border-color: rgba(255,255,255,0.2);">
+        <h3 style="color: #fce7f3;">Pilot package</h3>
+        <p style="color: rgba(255,255,255,0.9); margin-top: 0.1in;">
+          90-day facility pilot: onboarding, staff training, digital MCH book rollout,
+          success metrics (visit adherence, record completeness, patient NPS).
+        </p>
+      </div>
+    </div>
+    <div class="footer"><span>14 — The ask</span><span>MaternalCare Plus</span></div>
+  </section>
+
+  <!-- SLIDE 15: Contact -->
+  <section class="slide slide--white" style="justify-content: center; align-items: center; text-align: center;">
+    <div class="logo" style="font-size: 18pt;">Maternal<span>Care</span>+</div>
+    <h2 style="margin-top: 0.2in;">Thank you</h2>
+    <p class="subtitle" style="margin: 0.15in auto; color: var(--slate-600);">
+      Precision in Maternal Healthcare
+    </p>
+    <div style="margin-top: 0.35in;">
+      <p class="contact-line">🌐 maternalcareplus.com</p>
+      <p class="contact-line" style="margin-top: 0.1in; color: var(--pink);">📧 [your-email@maternalcareplus.com]</p>
+      <p class="contact-line" style="margin-top: 0.1in;">📱 [+233 XX XXX XXXX]</p>
+    </div>
+    <p style="font-size: 9pt; color: var(--slate-500); font-weight: 600; margin-top: 0.35in;">
+      Request institutional access on our website · Install the patient app from any browser
+    </p>
+    <div class="footer"><span>15 — Contact</span><span>© 2026 MaternalCare Plus</span></div>
+  </section>
+
+</body>
+</html>

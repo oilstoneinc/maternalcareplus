@@ -20,11 +20,14 @@ export const users = pgTable('users', {
   address: text('address'),
   region: text('region'), // Ghana region
   city: text('city'),
+  ghanaCardId: text('ghana_card_id').unique(),
   emergencyContact: text('emergency_contact'),
   emergencyPhone: text('emergency_phone'),
   isVerified: boolean('is_verified').default(false),
   isActive: boolean('is_active').default(true),
   hospitalId: uuid('hospital_id').references(() => hospitals.id),
+  lastShiftCodeVerified: text('last_shift_code_verified'),
+  lastShiftCodeVerifiedAt: timestamp('last_shift_code_verified_at'),
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow(),
 })
@@ -44,8 +47,23 @@ export const hospitals = pgTable('hospitals', {
   longitude: decimal('longitude', { precision: 9, scale: 6 }),
   isActive: boolean('is_active').default(true),
   isVerified: boolean('is_verified').default(false),
+  shiftCode: text('shift_code'),
+  shiftCodeExpiresAt: timestamp('shift_code_expires_at'),
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow(),
+})
+
+// Staff Login and Audit Logs
+export const staffLoginLogs = pgTable('staff_login_logs', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  userId: uuid('user_id').references(() => users.id).notNull(),
+  hospitalId: uuid('hospital_id').references(() => hospitals.id).notNull(),
+  loginTime: timestamp('login_time').defaultNow().notNull(),
+  logoutTime: timestamp('logout_time'),
+  sessionDuration: integer('session_duration'), // in seconds
+  ipAddress: text('ip_address'),
+  userAgent: text('user_agent'),
+  status: text('status').default('active').notNull(), // 'active', 'expired', 'logged_out'
 })
 
 // Pregnancies table
