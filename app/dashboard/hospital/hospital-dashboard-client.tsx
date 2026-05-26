@@ -36,7 +36,6 @@ import {
   Trash2,
   ShieldAlert,
   Clock,
-  Lock,
   RefreshCw
 } from 'lucide-react'
 
@@ -1023,65 +1022,8 @@ export default function HospitalDashboardClient({ user, data }: { user: any, dat
                 </Card>
               </div>
 
-              {/* Right 1 Column: Daily Shift Code Control Panel */}
+              {/* Right Column: Security Standards */}
               <div className="space-y-6">
-                <Card className="border-slate-100 shadow-lg bg-slate-900 text-white overflow-hidden relative">
-                  <div className="absolute top-0 right-0 p-6 opacity-5">
-                    <Lock className="h-32 w-32 rotate-12" />
-                  </div>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2 text-white">
-                      <Lock className="h-5 w-5 text-teal-400" />
-                      Daily Security Hub
-                    </CardTitle>
-                    <CardDescription className="text-slate-400 font-medium">
-                      Control access to maternal medical records at your clinic.
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <p className="text-xs text-slate-300 leading-relaxed font-light">
-                      Staff must verify their identity with today's shift code immediately after logging in. The code automatically expires at the end of the day (23:59).
-                    </p>
-
-                    <div className="bg-slate-800/80 rounded-2xl p-5 border border-slate-700/50 text-center space-y-3">
-                      <p className="text-[10px] font-black text-teal-400 uppercase tracking-widest">Active Shift Code</p>
-                      
-                      <div className="py-4 px-6 bg-slate-950 rounded-2xl font-mono text-3xl font-black tracking-widest text-teal-300 border border-slate-800 shadow-inner">
-                        {data?.hospital?.shiftCode || 'NOT SET'}
-                      </div>
-                      
-                      {data?.hospital?.shiftCodeExpiresAt && (
-                        <p className="text-[10px] text-slate-400">
-                          Expires: {new Date(data.hospital.shiftCodeExpiresAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                        </p>
-                      )}
-                    </div>
-
-                    <Button
-                      onClick={async () => {
-                        const confirmCmd = window.confirm('Generate a new shift code? This will require staff on duty to re-verify using the new code.')
-                        if (!confirmCmd) return
-                        try {
-                          const res = await generateHospitalShiftCode()
-                          if (res.success && res.shiftCode) {
-                            alert(`New Daily Shift Code generated: ${res.shiftCode}`)
-                            window.location.reload()
-                          } else {
-                            alert(res.error || 'Failed to generate shift code')
-                          }
-                        } catch (err) {
-                          console.error(err)
-                          alert('Error generating shift code')
-                        }
-                      }}
-                      className="w-full bg-teal-600 hover:bg-teal-700 font-bold py-6 rounded-2xl shadow-xl shadow-teal-500/10 flex items-center justify-center gap-2"
-                    >
-                      <RefreshCw className="h-4 w-4" />
-                      {data?.hospital?.shiftCode ? 'Regenerate Code' : 'Generate Shift Code'}
-                    </Button>
-                  </CardContent>
-                </Card>
-
                 <Card className="border-slate-100 shadow-sm bg-white">
                   <CardHeader>
                     <CardTitle className="text-slate-800 flex items-center gap-2 text-sm font-black uppercase tracking-wider">
@@ -1089,9 +1031,9 @@ export default function HospitalDashboardClient({ user, data }: { user: any, dat
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="text-xs text-slate-500 space-y-2 leading-relaxed">
-                    <p>• <strong>Automatic Timeout:</strong> Inactive staff terminals are automatically locked and signed out after 8 hours of inactivity.</p>
-                    <p>• <strong>Shift Verification:</strong> Restricts patient record lookup to authorized clinical staff physically present on duty.</p>
+                    <p>• <strong>Automatic Timeout:</strong> Inactive staff terminals are automatically signed out after 8 hours to protect patient data.</p>
                     <p>• <strong>Duty Audits:</strong> Complete transparency of who accessed records at any given point during shifts.</p>
+                    <p>• <strong>Role-Based Access:</strong> Only authorized clinical staff with valid accounts can view patient records.</p>
                   </CardContent>
                 </Card>
               </div>
