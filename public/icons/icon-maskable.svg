@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="MaternalCare Plus">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#D48BA1"/>
+      <stop offset="100%" stop-color="#e6a8bc"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" fill="url(#bg)"/>
+  <g transform="translate(256 256)">
+    <path fill="#fff" transform="scale(2.2) translate(-12 -12)" d="M12 4c-2.5 0-4.5 2-4.5 4.5 0 3.5 4.5 8 4.5 8s4.5-4.5 4.5-8C16.5 6 14.5 4 12 4zm0 6a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zM8 17c-.5 1.5 1 4 3s4.5-1.5 4-3H8z"/>
+  </g>
+</svg>

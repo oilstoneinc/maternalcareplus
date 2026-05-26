@@ -1,6 +1,21 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   serverExternalPackages: ['@neondatabase/serverless'],
+  headers: async () => [
+    {
+      source: '/sw.js',
+      headers: [
+        {
+          key: 'Cache-Control',
+          value: 'public, max-age=0, must-revalidate',
+        },
+        {
+          key: 'Service-Worker-Allowed',
+          value: '/',
+        },
+      ],
+    },
+  ],
   env: {
     NEON_DATABASE_URL: process.env.NEON_DATABASE_URL,
     CLERK_SECRET_KEY: process.env.CLERK_SECRET_KEY,
