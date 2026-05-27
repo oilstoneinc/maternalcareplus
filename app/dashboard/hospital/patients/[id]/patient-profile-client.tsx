@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -606,22 +606,52 @@ export default function PatientProfileClient({ data }: { data: any }) {
                   <p className="text-slate-500 text-center py-6">No lab results or scans recorded yet.</p>
                 ) : (
                   <div className="space-y-4">
-                    {labs.map((lab: any) => (
-                      <div key={lab.id} className="p-4 bg-slate-50 rounded-xl border border-slate-100">
-                        <div className="flex justify-between items-start">
+                    {labs.map((lab: any) => {
+                      const isImg = lab.attachmentUrl && !lab.attachmentUrl.endsWith('.pdf')
+                      return (
+                      <div key={lab.id} className="p-4 bg-slate-50 rounded-xl border border-slate-100 space-y-2">
+                        <div className="flex justify-between items-start gap-2">
                           <p className="font-bold text-slate-900">{lab.testName}</p>
-                          <Badge variant="outline" className="capitalize">{lab.status}</Badge>
+                          <Badge variant="outline" className={`capitalize shrink-0 ${lab.status === 'critical' ? 'border-red-300 bg-red-50 text-red-700' : lab.status === 'abnormal' ? 'border-orange-300 bg-orange-50 text-orange-700' : lab.status === 'completed' ? 'border-green-200 bg-green-50 text-green-700' : ''}`}>{lab.status}</Badge>
                         </div>
-                        <p className="text-sm text-slate-600 mt-2">
+                        <p className="text-sm text-slate-600">
                           {lab.resultValue || 'Pending'}
                           {lab.normalRange && <span className="text-slate-400"> (Ref: {lab.normalRange})</span>}
                         </p>
-                        {lab.interpretation && <p className="text-xs text-slate-500 mt-1">{lab.interpretation}</p>}
-                        <p className="text-[10px] text-slate-400 font-bold mt-2 uppercase">
+                        {lab.interpretation && <p className="text-xs text-slate-500 italic">{lab.interpretation}</p>}
+                        <p className="text-[10px] text-slate-400 font-bold uppercase">
                           {lab.resultDate ? `Result: ${formatDate(lab.resultDate)}` : 'Awaiting results'}
                         </p>
+                        {lab.attachmentUrl && (
+                          <a
+                            href={lab.attachmentUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-2 mt-2 p-2.5 bg-white rounded-xl border border-slate-200 hover:border-[#D48BA1] hover:bg-pink-50/30 transition-all group w-full"
+                          >
+                            {isImg ? (
+                              <img
+                                src={lab.attachmentUrl}
+                                alt={lab.attachmentName || 'Attachment'}
+                                className="w-10 h-10 object-cover rounded-lg border border-slate-100 shrink-0"
+                              />
+                            ) : (
+                              <div className="w-10 h-10 bg-red-50 rounded-lg flex items-center justify-center shrink-0 border border-red-100">
+                                <FileText className="w-5 h-5 text-red-500" />
+                              </div>
+                            )}
+                            <div className="min-w-0 flex-1">
+                              <p className="text-xs font-bold text-slate-700 truncate group-hover:text-[#D48BA1] transition-colors">
+                                {lab.attachmentName || 'View attachment'}
+                              </p>
+                              <p className="text-[10px] text-slate-400">
+                                {isImg ? 'Image · click to view' : 'PDF report · click to open'}
+                              </p>
+                            </div>
+                          </a>
+                        )}
                       </div>
-                    ))}
+                    )})}
                   </div>
                 )}
               </CardContent>
@@ -772,6 +802,7 @@ function QuickVitalsForm({ pregnancyId, onComplete }: { pregnancyId: string; onC
 
 function LabScanForm({ pregnancyId, onComplete }: { pregnancyId: string; onComplete: () => void }) {
   const [loading, setLoading] = useState(false)
+  const [uploading, setUploading] = useState(false)
   const [form, setForm] = useState({
     pregnancyId,
     testType: 'lab' as 'lab' | 'scan',
@@ -781,7 +812,57 @@ function LabScanForm({ pregnancyId, onComplete }: { pregnancyId: string; onCompl
     interpretation: '',
     status: 'completed' as 'pending' | 'completed' | 'abnormal' | 'critical',
     resultDate: '',
+    attachmentUrl: '',
+    attachmentName: '',
   })
+  const [attachmentPreview, setAttachmentPreview] = useState<{
+    url: string
+    name: string
+    type: string
+  } | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    const allowed = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf', 'image/tiff']
+    if (!allowed.includes(file.type)) {
+      alert('Only JPEG, PNG, WEBP, PDF, or TIFF files are allowed.')
+      return
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      alert('File must be under 10 MB.')
+      return
+    }
+
+    setUploading(true)
+    try {
+      const fd = new FormData()
+      fd.append('file', file)
+      fd.append('pregnancyId', pregnancyId)
+      const res = await fetch('/api/upload-attachment', { method: 'POST', body: fd })
+      if (!res.ok) {
+        const err = await res.json()
+        alert(err.error || 'Upload failed')
+        return
+      }
+      const data = await res.json()
+      setForm(f => ({ ...f, attachmentUrl: data.url, attachmentName: data.name }))
+      setAttachmentPreview({ url: data.url, name: data.name, type: file.type })
+    } catch (err) {
+      console.error(err)
+      alert('Upload failed — please try again.')
+    } finally {
+      setUploading(false)
+      if (fileInputRef.current) fileInputRef.current.value = ''
+    }
+  }
+
+  const clearAttachment = () => {
+    setForm(f => ({ ...f, attachmentUrl: '', attachmentName: '' }))
+    setAttachmentPreview(null)
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -795,39 +876,44 @@ function LabScanForm({ pregnancyId, onComplete }: { pregnancyId: string; onCompl
     }
   }
 
+  const isImage = attachmentPreview?.type.startsWith('image/')
+
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
+    <form onSubmit={handleSubmit} className="space-y-5">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">Type</label>
-          <select value={form.testType} onChange={e => setForm({ ...form, testType: e.target.value as 'lab' | 'scan' })} className="w-full border border-slate-200 rounded-lg p-2">
+          <label className="block text-sm font-semibold text-slate-700 mb-1.5">Type</label>
+          <select value={form.testType} onChange={e => setForm({ ...form, testType: e.target.value as 'lab' | 'scan' })} className="w-full border border-slate-200 rounded-xl p-2.5 text-sm bg-white focus:ring-2 focus:ring-[#D48BA1] focus:border-[#D48BA1] outline-none">
             <option value="lab">Laboratory test</option>
             <option value="scan">Ultrasound / scan</option>
           </select>
         </div>
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">Name</label>
-          <input required placeholder="e.g. Hemoglobin, Anatomy scan" value={form.testName} onChange={e => setForm({ ...form, testName: e.target.value })} className="w-full border border-slate-200 rounded-lg p-2" />
+          <label className="block text-sm font-semibold text-slate-700 mb-1.5">Name</label>
+          <input required placeholder="e.g. Hemoglobin, Anatomy scan" value={form.testName} onChange={e => setForm({ ...form, testName: e.target.value })} className="w-full border border-slate-200 rounded-xl p-2.5 text-sm focus:ring-2 focus:ring-[#D48BA1] focus:border-[#D48BA1] outline-none" />
         </div>
       </div>
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">Result</label>
-          <input value={form.resultValue} onChange={e => setForm({ ...form, resultValue: e.target.value })} className="w-full border border-slate-200 rounded-lg p-2" placeholder="Leave empty if pending" />
+          <label className="block text-sm font-semibold text-slate-700 mb-1.5">Result value</label>
+          <input value={form.resultValue} onChange={e => setForm({ ...form, resultValue: e.target.value })} className="w-full border border-slate-200 rounded-xl p-2.5 text-sm focus:ring-2 focus:ring-[#D48BA1] outline-none" placeholder="Leave empty if pending" />
         </div>
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">Reference range</label>
-          <input value={form.normalRange} onChange={e => setForm({ ...form, normalRange: e.target.value })} className="w-full border border-slate-200 rounded-lg p-2" />
+          <label className="block text-sm font-semibold text-slate-700 mb-1.5">Reference range</label>
+          <input value={form.normalRange} onChange={e => setForm({ ...form, normalRange: e.target.value })} className="w-full border border-slate-200 rounded-xl p-2.5 text-sm focus:ring-2 focus:ring-[#D48BA1] outline-none" placeholder="e.g. 11–16 g/dL" />
         </div>
       </div>
+
       <div>
-        <label className="block text-sm font-medium text-slate-700 mb-1">Clinical interpretation</label>
-        <textarea value={form.interpretation} onChange={e => setForm({ ...form, interpretation: e.target.value })} className="w-full border border-slate-200 rounded-lg p-2 min-h-[80px]" />
+        <label className="block text-sm font-semibold text-slate-700 mb-1.5">Clinical interpretation</label>
+        <textarea value={form.interpretation} onChange={e => setForm({ ...form, interpretation: e.target.value })} className="w-full border border-slate-200 rounded-xl p-2.5 text-sm min-h-[80px] focus:ring-2 focus:ring-[#D48BA1] outline-none" placeholder="e.g. Mild anaemia — continue iron supplementation" />
       </div>
+
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">Status</label>
-          <select value={form.status} onChange={e => setForm({ ...form, status: e.target.value as typeof form.status })} className="w-full border border-slate-200 rounded-lg p-2">
+          <label className="block text-sm font-semibold text-slate-700 mb-1.5">Status</label>
+          <select value={form.status} onChange={e => setForm({ ...form, status: e.target.value as typeof form.status })} className="w-full border border-slate-200 rounded-xl p-2.5 text-sm bg-white focus:ring-2 focus:ring-[#D48BA1] outline-none">
             <option value="pending">Pending</option>
             <option value="completed">Completed</option>
             <option value="abnormal">Abnormal</option>
@@ -835,12 +921,87 @@ function LabScanForm({ pregnancyId, onComplete }: { pregnancyId: string; onCompl
           </select>
         </div>
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">Result date</label>
-          <input type="date" value={form.resultDate} onChange={e => setForm({ ...form, resultDate: e.target.value })} className="w-full border border-slate-200 rounded-lg p-2" />
+          <label className="block text-sm font-semibold text-slate-700 mb-1.5">Result date</label>
+          <input type="date" value={form.resultDate} onChange={e => setForm({ ...form, resultDate: e.target.value })} className="w-full border border-slate-200 rounded-xl p-2.5 text-sm focus:ring-2 focus:ring-[#D48BA1] outline-none" />
         </div>
       </div>
-      <Button type="submit" disabled={loading} className="w-full bg-slate-900 text-white font-bold rounded-xl">
-        {loading ? 'Saving...' : 'Save to patient record'}
+
+      {/* File attachment */}
+      <div className="space-y-2">
+        <label className="block text-sm font-semibold text-slate-700">
+          Attachment <span className="font-normal text-slate-400">(optional — PDF report, scan image)</span>
+        </label>
+
+        {!attachmentPreview ? (
+          <div
+            onClick={() => fileInputRef.current?.click()}
+            className="border-2 border-dashed border-slate-200 hover:border-[#D48BA1] rounded-2xl p-6 flex flex-col items-center gap-2 cursor-pointer transition-colors group bg-slate-50/50 hover:bg-pink-50/30"
+          >
+            <div className="w-10 h-10 rounded-xl bg-[#D48BA1]/10 flex items-center justify-center group-hover:bg-[#D48BA1]/20 transition-colors">
+              <FlaskConical className="w-5 h-5 text-[#D48BA1]" />
+            </div>
+            <p className="text-sm font-semibold text-slate-600 group-hover:text-slate-800">
+              {uploading ? 'Uploading…' : 'Click to attach file'}
+            </p>
+            <p className="text-xs text-slate-400 text-center">
+              JPEG, PNG, WEBP, PDF or TIFF · max 10 MB
+            </p>
+            {uploading && (
+              <div className="w-32 h-1.5 bg-slate-200 rounded-full overflow-hidden mt-1">
+                <div className="h-full bg-[#D48BA1] rounded-full animate-pulse w-2/3" />
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="border border-slate-200 rounded-2xl p-4 bg-white flex items-start gap-4 shadow-sm">
+            {isImage ? (
+              <img
+                src={attachmentPreview.url}
+                alt={attachmentPreview.name}
+                className="w-16 h-16 object-cover rounded-xl border border-slate-100 shrink-0"
+              />
+            ) : (
+              <div className="w-16 h-16 bg-red-50 rounded-xl flex items-center justify-center shrink-0 border border-red-100">
+                <FileText className="w-7 h-7 text-red-500" />
+              </div>
+            )}
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-bold text-slate-800 truncate">{attachmentPreview.name}</p>
+              <p className="text-xs text-slate-400 mt-0.5">
+                {isImage ? 'Image' : 'PDF document'} · attached
+              </p>
+              <a
+                href={attachmentPreview.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs font-semibold text-[#D48BA1] hover:underline mt-1 inline-block"
+              >
+                View file →
+              </a>
+            </div>
+            <button
+              type="button"
+              onClick={clearAttachment}
+              className="p-1.5 hover:bg-slate-100 rounded-lg transition-colors shrink-0"
+              title="Remove attachment"
+            >
+              <X className="w-4 h-4 text-slate-400" />
+            </button>
+          </div>
+        )}
+
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".jpg,.jpeg,.png,.webp,.pdf,.tiff,.tif"
+          className="hidden"
+          onChange={handleFileSelect}
+          disabled={uploading}
+        />
+      </div>
+
+      <Button type="submit" disabled={loading || uploading} className="w-full bg-slate-900 text-white font-bold rounded-xl">
+        {loading ? 'Saving…' : 'Save to patient record'}
       </Button>
     </form>
   )

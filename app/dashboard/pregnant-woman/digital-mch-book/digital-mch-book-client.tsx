@@ -673,34 +673,70 @@ export default function DigitalMCHBookClient({
                   <CardDescription>Results and imaging recorded by your hospital</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-3">
-                  {labs.map((lab: any) => (
-                    <div key={lab.id} className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                  {labs.map((lab: any) => {
+                    const isImg = lab.attachmentUrl && !lab.attachmentUrl.endsWith('.pdf')
+                    return (
+                    <div key={lab.id} className="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-2">
                       <div className="flex justify-between items-start gap-2">
                         <p className="font-bold text-slate-800">{lab.testName}</p>
                         <Badge
-                          className={
+                          className={`shrink-0 ${
                             lab.status === 'abnormal' || lab.status === 'critical'
                               ? 'bg-red-100 text-red-800'
                               : lab.status === 'completed'
                                 ? 'bg-green-100 text-green-800'
                                 : 'bg-amber-100 text-amber-800'
-                          }
+                          }`}
                         >
                           {lab.status}
                         </Badge>
                       </div>
-                      <p className="text-sm text-slate-600 mt-2">
+                      <p className="text-sm text-slate-600">
                         {lab.resultValue ? `Result: ${lab.resultValue}` : 'Pending result'}
                         {lab.normalRange && ` (Ref: ${lab.normalRange})`}
                       </p>
                       {lab.interpretation && (
-                        <p className="text-xs text-slate-500 mt-1">{lab.interpretation}</p>
+                        <p className="text-xs text-slate-500 italic">{lab.interpretation}</p>
                       )}
-                      <p className="text-[10px] text-slate-400 font-bold mt-2 uppercase">
+                      <p className="text-[10px] text-slate-400 font-bold uppercase">
                         {lab.resultDate ? `Reported ${formatDate(lab.resultDate)}` : 'Ordered — awaiting results'}
                       </p>
+                      {lab.attachmentUrl && (
+                        <a
+                          href={lab.attachmentUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-3 mt-2 p-3 bg-white rounded-2xl border border-slate-200 hover:border-pink-300 hover:bg-pink-50/30 transition-all group w-full"
+                        >
+                          {isImg ? (
+                            <img
+                              src={lab.attachmentUrl}
+                              alt={lab.attachmentName || 'Scan'}
+                              className="w-12 h-12 object-cover rounded-xl border border-slate-100 shrink-0"
+                            />
+                          ) : (
+                            <div className="w-12 h-12 bg-red-50 rounded-xl flex items-center justify-center shrink-0 border border-red-100">
+                              <svg className="w-6 h-6 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                              </svg>
+                            </div>
+                          )}
+                          <div className="min-w-0 flex-1">
+                            <p className="text-xs font-bold text-slate-700 truncate group-hover:text-pink-600 transition-colors">
+                              {lab.attachmentName || 'View attached report'}
+                            </p>
+                            <p className="text-[10px] text-slate-400 mt-0.5">
+                              {isImg ? '🔬 Scan image · tap to view full size' : '📄 Lab report · tap to open PDF'}
+                            </p>
+                          </div>
+                          <svg className="w-4 h-4 text-slate-300 group-hover:text-pink-400 transition-colors shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                          </svg>
+                        </a>
+                      )}
                     </div>
-                  ))}
+                    )
+                  })}
                   {labs.length === 0 && (
                     <p className="text-center py-8 text-slate-400 italic">No lab tests or scans on file yet.</p>
                   )}

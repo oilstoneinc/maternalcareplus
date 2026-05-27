@@ -1614,6 +1614,8 @@ export async function recordLabOrScan(formData: {
   status?: 'pending' | 'completed' | 'abnormal' | 'critical'
   sampleDate?: string
   resultDate?: string
+  attachmentUrl?: string
+  attachmentName?: string
 }) {
   try {
     const { dbUser } = await requireClinicalStaff()
@@ -1661,6 +1663,8 @@ export async function recordLabOrScan(formData: {
       status,
       orderedBy: dbUser.id,
       performedBy: dbUser.id,
+      attachmentUrl: formData.attachmentUrl || null,
+      attachmentName: formData.attachmentName || null,
     })
 
     await notifyPregnancyUpdate(

@@ -144,6 +144,8 @@ export const labTests = pgTable('lab_tests', {
   interpretation: text('interpretation'), // Clinical interpretation
   orderedBy: uuid('ordered_by').references(() => users.id), // Who ordered the test
   performedBy: uuid('performed_by').references(() => users.id), // Who performed the test
+  attachmentUrl: text('attachment_url'),
+  attachmentName: text('attachment_name'),
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow(),
 })

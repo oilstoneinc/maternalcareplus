@@ -12,6 +12,7 @@ import { searchGlobalPatients, scheduleNextVisit, assignMidwifeToPregnancy, addH
 import SessionTimeoutGuard from '@/components/SessionTimeoutGuard'
 import ShiftCodeGate from '@/components/ShiftCodeGate'
 import FloatingChatWindow from '@/components/dashboard/FloatingChatWindow'
+import { pusherClient } from '@/lib/pusher-client'
 import {
   Dialog,
   DialogContent,
@@ -51,11 +52,13 @@ interface Pregnancy {
   patientUserId: string
   patientName: string
   patientPhone?: string | null
+  patientEmail?: string | null
   gestationalAge: number
   edd: string
   lastVisit: string
   nextVisit: string
-  nextVisitDate?: string | null
+  nextVisitDate?: string | Date | null
+  nextVisitId?: string | null
   assignedStaffId?: string | null
   assignedStaffName?: string | null
   riskLevel: 'low' | 'medium' | 'high'
@@ -81,13 +84,74 @@ export default function HospitalDashboardClient({ user, data }: { user: any, dat
   const [loginLogs, setLoginLogs] = useState<any[]>([])
   const [loadingLogs, setLoadingLogs] = useState(false)
   const [openChats, setOpenChats] = useState<Array<{ id: string; name: string }>>([]) 
+  const [threads, setThreads] = useState<any[]>(data?.messageThreads || [])
+
+  useEffect(() => {
+    if (data?.messageThreads) {
+      setThreads(data.messageThreads)
+    }
+  }, [data?.messageThreads])
 
   const openFloatingChat = (patientUserId: string, patientName: string) => {
     setOpenChats(prev => {
       if (prev.some(c => c.id === patientUserId)) return prev
       return [...prev, { id: patientUserId, name: patientName }]
     })
+    setThreads(prev => prev.map(t => 
+      t.patientUserId === patientUserId ? { ...t, unreadCount: 0 } : t
+    ))
   }
+
+  useEffect(() => {
+    const userId = data?.dbUser?.id
+    if (!userId || !process.env.NEXT_PUBLIC_PUSHER_APP_KEY || process.env.NEXT_PUBLIC_PUSHER_APP_KEY === 'dummy_key') {
+      return
+    }
+
+    const channelName = `chat-${userId}`
+    const channel = pusherClient.subscribe(channelName)
+
+    const onNewMessage = (msg: any) => {
+      setThreads((prev) => {
+        const patientId = msg.senderId === userId ? msg.receiverId : msg.senderId
+        const patientObj = data?.patients?.find((p: any) => p.id === patientId)
+        const patientName = patientObj 
+          ? `${patientObj.firstName} ${patientObj.lastName}`.trim() 
+          : 'Patient'
+
+        const existingIdx = prev.findIndex((t) => t.patientUserId === patientId)
+        const isChatOpen = openChats.some((c) => c.id === patientId)
+
+        if (existingIdx > -1) {
+          const updated = [...prev]
+          updated[existingIdx] = {
+            ...updated[existingIdx],
+            lastMessage: msg.content,
+            lastMessageAt: msg.createdAt,
+            unreadCount: isChatOpen ? 0 : (updated[existingIdx].unreadCount || 0) + (msg.senderId !== userId ? 1 : 0),
+          }
+          const item = updated.splice(existingIdx, 1)[0]
+          return [item, ...updated]
+        } else {
+          return [{
+            patientUserId: patientId,
+            patientName,
+            lastMessage: msg.content,
+            lastMessageAt: msg.createdAt,
+            unreadCount: isChatOpen ? 0 : (msg.senderId !== userId ? 1 : 0),
+            assignedStaffName: null
+          }, ...prev]
+        }
+      })
+    }
+
+    channel.bind('new-message', onNewMessage)
+
+    return () => {
+      channel.unbind('new-message', onNewMessage)
+      pusherClient.unsubscribe(channelName)
+    }
+  }, [data?.dbUser?.id, data?.patients, openChats])
 
   useEffect(() => {
     if (activeTab === 'staff') {
@@ -466,14 +530,14 @@ export default function HospitalDashboardClient({ user, data }: { user: any, dat
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="messages" className="relative">
               Messages
-              {(data?.messageThreads || []).some((t: { unreadCount: number }) => t.unreadCount > 0) && (
+              {(threads || []).some((t: { unreadCount: number }) => t.unreadCount > 0) && (
                 <span className="ml-1.5 min-w-[18px] h-[18px] px-1 rounded-full bg-[#D48BA1] text-white text-[10px] font-bold inline-flex items-center justify-center">
-                  {(data?.messageThreads || []).reduce(
+                  {(threads || []).reduce(
                     (sum: number, t: { unreadCount: number }) => sum + (t.unreadCount || 0),
                     0
                   ) > 9
                     ? '9+'
-                    : (data?.messageThreads || []).reduce(
+                    : (threads || []).reduce(
                         (sum: number, t: { unreadCount: number }) => sum + (t.unreadCount || 0),
                         0
                       )}
@@ -631,7 +695,7 @@ export default function HospitalDashboardClient({ user, data }: { user: any, dat
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                {(data?.messageThreads || []).length === 0 ? (
+                {(threads || []).length === 0 ? (
                   <div className="text-center py-10 text-slate-500">
                     <MessageCircle className="w-12 h-12 mx-auto mb-3 opacity-30" />
                     <p className="font-medium">No patient messages yet</p>
@@ -641,7 +705,7 @@ export default function HospitalDashboardClient({ user, data }: { user: any, dat
                   </div>
                 ) : (
                   <div className="space-y-2">
-                    {(data?.messageThreads || []).map((thread: {
+                    {(threads || []).map((thread: {
                       patientUserId: string
                       patientName: string
                       pregnancyId: string

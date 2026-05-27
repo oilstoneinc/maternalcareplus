@@ -146,6 +146,8 @@ export async function ensureMCHSchema() {
         "created_at" timestamp DEFAULT now()
       )
     `,
+    sql`ALTER TABLE "lab_tests" ADD COLUMN IF NOT EXISTS "attachment_url" text`,
+    sql`ALTER TABLE "lab_tests" ADD COLUMN IF NOT EXISTS "attachment_name" text`,
   ]
 
   for (const statement of statements) {
