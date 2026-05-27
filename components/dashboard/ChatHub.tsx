@@ -51,17 +51,42 @@ export default function ChatHub({
     let cancelled = false
 
     const fetchMsgs = async () => {
-      const data = await getMessages(otherUserId)
-      if (!cancelled) {
-        setMsgs(data as Msg[])
-        setIsLoading(false)
+      try {
+        const data = await getMessages(otherUserId)
+        if (!cancelled) {
+          setMsgs(data as Msg[])
+          setIsLoading(false)
+        }
+      } catch (err) {
+        console.error('Failed to load messages:', err)
+        if (!cancelled) setIsLoading(false)
       }
     }
     fetchMsgs()
 
+    // Polling fallback: fetch new messages every 3 seconds to guarantee real-time updates
+    const pollInterval = setInterval(async () => {
+      if (cancelled) return
+      try {
+        const data = await getMessages(otherUserId)
+        if (!cancelled && data) {
+          setMsgs((prev) => {
+            const newMsgs = data as Msg[]
+            if (prev.length === newMsgs.length && prev[prev.length - 1]?.id === newMsgs[newMsgs.length - 1]?.id) {
+              return prev
+            }
+            return newMsgs
+          })
+        }
+      } catch (err) {
+        console.error('Message polling failed:', err)
+      }
+    }, 3000)
+
     if (!pusherEnabled) {
       return () => {
         cancelled = true
+        clearInterval(pollInterval)
       }
     }
 
@@ -78,6 +103,7 @@ export default function ChatHub({
 
     return () => {
       cancelled = true
+      clearInterval(pollInterval)
       channel.unbind('new-message', onNewMessage)
       pusherClient.unsubscribe(channelName)
     }

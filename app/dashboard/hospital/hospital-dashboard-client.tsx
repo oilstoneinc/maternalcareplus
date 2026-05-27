@@ -8,7 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import Link from 'next/link'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
-import { searchGlobalPatients, scheduleNextVisit, assignMidwifeToPregnancy, addHospitalStaffMember, exportHospitalPatientsCsv, removeHospitalStaffMember, getHospitalStaffLoginHistory, generateHospitalShiftCode } from '@/app/actions'
+import { searchGlobalPatients, scheduleNextVisit, assignMidwifeToPregnancy, addHospitalStaffMember, exportHospitalPatientsCsv, removeHospitalStaffMember, getHospitalStaffLoginHistory, generateHospitalShiftCode, getHospitalMessageThreads } from '@/app/actions'
 import SessionTimeoutGuard from '@/components/SessionTimeoutGuard'
 import ShiftCodeGate from '@/components/ShiftCodeGate'
 import FloatingChatWindow from '@/components/dashboard/FloatingChatWindow'
@@ -152,6 +152,33 @@ export default function HospitalDashboardClient({ user, data }: { user: any, dat
       pusherClient.unsubscribe(channelName)
     }
   }, [data?.dbUser?.id, data?.patients, openChats])
+
+  useEffect(() => {
+    let cancelled = false
+    const pollThreads = async () => {
+      try {
+        const freshThreads = await getHospitalMessageThreads()
+        if (!cancelled && freshThreads) {
+          setThreads((prev) => {
+            // Compare lengths and values to prevent unnecessary state triggers
+            if (prev.length === freshThreads.length && JSON.stringify(prev) === JSON.stringify(freshThreads)) {
+              return prev
+            }
+            return freshThreads
+          })
+        }
+      } catch (err) {
+        console.error('Polling hospital threads failed:', err)
+      }
+    }
+
+    const interval = setInterval(pollThreads, 10000) // Poll thread metadata every 10 seconds
+
+    return () => {
+      cancelled = true
+      clearInterval(interval)
+    }
+  }, [])
 
   useEffect(() => {
     if (activeTab === 'staff') {
