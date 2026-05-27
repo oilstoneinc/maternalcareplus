@@ -40,7 +40,8 @@ import {
   Clock,
   Lock,
   RefreshCw,
-  LogOut
+  LogOut,
+  CheckCircle2
 } from 'lucide-react'
 
 interface Pregnancy {
@@ -88,22 +89,72 @@ export default function HospitalDashboardClient({ user, data }: { user: any, dat
     }
   }, [activeTab])
 
-  const handleDeleteStaff = async (staffId: string) => {
-    if (!window.confirm('Are you sure you want to remove this staff member from your facility? This will revoke their Clerk login access immediately.')) {
-      return
-    }
-    try {
-      const res = await removeHospitalStaffMember(staffId)
-      if (res.success) {
-        alert('Staff member removed successfully.')
-        router.refresh()
-      } else {
-        alert(res.error || 'Failed to remove staff member')
+  // Confirm Dialog State
+  const [confirmState, setConfirmState] = useState<{
+    isOpen: boolean;
+    title: string;
+    description: string;
+    confirmText: string;
+    onConfirm: () => void | Promise<void>;
+    confirmBtnClass?: string;
+  }>({
+    isOpen: false,
+    title: '',
+    description: '',
+    confirmText: 'Confirm',
+    onConfirm: () => {},
+  })
+
+  // Alert Dialog State (replaces standard window.alert)
+  const [alertState, setAlertState] = useState<{
+    isOpen: boolean;
+    title: string;
+    description: string;
+    type: 'success' | 'error' | 'info';
+  }>({
+    isOpen: false,
+    title: '',
+    description: '',
+    type: 'info',
+  })
+
+  const handleDeleteStaff = (staffId: string) => {
+    setConfirmState({
+      isOpen: true,
+      title: 'Remove Staff Member',
+      description: 'Are you sure you want to remove this staff member from your facility? This will revoke their Clerk login access immediately.',
+      confirmText: 'Yes, Remove Staff',
+      confirmBtnClass: 'bg-rose-600 hover:bg-rose-700 text-white',
+      onConfirm: async () => {
+        try {
+          const res = await removeHospitalStaffMember(staffId)
+          if (res.success) {
+            setAlertState({
+              isOpen: true,
+              title: 'Staff Removed',
+              description: 'The staff member has been removed successfully.',
+              type: 'success'
+            })
+            router.refresh()
+          } else {
+            setAlertState({
+              isOpen: true,
+              title: 'Error',
+              description: res.error || 'Failed to remove staff member',
+              type: 'error'
+            })
+          }
+        } catch (err) {
+          console.error(err)
+          setAlertState({
+            isOpen: true,
+            title: 'Error',
+            description: 'An error occurred while removing the staff member.',
+            type: 'error'
+          })
+        }
       }
-    } catch (err) {
-      console.error(err)
-      alert('Error removing staff member')
-    }
+    })
   }
   const careStaff: { id: string; firstName: string; lastName: string; role: string }[] =
     data?.careStaff || []
@@ -1075,21 +1126,45 @@ export default function HospitalDashboardClient({ user, data }: { user: any, dat
                     </div>
 
                     <Button
-                      onClick={async () => {
-                        const confirmCmd = window.confirm('Generate a new shift code? This will require staff on duty to re-verify using the new code.')
-                        if (!confirmCmd) return
-                        try {
-                          const res = await generateHospitalShiftCode()
-                          if (res.success && res.shiftCode) {
-                            alert(`New Daily Shift Code generated: ${res.shiftCode}`)
-                            window.location.reload()
-                          } else {
-                            alert(res.error || 'Failed to generate shift code')
+                      onClick={() => {
+                        setConfirmState({
+                          isOpen: true,
+                          title: 'Generate Shift Code',
+                          description: 'Generate a new daily shift code? This will require staff on duty to re-verify using the new code.',
+                          confirmText: 'Generate Code',
+                          confirmBtnClass: 'bg-teal-600 hover:bg-teal-700 text-white',
+                          onConfirm: async () => {
+                            try {
+                              const res = await generateHospitalShiftCode()
+                              if (res.success && res.shiftCode) {
+                                setAlertState({
+                                  isOpen: true,
+                                  title: 'Code Generated',
+                                  description: `New Daily Shift Code generated: ${res.shiftCode}`,
+                                  type: 'success'
+                                })
+                                setTimeout(() => {
+                                  window.location.reload()
+                                }, 2000)
+                              } else {
+                                setAlertState({
+                                  isOpen: true,
+                                  title: 'Error',
+                                  description: res.error || 'Failed to generate shift code',
+                                  type: 'error'
+                                })
+                              }
+                            } catch (err) {
+                              console.error(err)
+                              setAlertState({
+                                  isOpen: true,
+                                  title: 'Error',
+                                  description: 'Error generating shift code',
+                                  type: 'error'
+                                })
+                            }
                           }
-                        } catch (err) {
-                          console.error(err)
-                          alert('Error generating shift code')
-                        }
+                        })
                       }}
                       className="w-full bg-teal-600 hover:bg-teal-700 font-bold py-6 rounded-2xl shadow-xl shadow-teal-500/10 flex items-center justify-center gap-2"
                     >
@@ -1223,6 +1298,77 @@ export default function HospitalDashboardClient({ user, data }: { user: any, dat
           </form>
         </DialogContent>
       </Dialog>
+
+      {/* ── Custom Confirm Dialog ── */}
+      <Dialog open={confirmState.isOpen} onOpenChange={(open) => !open && setConfirmState(s => ({ ...s, isOpen: false }))}>
+        <DialogContent className="sm:max-w-md rounded-3xl border-0 shadow-2xl p-0 overflow-hidden">
+          <div className="h-1.5 bg-gradient-to-r from-rose-400 via-rose-500 to-rose-600" />
+          <div className="p-8">
+            <DialogHeader className="mb-6">
+              <DialogTitle className="text-xl font-black text-slate-900 flex items-center gap-3">
+                <span className="h-10 w-10 rounded-2xl bg-rose-50 flex items-center justify-center border border-rose-100">
+                  <AlertTriangle className="h-5 w-5 text-rose-500" />
+                </span>
+                {confirmState.title}
+              </DialogTitle>
+              <DialogDescription className="text-slate-600 text-sm leading-relaxed mt-3 font-medium">
+                {confirmState.description}
+              </DialogDescription>
+            </DialogHeader>
+            <div className="flex gap-3 justify-end">
+              <Button
+                variant="outline"
+                className="rounded-xl border-slate-200 font-bold text-slate-600 hover:bg-slate-50"
+                onClick={() => setConfirmState(s => ({ ...s, isOpen: false }))}
+              >
+                Cancel
+              </Button>
+              <Button
+                className={`rounded-xl font-bold ${confirmState.confirmBtnClass || 'bg-rose-600 hover:bg-rose-700 text-white'}`}
+                onClick={async () => {
+                  setConfirmState(s => ({ ...s, isOpen: false }))
+                  await confirmState.onConfirm()
+                }}
+              >
+                {confirmState.confirmText}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Custom Alert Dialog ── */}
+      <Dialog open={alertState.isOpen} onOpenChange={(open) => !open && setAlertState(s => ({ ...s, isOpen: false }))}>
+        <DialogContent className="sm:max-w-sm rounded-3xl border-0 shadow-2xl p-0 overflow-hidden">
+          <div className={`h-1.5 ${alertState.type === 'success' ? 'bg-gradient-to-r from-teal-400 to-emerald-500' : alertState.type === 'error' ? 'bg-gradient-to-r from-rose-400 to-rose-600' : 'bg-gradient-to-r from-blue-400 to-blue-600'}`} />
+          <div className="p-8">
+            <DialogHeader className="mb-6">
+              <DialogTitle className="text-xl font-black text-slate-900 flex items-center gap-3">
+                <span className={`h-10 w-10 rounded-2xl flex items-center justify-center border ${alertState.type === 'success' ? 'bg-teal-50 border-teal-100' : alertState.type === 'error' ? 'bg-rose-50 border-rose-100' : 'bg-blue-50 border-blue-100'}`}>
+                  {alertState.type === 'success'
+                    ? <CheckCircle2 className="h-5 w-5 text-teal-500" />
+                    : alertState.type === 'error'
+                    ? <AlertTriangle className="h-5 w-5 text-rose-500" />
+                    : <ShieldAlert className="h-5 w-5 text-blue-500" />}
+                </span>
+                {alertState.title}
+              </DialogTitle>
+              <DialogDescription className="text-slate-600 text-sm leading-relaxed mt-2 font-medium">
+                {alertState.description}
+              </DialogDescription>
+            </DialogHeader>
+            <div className="flex justify-end">
+              <Button
+                className={`rounded-xl font-bold ${alertState.type === 'success' ? 'bg-teal-600 hover:bg-teal-700 text-white' : alertState.type === 'error' ? 'bg-rose-600 hover:bg-rose-700 text-white' : 'bg-blue-600 hover:bg-blue-700 text-white'}`}
+                onClick={() => setAlertState(s => ({ ...s, isOpen: false }))}
+              >
+                OK
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
     </div>
     </ShiftCodeGate>
     </SessionTimeoutGuard>
