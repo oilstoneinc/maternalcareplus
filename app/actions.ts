@@ -104,9 +104,35 @@ async function requireClinicalStaff() {
   const user = await currentUser()
   if (!user) throw new Error('Unauthorized')
 
-  const dbUser = await db.query.users.findFirst({
+  let dbUser = await db.query.users.findFirst({
     where: eq(users.clerkId, user.id),
   })
+
+  // Self-healing fallback: match by email address
+  if (!dbUser && user.emailAddresses?.[0]?.emailAddress) {
+    const primaryEmail = user.emailAddresses[0].emailAddress.trim().toLowerCase()
+    dbUser = await db.query.users.findFirst({
+      where: eq(users.email, primaryEmail),
+    })
+
+    if (dbUser) {
+      console.log(`[requireClinicalStaff] SELF-HEALING: Matching pre-registered user ${dbUser.id} to clerkId ${user.id}`)
+      await db.update(users)
+        .set({
+          clerkId: user.id,
+          isVerified: true,
+          firstName: user.firstName || dbUser.firstName,
+          lastName: user.lastName || dbUser.lastName,
+          updatedAt: new Date(),
+        })
+        .where(eq(users.id, dbUser.id))
+      
+      // Fetch the freshly updated user record
+      dbUser = await db.query.users.findFirst({
+        where: eq(users.clerkId, user.id),
+      })
+    }
+  }
 
   if (
     !dbUser ||
@@ -1257,9 +1283,26 @@ export async function recordVitals(formData: {
     const { dbUser } = await requireClinicalStaff()
     await ensureMCHSchema()
 
-    const pregnancyId = formData.pregnancyId
+    let pregnancyId = formData.pregnancyId
     const bpSys = parseIntOrNull(formData.bpSystolic)
     const bpDia = parseIntOrNull(formData.bpDiastolic)
+
+    // Self-healing fallback: If passed a userId instead of a pregnancyId, look up their active pregnancy
+    const existingPregnancy = await db.query.pregnancies.findFirst({
+      where: eq(pregnancies.id, pregnancyId),
+    })
+    if (!existingPregnancy) {
+      const activePreg = await db.query.pregnancies.findFirst({
+        where: and(
+          eq(pregnancies.userId, pregnancyId),
+          eq(pregnancies.status, 'active')
+        )
+      })
+      if (activePreg) {
+        console.log(`[recordVitals] SELF-HEALING: Resolved passed userId ${pregnancyId} to active pregnancyId ${activePreg.id}`)
+        pregnancyId = activePreg.id
+      }
+    }
 
     await db.insert(vitalSigns).values({
       pregnancyId,
@@ -1405,7 +1448,7 @@ export async function recordAntenatalVisit(formData: any) {
     const { dbUser } = await requireClinicalStaff()
     await ensureMCHSchema()
 
-    const pregnancyId = formData.pregnancyId as string
+    let pregnancyId = formData.pregnancyId as string
     const hospitalId = formData.hospitalId as string
     const gestationalAge = parseIntOrNull(formData.gestationalAge)
     const bpSys = parseIntOrNull(formData.bpSystolic)
@@ -1413,9 +1456,25 @@ export async function recordAntenatalVisit(formData: any) {
     const fhr = parseIntOrNull(formData.fhr)
     const heartRate = parseIntOrNull(formData.heartRate)
 
-    const existingPregnancy = await db.query.pregnancies.findFirst({
+    let existingPregnancy = await db.query.pregnancies.findFirst({
       where: eq(pregnancies.id, pregnancyId),
     })
+
+    // Self-healing fallback: If the midwife client passed a userId instead of a pregnancyId, look up their active pregnancy
+    if (!existingPregnancy) {
+      existingPregnancy = await db.query.pregnancies.findFirst({
+        where: and(
+          eq(pregnancies.userId, pregnancyId),
+          eq(pregnancies.status, 'active')
+        )
+      })
+      if (existingPregnancy) {
+        console.log(`[recordAntenatalVisit] SELF-HEALING: Resolved passed userId ${pregnancyId} to active pregnancyId ${existingPregnancy.id}`)
+        pregnancyId = existingPregnancy.id
+      } else {
+        throw new Error('Active pregnancy record not found for this patient')
+      }
+    }
 
     const pregnancyUpdate: Partial<typeof pregnancies.$inferInsert> = {}
     if (formData.medicalHistory) pregnancyUpdate.medicalHistory = formData.medicalHistory
@@ -1522,10 +1581,27 @@ export async function recordLabOrScan(formData: {
     const { dbUser } = await requireClinicalStaff()
     await ensureMCHSchema()
 
-    const pregnancyId = formData.pregnancyId
+    let pregnancyId = formData.pregnancyId
     const isScan = formData.testType === 'scan'
     const testName = formData.testName?.trim()
     if (!testName) return { success: false, error: 'Test or scan name is required' }
+
+    // Self-healing fallback: If passed a userId instead of a pregnancyId, look up their active pregnancy
+    const existingPregnancy = await db.query.pregnancies.findFirst({
+      where: eq(pregnancies.id, pregnancyId),
+    })
+    if (!existingPregnancy) {
+      const activePreg = await db.query.pregnancies.findFirst({
+        where: and(
+          eq(pregnancies.userId, pregnancyId),
+          eq(pregnancies.status, 'active')
+        )
+      })
+      if (activePreg) {
+        console.log(`[recordLabOrScan] SELF-HEALING: Resolved passed userId ${pregnancyId} to active pregnancyId ${activePreg.id}`)
+        pregnancyId = activePreg.id
+      }
+    }
 
     const status = formData.status || (formData.resultValue ? 'completed' : 'pending')
     const now = new Date()
