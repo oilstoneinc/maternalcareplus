@@ -8,7 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import Link from 'next/link'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
-import { searchGlobalPatients, scheduleNextVisit, assignMidwifeToPregnancy, addHospitalStaffMember, exportHospitalPatientsCsv, removeHospitalStaffMember, getHospitalStaffLoginHistory, generateHospitalShiftCode, getHospitalMessageThreads } from '@/app/actions'
+import { searchGlobalPatients, scheduleNextVisit, assignMidwifeToPregnancy, addHospitalStaffMember, exportHospitalPatientsCsv, removeHospitalStaffMember, getHospitalStaffLoginHistory, generateHospitalShiftCode, getHospitalMessageThreads, forceSignOutStaffSession } from '@/app/actions'
 import SessionTimeoutGuard from '@/components/SessionTimeoutGuard'
 import ShiftCodeGate from '@/components/ShiftCodeGate'
 import FloatingChatWindow from '@/components/dashboard/FloatingChatWindow'
@@ -83,8 +83,31 @@ export default function HospitalDashboardClient({ user, data }: { user: any, dat
   const [activeTab, setActiveTab] = useState('overview')
   const [loginLogs, setLoginLogs] = useState<any[]>([])
   const [loadingLogs, setLoadingLogs] = useState(false)
+  const [isSigningOutStaff, setIsSigningOutStaff] = useState<string | null>(null)
   const [openChats, setOpenChats] = useState<Array<{ id: string; name: string }>>([]) 
   const [threads, setThreads] = useState<any[]>(data?.messageThreads || [])
+
+  const handleForceSignOut = async (logId: string) => {
+    if (!confirm("Are you sure you want to end this staff member's shift? They will be signed out and required to re-verify their shift code for any future clinical actions.")) {
+      return
+    }
+    setIsSigningOutStaff(logId)
+    try {
+      const res = await forceSignOutStaffSession(logId)
+      if (res.success) {
+        // Refresh security logs
+        const freshLogs = await getHospitalStaffLoginHistory()
+        setLoginLogs(freshLogs)
+      } else {
+        alert(res.error || 'Failed to sign out staff')
+      }
+    } catch (err) {
+      console.error(err)
+      alert('Error signing out staff')
+    } finally {
+      setIsSigningOutStaff(null)
+    }
+  }
 
   useEffect(() => {
     if (data?.messageThreads) {
@@ -1242,6 +1265,7 @@ export default function HospitalDashboardClient({ user, data }: { user: any, dat
                               <th className="px-4 py-3">Logged Out</th>
                               <th className="px-4 py-3">Duty Duration</th>
                               <th className="px-4 py-3">Status</th>
+                              <th className="px-4 py-3 text-right">Actions</th>
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-slate-100 text-sm">
@@ -1288,12 +1312,25 @@ export default function HospitalDashboardClient({ user, data }: { user: any, dat
                                     <Badge 
                                       className={
                                         log.status === 'active' 
-                                          ? 'bg-teal-50 text-teal-700 border border-teal-200' 
+                                          ? 'bg-teal-50 text-teal-700 border border-teal-200 animate-pulse' 
                                           : 'bg-slate-100 text-slate-700 border border-slate-200'
                                       }
                                     >
-                                      {log.status}
+                                      {log.status === 'active' ? 'On Duty' : 'Shift Ended'}
                                     </Badge>
+                                  </td>
+                                  <td className="px-4 py-3 text-right">
+                                    {log.status === 'active' ? (
+                                      <button
+                                        disabled={isSigningOutStaff === log.id}
+                                        onClick={() => handleForceSignOut(log.id)}
+                                        className="px-3 py-1.5 bg-rose-50 text-rose-700 hover:bg-rose-100 border border-rose-200 rounded-lg text-xs font-bold transition-all shadow-sm"
+                                      >
+                                        {isSigningOutStaff === log.id ? 'Signing Out...' : 'Sign Out Staff'}
+                                      </button>
+                                    ) : (
+                                      <span className="text-[10px] text-slate-400 font-medium italic">Closed</span>
+                                    )}
                                   </td>
                                 </tr>
                               )

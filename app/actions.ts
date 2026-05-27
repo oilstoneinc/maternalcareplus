@@ -1,7 +1,7 @@
 'use server'
 
 import { db } from '@/lib/db'
-import { users, pregnancies, appointments, labTests, partnerAccess, messages, User, NewUser, NewPregnancy, NewMessage, hospitals, vitalSigns, previousPregnancies, deliveries, postnatalCare, children, immunizations, childGrowth, hospitalInvites, partnershipRequests, notifications, staffLoginLogs } from '@/lib/db/schema'
+import { users, pregnancies, appointments, labTests, partnerAccess, messages, User, NewUser, NewPregnancy, NewMessage, hospitals, vitalSigns, previousPregnancies, deliveries, postnatalCare, children, immunizations, childGrowth, hospitalInvites, partnershipRequests, notifications, staffLoginLogs, hospitalCareEncounters } from '@/lib/db/schema'
 import {
   recordFacilityCareEvent,
   getHospitalCareHistory,
@@ -10,7 +10,7 @@ import {
 } from '@/lib/hospital-care-history'
 import { currentUser, clerkClient } from '@clerk/nextjs/server'
 import { HospitalDashboardData, DashboardData, Message } from '@/types'
-import { eq, desc, asc, and, or, sql, ilike, inArray } from 'drizzle-orm'
+import { eq, desc, asc, and, or, sql, ilike, inArray, gte, lt } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 import { notifyPregnancyUpdate } from '@/lib/pusher-notify'
 import { notifyPatientForPregnancy } from '@/lib/patient-notifications'
@@ -3421,4 +3421,215 @@ export async function getHospitalStaffLoginHistory() {
     return []
   }
 }
+
+/**
+ * Force sign out a clinical staff member (e.g. by hospital admin)
+ */
+export async function forceSignOutStaffSession(logId: string) {
+  try {
+    const { dbUser } = await requireClinicalStaff()
+    if (dbUser.role !== 'hospital_staff' && dbUser.role !== 'admin') {
+      return { success: false, error: 'Only hospital administrators can sign out staff.' }
+    }
+
+    // Find the login log
+    const log = await db.query.staffLoginLogs.findFirst({
+      where: eq(staffLoginLogs.id, logId)
+    })
+
+    if (!log) {
+      return { success: false, error: 'Shift record not found.' }
+    }
+
+    // Enforce facility boundary
+    if (log.hospitalId !== dbUser.hospitalId) {
+      return { success: false, error: 'Unauthorized facility access.' }
+    }
+
+    if (log.status !== 'active') {
+      return { success: true, message: 'Shift is already ended.' }
+    }
+
+    const logoutTime = new Date()
+    const duration = Math.max(0, Math.floor((logoutTime.getTime() - log.loginTime.getTime()) / 1000))
+
+    // Update session log
+    await db
+      .update(staffLoginLogs)
+      .set({
+        logoutTime,
+        sessionDuration: duration,
+        status: 'logged_out',
+      })
+      .where(eq(staffLoginLogs.id, logId))
+
+    // Reset user's daily shift verification state
+    await db
+      .update(users)
+      .set({
+        lastShiftCodeVerified: null,
+        lastShiftCodeVerifiedAt: null,
+        updatedAt: new Date(),
+      })
+      .where(eq(users.id, log.userId))
+
+    revalidatePath('/dashboard/hospital')
+    revalidatePath('/dashboard/midwife')
+
+    return { success: true }
+  } catch (err: unknown) {
+    console.error('forceSignOutStaffSession error:', err)
+    return { success: false, error: 'Failed to force sign out staff' }
+  }
+}
+
+/**
+ * Generates system-wide monthly clinical and duty audit reports for administrators
+ */
+export async function getMonthlyAuditReport(year: number, month: number) {
+  try {
+    const user = await currentUser()
+    if (!user) throw new Error('Unauthorized')
+
+    const dbUser = await db.query.users.findFirst({
+      where: eq(users.clerkId, user.id),
+    })
+
+    if (!dbUser || dbUser.role !== 'admin') {
+      throw new Error('Only central administrators can access system-wide audit reports.')
+    }
+
+    const startDate = new Date(year, month - 1, 1)
+    const endDate = new Date(year, month, 1)
+
+    // 1. Fetch clinical encounters for the month
+    const encountersRaw = await db
+      .select({
+        id: hospitalCareEncounters.id,
+        action: hospitalCareEncounters.action,
+        summary: hospitalCareEncounters.summary,
+        createdAt: hospitalCareEncounters.createdAt,
+        isVisitingFacility: hospitalCareEncounters.isVisitingFacility,
+        staffUserId: hospitalCareEncounters.staffUserId,
+        patientName: sql<string>`concat(${users.firstName}, ' ', ${users.lastName})`,
+        patientEmail: users.email,
+        hospitalName: hospitals.name,
+      })
+      .from(hospitalCareEncounters)
+      .innerJoin(users, eq(hospitalCareEncounters.patientUserId, users.id))
+      .innerJoin(hospitals, eq(hospitalCareEncounters.hospitalId, hospitals.id))
+      .where(
+        and(
+          gte(hospitalCareEncounters.createdAt, startDate),
+          lt(hospitalCareEncounters.createdAt, endDate)
+        )
+      )
+      .orderBy(desc(hospitalCareEncounters.createdAt))
+
+    // 2. Fetch staff duty logs for the month
+    const staffLogs = await db
+      .select({
+        id: staffLoginLogs.id,
+        loginTime: staffLoginLogs.loginTime,
+        logoutTime: staffLoginLogs.logoutTime,
+        sessionDuration: staffLoginLogs.sessionDuration,
+        status: staffLoginLogs.status,
+        staffName: sql<string>`concat(${users.firstName}, ' ', ${users.lastName})`,
+        staffRole: users.role,
+        staffEmail: users.email,
+        hospitalName: hospitals.name,
+      })
+      .from(staffLoginLogs)
+      .innerJoin(users, eq(staffLoginLogs.userId, users.id))
+      .innerJoin(hospitals, eq(staffLoginLogs.hospitalId, hospitals.id))
+      .where(
+        and(
+          gte(staffLoginLogs.loginTime, startDate),
+          lt(staffLoginLogs.loginTime, endDate)
+        )
+      )
+      .orderBy(desc(staffLoginLogs.loginTime))
+
+    // 3. Fetch all clinical staff names for quick lookup mapping
+    const staffProfiles = await db
+      .select({
+        id: users.id,
+        name: sql<string>`concat(${users.firstName}, ' ', ${users.lastName})`,
+        role: users.role,
+      })
+      .from(users)
+
+    const staffMap = new Map(staffProfiles.map((s) => [s.id, s]))
+
+    const encounters = encountersRaw.map((enc) => {
+      const staff = enc.staffUserId ? staffMap.get(enc.staffUserId) : null
+      return {
+        ...enc,
+        staffName: staff ? staff.name : 'Unknown/System',
+        staffRole: staff ? staff.role : 'System',
+      }
+    })
+
+    // 4. Monthly metrics summaries
+    const newPregnanciesCount = await db
+      .select({ count: sql`count(*)` })
+      .from(pregnancies)
+      .where(
+        and(
+          gte(pregnancies.createdAt, startDate),
+          lt(pregnancies.createdAt, endDate)
+        )
+      )
+
+    const completedLabsCount = await db
+      .select({ count: sql`count(*)` })
+      .from(labTests)
+      .where(
+        and(
+          gte(labTests.resultDate, startDate),
+          lt(labTests.resultDate, endDate),
+          eq(labTests.status, 'completed')
+        )
+      )
+
+    const criticalAlertsCount = await db
+      .select({ count: sql`count(*)` })
+      .from(labTests)
+      .where(
+        and(
+          gte(labTests.resultDate, startDate),
+          lt(labTests.resultDate, endDate),
+          or(eq(labTests.status, 'abnormal'), eq(labTests.status, 'critical'))
+        )
+      )
+
+    return JSON.parse(
+      JSON.stringify({
+        encounters,
+        staffLogs,
+        metrics: {
+          encountersCount: encounters.length,
+          staffLogsCount: staffLogs.length,
+          newPregnancies: Number(newPregnanciesCount[0]?.count || 0),
+          completedLabs: Number(completedLabsCount[0]?.count || 0),
+          criticalAlerts: Number(criticalAlertsCount[0]?.count || 0),
+        },
+      })
+    )
+  } catch (err: unknown) {
+    console.error('getMonthlyAuditReport error:', err)
+    return {
+      encounters: [],
+      staffLogs: [],
+      metrics: {
+        encountersCount: 0,
+        staffLogsCount: 0,
+        newPregnancies: 0,
+        completedLabs: 0,
+        criticalAlerts: 0,
+      },
+    }
+  }
+}
+
 
