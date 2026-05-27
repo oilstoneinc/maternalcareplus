@@ -330,9 +330,35 @@ export async function getHospitalDashboardData(): Promise<HospitalDashboardData 
     }
 
     // Get user and verify hospital_staff role
-    const dbUser = await db.query.users.findFirst({
+    let dbUser = await db.query.users.findFirst({
       where: eq(users.clerkId, user.id),
     })
+
+    // Self-healing fallback: match by email address
+    if (!dbUser && user.emailAddresses?.[0]?.emailAddress) {
+      const primaryEmail = user.emailAddresses[0].emailAddress.trim().toLowerCase()
+      dbUser = await db.query.users.findFirst({
+        where: eq(users.email, primaryEmail),
+      })
+
+      if (dbUser) {
+        console.log(`[getHospitalDashboardData] SELF-HEALING: Matching pre-registered user ${dbUser.id} to clerkId ${user.id}`)
+        await db.update(users)
+          .set({
+            clerkId: user.id,
+            isVerified: true,
+            firstName: user.firstName || dbUser.firstName,
+            lastName: user.lastName || dbUser.lastName,
+            updatedAt: new Date(),
+          })
+          .where(eq(users.id, dbUser.id))
+        
+        // Fetch the freshly updated user record
+        dbUser = await db.query.users.findFirst({
+          where: eq(users.clerkId, user.id),
+        })
+      }
+    }
 
     if (!dbUser) {
       console.log(`getHospitalDashboardData: No dbUser found for ${user.id}`)
@@ -499,13 +525,39 @@ export async function getMidwifeDashboardData() {
     if (!user) return null
 
     // Get midwife record
-    const dbUser = await db.query.users.findFirst({
+    let dbUser = await db.query.users.findFirst({
       where: eq(users.clerkId, user.id),
     })
 
+    // Self-healing fallback: match by email address
+    if (!dbUser && user.emailAddresses?.[0]?.emailAddress) {
+      const primaryEmail = user.emailAddresses[0].emailAddress.trim().toLowerCase()
+      dbUser = await db.query.users.findFirst({
+        where: eq(users.email, primaryEmail),
+      })
+
+      if (dbUser) {
+        console.log(`[getMidwifeDashboardData] SELF-HEALING: Matching pre-registered user ${dbUser.id} to clerkId ${user.id}`)
+        await db.update(users)
+          .set({
+            clerkId: user.id,
+            isVerified: true,
+            firstName: user.firstName || dbUser.firstName,
+            lastName: user.lastName || dbUser.lastName,
+            updatedAt: new Date(),
+          })
+          .where(eq(users.id, dbUser.id))
+        
+        // Fetch the freshly updated user record
+        dbUser = await db.query.users.findFirst({
+          where: eq(users.clerkId, user.id),
+        })
+      }
+    }
+
     // Allow midwife or hospital_staff (doctors/nurses) or admin
     if (!dbUser || (dbUser.role !== 'midwife' && dbUser.role !== 'hospital_staff' && dbUser.role !== 'admin')) {
-      console.warn(`[getMidwifeDashboardData] Unexpected role: ${dbUser?.role} for user ${user.id}`)
+      console.warn(`[getMidwifeDashboardData] Unexpected role: ${dbUser?.role} for user ${user?.id}`)
       return null
     }
 

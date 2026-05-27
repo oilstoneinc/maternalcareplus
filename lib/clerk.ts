@@ -27,19 +27,58 @@ export async function getUserRole(live = false) {
   // 2. ALWAYS fall back to DB if JWT is stale (e.g. right after first activation)
   if (!role) {
     try {
-      const dbUser = await db.query.users.findFirst({
+      let dbUser = await db.query.users.findFirst({
         where: eq(users.clerkId, user.id)
       })
+
+      // Self-healing check: If not found by Clerk ID, try matching by email address
+      if (!dbUser && user.emailAddresses?.[0]?.emailAddress) {
+        const primaryEmail = user.emailAddresses[0].emailAddress.trim().toLowerCase()
+        dbUser = await db.query.users.findFirst({
+          where: eq(users.email, primaryEmail)
+        })
+
+        if (dbUser) {
+          console.log(`[getUserRole] SELF-HEALING: Matching pre-registered user ${dbUser.id} (${primaryEmail}) to clerkId ${user.id}`)
+          await db.update(users)
+            .set({
+              clerkId: user.id,
+              isVerified: true,
+              firstName: user.firstName || dbUser.firstName,
+              lastName: user.lastName || dbUser.lastName,
+              updatedAt: new Date(),
+            })
+            .where(eq(users.id, dbUser.id))
+          
+          // Proactively push the hospitalId & role metadata back to Clerk for seamless session usage
+          try {
+            await clerk.users.updateUserMetadata(user.id, {
+              publicMetadata: {
+                role: dbUser.role,
+                hospitalId: dbUser.hospitalId,
+              }
+            })
+          } catch (syncErr) {
+            console.error(`[getUserRole] Warning: Failed to sync updated role to Clerk:`, syncErr)
+          }
+        }
+      }
+
       if (dbUser?.role) {
         role = dbUser.role as string
         console.log(`[getUserRole] Fallback SUCCESS: Found role ${role} in Neon DB for ${user.id}`)
-        // Proactively sync role back to Clerk so future JWT checks work
-        try {
-          await clerk.users.updateUserMetadata(user.id, {
-            publicMetadata: { role: dbUser.role }
-          })
-        } catch (syncErr) {
-          console.error(`[getUserRole] Warning: Failed to sync role up to Clerk:`, syncErr)
+        // Proactively sync role back to Clerk if metadata isn't set yet
+        if (!user.publicMetadata?.role) {
+          try {
+            await clerk.users.updateUserMetadata(user.id, {
+              publicMetadata: {
+                role: dbUser.role,
+                hospitalId: dbUser.hospitalId,
+              }
+            })
+          } catch (syncErr) {
+            console.error(`[getUserRole] Warning: Failed to sync role up to Clerk:`, syncErr)
+          }
         }
       } else {
          console.warn(`[getUserRole] Fallback warning: dbUser found but role is undefined/null`)
