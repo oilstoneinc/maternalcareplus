@@ -1,7 +1,7 @@
 'use client'
 
 import { useSessionTimeout, formatCountdown } from '@/hooks/useSessionTimeout'
-import { Shield, LogOut, Clock, AlertTriangle, Timer } from 'lucide-react'
+import { Shield, LogOut, Clock, AlertTriangle } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
 interface SessionTimeoutGuardProps {
@@ -65,46 +65,6 @@ export default function SessionTimeoutGuard({
     <>
       {children}
 
-      {/* ── Floating session timer badge ─────────────────────────────── */}
-      {showBadge && !isExpired && (
-        <div
-          className={`
-            fixed bottom-5 right-5 z-[9999]
-            flex items-center gap-2.5
-            px-4 py-2.5 rounded-2xl shadow-2xl
-            border backdrop-blur-sm
-            transition-all duration-300 select-none
-            ${
-              isCritical
-                ? 'bg-red-600/95 border-red-400 text-white animate-pulse'
-                : isLowTime
-                ? 'bg-amber-500/95 border-amber-300 text-white'
-                : 'bg-slate-900/90 border-slate-700 text-slate-100'
-            }
-          `}
-          title="Your session will automatically expire when the timer reaches 0:00"
-        >
-          <Timer className={`w-4 h-4 shrink-0 ${isCritical ? 'animate-spin' : ''}`} />
-          <div className="flex flex-col leading-none">
-            <span className="text-[9px] font-bold uppercase tracking-widest opacity-70">
-              Session expires in
-            </span>
-            <span className="font-mono font-black text-base tabular-nums">
-              {formatCountdown(secondsRemaining)}
-            </span>
-          </div>
-          {isLowTime && (
-            <button
-              onClick={resetTimer}
-              className="ml-1 text-[10px] font-black uppercase tracking-wider bg-white/20 hover:bg-white/30 rounded-lg px-2 py-1 transition-colors"
-              title="Extend session"
-            >
-              Extend
-            </button>
-          )}
-        </div>
-      )}
-
       {/* ── Warning modal overlay ─────────────────────────────────────── */}
       {isWarning && !isExpired && (
         <div className="fixed inset-0 z-[99999] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
@@ -114,9 +74,9 @@ export default function SessionTimeoutGuard({
               <div className="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center mx-auto mb-4">
                 <AlertTriangle className="w-9 h-9 text-white" />
               </div>
-              <h2 className="text-2xl font-black tracking-tight">Session Expiring Soon</h2>
+              <h2 className="text-2xl font-black tracking-tight">Shift Session Ending</h2>
               <p className="text-red-100 text-sm font-medium mt-1">
-                For patient data security, you will be automatically signed out.
+                Your 8-hour clinical shift session is about to expire.
               </p>
             </div>
 
@@ -131,7 +91,7 @@ export default function SessionTimeoutGuard({
                   </span>
                 </div>
                 <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mt-3">
-                  Until automatic sign-out
+                  Until shift session ends
                 </p>
               </div>
 
@@ -140,17 +100,15 @@ export default function SessionTimeoutGuard({
                 <div className="flex items-center gap-2">
                   <Shield className="w-4 h-4 text-slate-400 shrink-0" />
                   <p className="text-sm font-semibold text-slate-700">
-                    MaternalCare Plus — Clinical Security Protocol
+                    Clinical Security Protocol
                   </p>
                 </div>
                 <p className="text-xs text-slate-500 leading-relaxed pl-6">
-                  Sessions for clinical staff automatically expire after{' '}
-                  <strong>{sessionHours} hours</strong> of inactivity to prevent
-                  unauthorised access to patient records from shared or unattended devices.
+                  For security, shift sessions automatically expire after <strong>{sessionHours} hours</strong>. Once expired, you will need to log back in and request the main hospital administrator to generate today's shift code.
                 </p>
                 {staffName && (
                   <p className="text-xs text-slate-400 pl-6">
-                    Signed in as: <span className="font-bold text-slate-600">{staffName}</span>
+                    Active Personnel: <span className="font-bold text-slate-600">{staffName}</span>
                   </p>
                 )}
               </div>
@@ -158,16 +116,10 @@ export default function SessionTimeoutGuard({
               {/* Action buttons */}
               <div className="flex flex-col gap-3 pt-2">
                 <button
-                  onClick={resetTimer}
-                  className="w-full py-4 bg-[#D48BA1] hover:bg-[#c47a90] text-white font-black rounded-2xl text-base transition-all shadow-lg shadow-pink-200 active:scale-95"
-                >
-                  I'm Still Here — Keep Me Signed In
-                </button>
-                <button
                   onClick={signOutNow}
-                  className="w-full py-3.5 border-2 border-slate-200 text-slate-600 hover:bg-slate-50 font-bold rounded-2xl text-sm transition-all flex items-center justify-center gap-2"
+                  className="w-full py-4 bg-red-600 hover:bg-red-700 text-white font-black rounded-2xl text-base transition-all shadow-lg active:scale-95 flex items-center justify-center gap-2"
                 >
-                  <LogOut className="w-4 h-4" />
+                  <LogOut className="w-5 h-5" />
                   Sign Out Now
                 </button>
               </div>
@@ -183,9 +135,9 @@ export default function SessionTimeoutGuard({
             <div className="w-20 h-20 bg-red-500/20 rounded-3xl flex items-center justify-center mx-auto">
               <LogOut className="w-10 h-10 text-red-400" />
             </div>
-            <h2 className="text-2xl font-black text-white">Session Ended</h2>
+            <h2 className="text-2xl font-black text-white">Shift Session Ended</h2>
             <p className="text-slate-400 font-medium text-sm leading-relaxed">
-              Your clinical session has expired. Please sign in again to access patient records.
+              Your 8-hour clinical shift has ended. Please sign in again and verify with today's shift code from your hospital administrator to resume serving patients.
             </p>
             <button
               onClick={() => (window.location.href = '/sign-in')}

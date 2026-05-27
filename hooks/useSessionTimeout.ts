@@ -2,9 +2,10 @@
 
 import { useEffect, useRef, useCallback, useState } from 'react'
 import { useClerk } from '@clerk/nextjs'
+import { logStaffSessionEnd } from '@/app/actions'
 
 export interface SessionTimeoutOptions {
-  /** Inactivity timeout in milliseconds. Default: 8 hours (one work shift) */
+  /** Countdown timeout in milliseconds. Default: 8 hours (one work shift) */
   timeoutMs?: number
   /** Show a warning this many ms before timeout. Default: 2 minutes */
   warningMs?: number
@@ -19,22 +20,11 @@ export interface SessionTimeoutState {
   isWarning: boolean
   /** True when the user has already been signed out */
   isExpired: boolean
-  /** Call this to manually reset the timer (e.g. user clicks "I'm still here") */
+  /** Call this to manually reset/extend the timer (ignored in strict mode) */
   resetTimer: () => void
   /** Call this to immediately sign out */
   signOutNow: () => void
 }
-
-const ACTIVITY_EVENTS = [
-  'mousemove',
-  'mousedown',
-  'keydown',
-  'touchstart',
-  'scroll',
-  'wheel',
-  'click',
-  'focus',
-]
 
 export function useSessionTimeout({
   timeoutMs = 8 * 60 * 60 * 1000, // 8-hour shift default
@@ -61,6 +51,12 @@ export function useSessionTimeout({
     setIsExpired(true)
     clearAllTimers()
     try {
+      // Deactivate user's active shift verification in DB and log session end
+      await logStaffSessionEnd()
+    } catch (e) {
+      console.error('Failed to log staff session end:', e)
+    }
+    try {
       await signOut({ redirectUrl })
     } catch {
       // Fallback hard redirect
@@ -79,7 +75,7 @@ export function useSessionTimeout({
     }, 1000)
   }, [])
 
-  const resetTimer = useCallback(() => {
+  const initTimer = useCallback(() => {
     clearAllTimers()
     setIsWarning(false)
     setIsExpired(false)
@@ -100,45 +96,19 @@ export function useSessionTimeout({
     startCountdownTick()
   }, [timeoutMs, warningMs, clearAllTimers, doSignOut, startCountdownTick])
 
-  // Attach activity listeners
+  // Kick off the strict unstoppable countdown timer when mounted
   useEffect(() => {
-    const handleActivity = () => {
-      // Only reset if NOT already in the warning period.
-      // Once the warning fires, staff must actively click "Stay Logged In" to reset.
-      if (!isWarning && !isExpired) {
-        resetTimer()
-      }
-    }
-
-    ACTIVITY_EVENTS.forEach((evt) =>
-      window.addEventListener(evt, handleActivity, { passive: true })
-    )
-
-    // Kick off the initial timer
-    resetTimer()
-
+    initTimer()
     return () => {
-      ACTIVITY_EVENTS.forEach((evt) =>
-        window.removeEventListener(evt, handleActivity)
-      )
       clearAllTimers()
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []) // intentionally empty — resetTimer is stable via useCallback with stable deps
-
-  // When warning state changes, restart activity detection after warning
-  useEffect(() => {
-    if (!isWarning) return
-    // During warning: stop responding to activity (freeze the countdown so
-    // staff must explicitly click "Stay Logged In" to reset)
-    ACTIVITY_EVENTS.forEach((evt) => window.removeEventListener(evt, resetTimer))
-  }, [isWarning, resetTimer])
+  }, [initTimer, clearAllTimers])
 
   return {
     secondsRemaining,
     isWarning,
     isExpired,
-    resetTimer,
+    resetTimer: () => {}, // Strict mode: ignore resets
     signOutNow: doSignOut,
   }
 }
