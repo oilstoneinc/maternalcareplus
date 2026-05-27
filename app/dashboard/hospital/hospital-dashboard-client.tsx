@@ -285,6 +285,12 @@ export default function HospitalDashboardClient({ user, data }: { user: any, dat
                <HeartPulse className="w-7 h-7 text-[#D48BA1]" />
             </div>
             <div>
+              {data?.hospital?.name && (
+                <div className="text-teal-600 font-extrabold text-xs tracking-wider uppercase flex items-center gap-1.5 mb-1">
+                  <span className="inline-block w-2 h-2 rounded-full bg-teal-500" />
+                  {data.hospital.name}
+                </div>
+              )}
               <h1 className="text-3xl font-black text-slate-900 tracking-tight">MaternalCare Plus</h1>
               <p className="text-slate-500 font-bold text-sm tracking-wide uppercase">Hospital Management Console</p>
             </div>
