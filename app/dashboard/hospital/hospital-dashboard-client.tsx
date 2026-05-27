@@ -169,6 +169,7 @@ export default function HospitalDashboardClient({ user, data }: { user: any, dat
   const careStaff: { id: string; firstName: string; lastName: string; role: string }[] =
     data?.careStaff || []
   const facilityCareHistory: any[] = data?.facilityCareHistory || []
+  const upcomingAppointments: any[] = data?.upcomingAppointments || []
 
   // Permission flags — only the main hospital account owner (email matches hospital contact) or a super-admin
   // can add/remove staff or export data. All clinical staff share the same dashboard view.
@@ -487,49 +488,90 @@ export default function HospitalDashboardClient({ user, data }: { user: any, dat
 
           <TabsContent value="overview" className="space-y-6">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Recent Activity</CardTitle>
-                  <CardDescription>Latest patient updates and appointments</CardDescription>
+              {/* Recent Clinical Activity */}
+              <Card className="border-slate-100 shadow-sm bg-white">
+                <CardHeader className="bg-slate-50/50">
+                  <CardTitle className="text-slate-800 flex items-center gap-2">
+                    <Activity className="h-5 w-5 text-[#D48BA1]" />
+                    Latest Clinical Updates
+                  </CardTitle>
+                  <CardDescription>Most recent patient care entries across the facility</CardDescription>
                 </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    {pregnancies.slice(0, 3).map((pregnancy) => (
-                      <div key={pregnancy.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                        <div>
-                          <p className="font-medium">{pregnancy.patientName}</p>
-                          <p className="text-sm text-gray-600">Week {pregnancy.gestationalAge}</p>
+                <CardContent className="pt-4">
+                  {facilityCareHistory.length === 0 ? (
+                    <div className="text-center py-8">
+                      <Activity className="w-10 h-10 mx-auto mb-2 opacity-20 text-slate-400" />
+                      <p className="text-sm text-slate-400 font-medium">No clinical entries recorded yet.</p>
+                      <p className="text-xs text-slate-300 mt-1">Updates will appear here as staff record patient visits.</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {facilityCareHistory.slice(0, 5).map((entry: any) => (
+                        <div key={entry.id} className="flex items-start justify-between p-3 bg-slate-50/60 hover:bg-slate-50 rounded-xl border border-slate-100/70 transition-colors">
+                          <div className="min-w-0 flex-1 pr-2">
+                            <p className="font-bold text-slate-800 text-sm truncate">{entry.patientName}</p>
+                            <p className="text-xs text-slate-500 mt-0.5 truncate">
+                              <span className="text-teal-700 font-bold">{entry.actionLabel}</span>
+                              {entry.summary ? ` — ${entry.summary}` : ''}
+                            </p>
+                            <p className="text-[10px] text-slate-400 mt-0.5 font-medium">
+                              By {entry.staffName || 'Staff'} · {entry.createdAt ? new Date(entry.createdAt).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : ''}
+                            </p>
+                          </div>
+                          {entry.pregnancyId && (
+                            <Link href={`/dashboard/hospital/patients/${entry.pregnancyId}`} className="shrink-0">
+                              <Button variant="ghost" size="sm" className="h-7 px-2 font-semibold text-xs text-teal-700 hover:text-teal-800 hover:bg-teal-50 rounded-lg">
+                                View
+                              </Button>
+                            </Link>
+                          )}
                         </div>
-                        <Badge className={getRiskColor(pregnancy.riskLevel)}>
-                          {pregnancy.riskLevel} risk
-                        </Badge>
-                      </div>
-                    ))}
-                  </div>
+                      ))}
+                    </div>
+                  )}
                 </CardContent>
               </Card>
 
-              <Card>
-                <CardHeader>
-                  <CardTitle>Upcoming Appointments</CardTitle>
-                  <CardDescription>Next 7 days</CardDescription>
+              {/* Upcoming Appointments */}
+              <Card className="border-slate-100 shadow-sm bg-white">
+                <CardHeader className="bg-slate-50/50">
+                  <CardTitle className="text-slate-800 flex items-center gap-2">
+                    <Calendar className="h-5 w-5 text-[#D48BA1]" />
+                    Upcoming Appointments
+                  </CardTitle>
+                  <CardDescription>Next scheduled visits at this facility</CardDescription>
                 </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    {pregnancies.slice(0, 3).map((pregnancy) => (
-                      <div key={pregnancy.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                        <div>
-                          <p className="font-medium">{pregnancy.patientName}</p>
-                          <p className="text-sm text-gray-600">{pregnancy.nextVisit}</p>
+                <CardContent className="pt-4">
+                  {upcomingAppointments.length === 0 ? (
+                    <div className="text-center py-8">
+                      <Calendar className="w-10 h-10 mx-auto mb-2 opacity-20 text-slate-400" />
+                      <p className="text-sm text-slate-400 font-medium">No upcoming appointments.</p>
+                      <p className="text-xs text-slate-300 mt-1">Scheduled visits will appear here automatically.</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {upcomingAppointments.slice(0, 5).map((apt: any) => (
+                        <div key={apt.id} className="flex items-start justify-between p-3 bg-slate-50/60 hover:bg-slate-50 rounded-xl border border-slate-100/70 transition-colors">
+                          <div className="min-w-0 flex-1 pr-2">
+                            <p className="font-bold text-slate-800 text-sm truncate">{apt.patientName}</p>
+                            <p className="text-xs text-teal-700 font-semibold mt-0.5">
+                              {apt.scheduledDate ? new Date(apt.scheduledDate).toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' }) : 'Date TBD'}
+                            </p>
+                            {apt.notes && (
+                              <p className="text-[10px] text-slate-400 mt-0.5 truncate max-w-[180px]">{apt.notes}</p>
+                            )}
+                          </div>
+                          {apt.pregnancyId && (
+                            <Link href={`/dashboard/hospital/patients/${apt.pregnancyId}`} className="shrink-0">
+                              <Button variant="outline" size="sm" className="h-7 px-2 text-xs font-semibold rounded-lg border-slate-200">
+                                View
+                              </Button>
+                            </Link>
+                          )}
                         </div>
-                        <Link href={`/dashboard/hospital/patients/${pregnancy.id}`}>
-                          <Button variant="outline" size="sm">
-                            View Details
-                          </Button>
-                        </Link>
-                      </div>
-                    ))}
-                  </div>
+                      ))}
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </div>

@@ -529,7 +529,85 @@ export default function PregnantWomanClient({ user, data }: { user: any, data: D
               </CardContent>
             </Card>
 
-            {/* National care across hospitals */}
+            {/* Latest Visit Updates — always visible */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between px-1">
+                <div className="flex items-center gap-2">
+                  <Clock className="w-5 h-5 text-[#D48BA1]" />
+                  <h3 className="text-xl font-bold text-foreground">Latest Visit Updates</h3>
+                </div>
+                <Link href="/dashboard/pregnant-woman/digital-mch-book">
+                  <Button variant="ghost" size="sm" className="text-xs text-slate-500 hover:text-slate-700 font-semibold">
+                    Full Records →
+                  </Button>
+                </Link>
+              </div>
+
+              {(data?.careHistory?.length ?? 0) === 0 ? (
+                <Card className="border-none shadow-sm bg-slate-50/60">
+                  <CardContent className="p-6 text-center">
+                    <div className="w-12 h-12 rounded-2xl bg-pink-50 flex items-center justify-center mx-auto mb-3">
+                      <Heart className="w-6 h-6 text-[#D48BA1]" />
+                    </div>
+                    <p className="text-sm font-semibold text-slate-700">No visit records yet</p>
+                    <p className="text-xs text-slate-400 mt-1 leading-relaxed">
+                      When your clinic records a visit — vitals, lab results, or advice — it will appear here in real-time.
+                    </p>
+                  </CardContent>
+                </Card>
+              ) : (
+                <div className="relative">
+                  {/* Timeline vertical line */}
+                  <div className="absolute left-5 top-3 bottom-3 w-[2px] bg-gradient-to-b from-[#D48BA1]/40 via-[#D48BA1]/20 to-transparent rounded-full" />
+                  <div className="space-y-3">
+                    {(data?.careHistory ?? []).slice(0, 6).map((entry: any, idx: number) => (
+                      <div key={entry.id} className="flex items-start gap-4 relative">
+                        {/* Timeline dot */}
+                        <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 z-10 shadow-sm border-2 border-white ${idx === 0 ? 'bg-[#D48BA1]' : 'bg-slate-100'}`}>
+                          <Heart className={`w-4 h-4 ${idx === 0 ? 'text-white' : 'text-slate-400'}`} />
+                        </div>
+                        <div className={`flex-1 rounded-2xl p-4 shadow-sm border transition-all ${idx === 0 ? 'bg-pink-50/70 border-pink-100' : 'bg-white border-slate-100'}`}>
+                          <div className="flex items-start justify-between gap-2 flex-wrap">
+                            <div>
+                              <p className={`text-sm font-black tracking-tight ${idx === 0 ? 'text-[#c47a90]' : 'text-slate-700'}`}>
+                                {entry.actionLabel}
+                              </p>
+                              {entry.summary && (
+                                <p className="text-xs text-slate-600 mt-0.5 leading-relaxed">{entry.summary}</p>
+                              )}
+                            </div>
+                            {idx === 0 && (
+                              <span className="text-[9px] font-black bg-[#D48BA1] text-white px-2 py-0.5 rounded-full uppercase tracking-wider shrink-0">
+                                Latest
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-3 mt-2 flex-wrap">
+                            <span className="text-[10px] text-slate-400 font-semibold flex items-center gap-1">
+                              <Building2 className="w-3 h-3" />
+                              {entry.hospitalName}
+                              {entry.isVisitingFacility && (
+                                <span className="ml-1 text-[9px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full font-bold">Visiting</span>
+                              )}
+                            </span>
+                            {entry.staffName && (
+                              <span className="text-[10px] text-slate-400 font-semibold">
+                                by {entry.staffName}
+                              </span>
+                            )}
+                            <span className="text-[10px] text-slate-400 font-semibold ml-auto">
+                              {entry.createdAt ? new Date(entry.createdAt).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' }) : ''}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Cross-hospital care panel */}
             {(data?.careHistory?.length ?? 0) > 0 && (
               <div className="space-y-3">
                 <div className="flex items-center gap-2 px-1">
