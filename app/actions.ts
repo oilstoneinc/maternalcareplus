@@ -6,6 +6,7 @@ import {
   recordFacilityCareEvent,
   getHospitalCareHistory,
   getCareHistoryFacilitySummary,
+  getFacilityCareHistory,
 } from '@/lib/hospital-care-history'
 import { currentUser, clerkClient } from '@clerk/nextjs/server'
 import { HospitalDashboardData, DashboardData, Message } from '@/types'
@@ -391,7 +392,7 @@ export async function getHospitalDashboardData(): Promise<HospitalDashboardData 
       return null
     }
     
-    if (dbUser.role !== 'hospital_staff' && dbUser.role !== 'admin') {
+    if (dbUser.role !== 'hospital_staff' && dbUser.role !== 'admin' && dbUser.role !== 'midwife') {
       console.warn(`Unauthorized role access attempt to hospital dashboard by ${user.id}, role is ${dbUser.role}`)
       return null
     }
@@ -400,7 +401,7 @@ export async function getHospitalDashboardData(): Promise<HospitalDashboardData 
     // pending state that signals to the server page to redirect to /onboarding/hospital
     // instead of crashing the Drizzle query with eq(column, null).
     if (!dbUser.hospitalId) {
-      console.warn(`getHospitalDashboardData: User ${user.id} has hospital_staff role but no hospitalId. Returning pending setup state.`)
+      console.warn(`getHospitalDashboardData: User ${user.id} has role ${dbUser.role} but no hospitalId. Returning pending setup state.`)
       return JSON.parse(JSON.stringify({
         hospital: { name: 'Pending Setup', id: null },
         patients: [],
@@ -525,6 +526,7 @@ export async function getHospitalDashboardData(): Promise<HospitalDashboardData 
     })
 
     const messageThreads = await getHospitalMessageThreads()
+    const facilityCareHistory = await getFacilityCareHistory(dbUser.hospitalId, 50)
 
     return JSON.parse(JSON.stringify({
       hospital,
@@ -535,6 +537,7 @@ export async function getHospitalDashboardData(): Promise<HospitalDashboardData 
       upcomingAppointments: enrichedAppointments,
       messageThreads,
       dbUser,
+      facilityCareHistory,
     }))
   } catch (error) {
     console.error('Error in getHospitalDashboardData:', error)
@@ -1015,7 +1018,7 @@ export async function syncClerkAccount() {
     let targetPath = '/dashboard'
     if (role === 'admin') targetPath = '/dashboard/admin'
     if (role === 'hospital_staff') targetPath = '/dashboard/hospital'
-    if (role === 'midwife') targetPath = '/dashboard/midwife'
+    if (role === 'midwife') targetPath = '/dashboard/hospital'
     if (role === 'pregnant_woman') targetPath = '/dashboard/pregnant-woman'
     if (role === 'father') targetPath = '/dashboard/father'
 

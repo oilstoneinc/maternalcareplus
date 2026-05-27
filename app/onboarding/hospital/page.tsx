@@ -30,7 +30,7 @@ export default async function HospitalOnboardingPage() {
     } else if (role === 'father') {
       redirect('/dashboard/father')
     } else if (role === 'midwife') {
-      redirect('/dashboard/midwife')
+      redirect('/dashboard/hospital')
     } else if (role === 'admin') {
       redirect('/dashboard/admin')
     }

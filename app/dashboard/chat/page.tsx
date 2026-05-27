@@ -38,11 +38,9 @@ export default async function ChatPage({
           <p className="text-slate-500 font-medium">Please select a conversation from your dashboard to begin chatting.</p>
           <Link
             href={
-              dbUser.role === 'hospital_staff' || dbUser.role === 'admin'
+              dbUser.role === 'hospital_staff' || dbUser.role === 'admin' || dbUser.role === 'midwife'
                 ? '/dashboard/hospital'
-                : dbUser.role === 'midwife'
-                  ? '/dashboard/midwife'
-                  : '/dashboard/pregnant-woman'
+                : '/dashboard/pregnant-woman'
             }
             className="inline-flex items-center gap-2 text-sm font-bold text-[#D48BA1] hover:underline"
           >
@@ -67,7 +65,14 @@ export default async function ChatPage({
       <div className="min-h-screen bg-[#F6F4F3] flex items-center justify-center p-6">
         <div className="text-center space-y-3">
           <p className="text-xl font-black text-slate-900">User not found.</p>
-          <Link href={`/dashboard/${dbUser.role.replace('_', '-')}`} className="text-sm font-bold text-[#D48BA1] hover:underline flex items-center gap-1 justify-center">
+          <Link
+            href={
+              dbUser.role === 'midwife'
+                ? '/dashboard/hospital'
+                : `/dashboard/${dbUser.role.replace('_', '-')}`
+            }
+            className="text-sm font-bold text-[#D48BA1] hover:underline flex items-center gap-1 justify-center"
+          >
             <ArrowLeft className="w-4 h-4" /> Go back
           </Link>
         </div>
@@ -101,11 +106,9 @@ export default async function ChatPage({
   const backUrl =
     dbUser.role === 'pregnant_woman'
       ? '/dashboard/pregnant-woman'
-      : dbUser.role === 'midwife'
-        ? '/dashboard/midwife'
-        : dbUser.role === 'father'
-          ? '/dashboard/father'
-          : '/dashboard/hospital'
+      : dbUser.role === 'midwife' || dbUser.role === 'hospital_staff' || dbUser.role === 'admin'
+        ? '/dashboard/hospital'
+        : '/dashboard/father'
 
   return (
     <div className="min-h-screen bg-[#F6F4F3]">

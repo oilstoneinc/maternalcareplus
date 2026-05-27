@@ -42,7 +42,8 @@ import {
   Lock,
   RefreshCw,
   LogOut,
-  CheckCircle2
+  CheckCircle2,
+  Activity,
 } from 'lucide-react'
 
 interface Pregnancy {
@@ -167,6 +168,17 @@ export default function HospitalDashboardClient({ user, data }: { user: any, dat
   }
   const careStaff: { id: string; firstName: string; lastName: string; role: string }[] =
     data?.careStaff || []
+  const facilityCareHistory: any[] = data?.facilityCareHistory || []
+
+  // Permission flags — only the main hospital account owner (email matches hospital contact) or a super-admin
+  // can add/remove staff or export data. All clinical staff share the same dashboard view.
+  const isSuperAdmin = data?.dbUser?.role === 'admin'
+  const isMainHospitalAccount =
+    data?.dbUser?.email &&
+    data?.hospital?.email &&
+    data.dbUser.email.toLowerCase() === data.hospital.email.toLowerCase()
+  const canManageStaff = isSuperAdmin || isMainHospitalAccount
+  const canExportData = isSuperAdmin || isMainHospitalAccount
 
   const formatDate = (date: any) => {
     if (!date) return 'N/A'
@@ -360,26 +372,30 @@ export default function HospitalDashboardClient({ user, data }: { user: any, dat
               <Plus className="w-5 h-5 mr-2" />
               Onboard Patient
             </Button>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setShowAddStaff(true)}
-              className="border-slate-200 text-slate-700 font-bold py-5 rounded-xl"
-            >
-              <UserCog className="w-4 h-4 mr-2" />
-              Add Staff
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              disabled={exporting}
-              onClick={handleExportData}
-              className="border-slate-200 text-slate-600 font-bold py-5 rounded-xl"
-              title="Download CSV of patients at your facility only"
-            >
-              <Download className="w-4 h-4 mr-2" />
-              {exporting ? 'Exporting…' : 'Export Data'}
-            </Button>
+            {canManageStaff && (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setShowAddStaff(true)}
+                className="border-slate-200 text-slate-700 font-bold py-5 rounded-xl"
+              >
+                <UserCog className="w-4 h-4 mr-2" />
+                Add Staff
+              </Button>
+            )}
+            {canExportData && (
+              <Button
+                type="button"
+                variant="outline"
+                disabled={exporting}
+                onClick={handleExportData}
+                className="border-slate-200 text-slate-600 font-bold py-5 rounded-xl"
+                title="Download CSV of patients at your facility only"
+              >
+                <Download className="w-4 h-4 mr-2" />
+                {exporting ? 'Exporting…' : 'Export Data'}
+              </Button>
+            )}
             <Button
               type="button"
               variant="outline"
@@ -517,6 +533,48 @@ export default function HospitalDashboardClient({ user, data }: { user: any, dat
                 </CardContent>
               </Card>
             </div>
+            {/* Staff Activity Feed — visible to hospital owners only */}
+            {canManageStaff && (
+              <Card className="border-slate-100 shadow-sm bg-white">
+                <CardHeader className="bg-slate-50/50">
+                  <CardTitle className="text-slate-800 flex items-center gap-2">
+                    <Activity className="h-5 w-5 text-[#D48BA1]" />
+                    Staff Activity Feed
+                  </CardTitle>
+                  <CardDescription>
+                    Real-time log of every clinical entry saved by your staff across all patient records.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="pt-0">
+                  {facilityCareHistory.length === 0 ? (
+                    <p className="text-sm text-slate-400 font-medium py-6 text-center">
+                      No staff activity recorded yet. Entries will appear here as staff save clinical data.
+                    </p>
+                  ) : (
+                    <div className="divide-y divide-slate-100">
+                      {facilityCareHistory.slice(0, 20).map((entry: any) => (
+                        <div key={entry.id} className="flex items-start gap-4 py-3.5 px-1">
+                          <div className="w-9 h-9 rounded-full bg-[#D48BA1]/10 flex items-center justify-center flex-shrink-0 mt-0.5">
+                            <Activity className="w-4 h-4 text-[#D48BA1]" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-bold text-slate-800 truncate">{entry.patientName}</p>
+                            <p className="text-xs text-slate-500 font-medium">
+                              <span className="text-teal-700 font-bold">{entry.actionLabel}</span>
+                              {' — '}{entry.summary}
+                            </p>
+                            <p className="text-xs text-slate-400 mt-0.5">
+                              by <span className="font-semibold text-slate-600">{entry.staffName || 'Unknown Staff'}</span>
+                              {' · '}{entry.createdAt ? new Date(entry.createdAt).toLocaleString() : ''}
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
           </TabsContent>
 
           <TabsContent value="messages" className="space-y-6">
@@ -946,16 +1004,20 @@ export default function HospitalDashboardClient({ user, data }: { user: any, dat
                         Active Hospital & Care Staff
                       </CardTitle>
                       <CardDescription>
-                        Manage midwives, doctors, and nursing personnel linked to this facility.
+                        {canManageStaff
+                          ? 'Manage midwives, doctors, and nursing personnel linked to this facility.'
+                          : 'Staff members currently active at this facility.'}
                       </CardDescription>
                     </div>
-                    <Button 
-                      onClick={() => setShowAddStaff(true)}
-                      size="sm"
-                      className="bg-[#D48BA1] hover:bg-[#c47a90] font-bold text-white rounded-xl"
-                    >
-                      <Plus className="w-4 h-4 mr-1.5" /> Add Staff
-                    </Button>
+                    {canManageStaff && (
+                      <Button
+                        onClick={() => setShowAddStaff(true)}
+                        size="sm"
+                        className="bg-[#D48BA1] hover:bg-[#c47a90] font-bold text-white rounded-xl"
+                      >
+                        <Plus className="w-4 h-4 mr-1.5" /> Add Staff
+                      </Button>
+                    )}
                   </CardHeader>
                   <CardContent className="pt-6">
                     {careStaff.length === 0 ? (
@@ -990,14 +1052,18 @@ export default function HospitalDashboardClient({ user, data }: { user: any, dat
                                   </Badge>
                                 </td>
                                 <td className="px-4 py-3 text-right">
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => handleDeleteStaff(staff.id)}
-                                    className="text-rose-600 hover:text-rose-700 hover:bg-rose-50 rounded-xl transition-all"
-                                  >
-                                    <Trash2 className="h-4 w-4 mr-1.5" /> Remove
-                                  </Button>
+                                  {canManageStaff ? (
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => handleDeleteStaff(staff.id)}
+                                      className="text-rose-600 hover:text-rose-700 hover:bg-rose-50 rounded-xl transition-all"
+                                    >
+                                      <Trash2 className="h-4 w-4 mr-1.5" /> Remove
+                                    </Button>
+                                  ) : (
+                                    <span className="text-xs text-slate-400 font-medium">View only</span>
+                                  )}
                                 </td>
                               </tr>
                             ))}

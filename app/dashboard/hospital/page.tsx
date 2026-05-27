@@ -6,7 +6,7 @@ import HospitalDashboardClient from './hospital-dashboard-client'
 
 export default async function HospitalDashboard() {
   try {
-    await requireRole(['hospital_staff', 'admin'])
+    await requireRole(['hospital_staff', 'admin', 'midwife'])
     const user = await currentUser()
     
     const data = await getHospitalDashboardData()

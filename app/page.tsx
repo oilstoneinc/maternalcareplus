@@ -21,7 +21,7 @@ export default async function HomePage() {
       case 'father':
         redirect('/dashboard/father')
       case 'midwife':
-        redirect('/dashboard/midwife')
+        redirect('/dashboard/hospital')
       case 'hospital_staff':
         redirect('/dashboard/hospital')
       case 'admin':

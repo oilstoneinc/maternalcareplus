@@ -193,3 +193,48 @@ export async function getCareHistoryFacilitySummary(pregnancyId: string) {
     (a, b) => new Date(b.lastVisit).getTime() - new Date(a.lastVisit).getTime()
   )
 }
+
+export async function getFacilityCareHistory(
+  hospitalId: string,
+  limit = 50
+): Promise<any[]> {
+  await ensureHospitalCareSchema()
+
+  const rows = await db.query.hospitalCareEncounters.findMany({
+    where: eq(hospitalCareEncounters.hospitalId, hospitalId),
+    orderBy: [desc(hospitalCareEncounters.createdAt)],
+    limit,
+  })
+
+  const userIds = [...new Set([
+    ...rows.map((r) => r.patientUserId),
+    ...rows.map((r) => r.staffUserId).filter(Boolean)
+  ])] as string[]
+
+  const userList =
+    userIds.length > 0
+      ? await db.query.users.findMany({
+          where: inArray(users.id, userIds),
+        })
+      : []
+
+  const userById = new Map(userList.map((u) => [u.id, u]))
+
+  return rows.map((row) => {
+    const patient = userById.get(row.patientUserId)
+    const staff = row.staffUserId ? userById.get(row.staffUserId) : null
+    
+    return {
+      id: row.id,
+      pregnancyId: row.pregnancyId,
+      patientUserId: row.patientUserId,
+      patientName: patient ? `${patient.firstName} ${patient.lastName}`.trim() : 'Unknown Patient',
+      action: row.action,
+      actionLabel: ACTION_LABELS[row.action as CareEncounterAction] || row.action,
+      summary: row.summary,
+      staffName: staff ? `${staff.firstName} ${staff.lastName}`.trim() : 'Unknown Staff',
+      createdAt: row.createdAt ? new Date(row.createdAt).toISOString() : '',
+    }
+  })
+}
+
