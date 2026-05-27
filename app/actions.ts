@@ -494,34 +494,41 @@ export async function getHospitalDashboardData(): Promise<HospitalDashboardData 
  * Get data for the Midwife Dashboard
  */
 export async function getMidwifeDashboardData() {
-  const user = await currentUser()
-  if (!user) throw new Error('Unauthorized')
+  try {
+    const user = await currentUser()
+    if (!user) return null
 
-  // Get midwife record
-  const dbUser = await db.query.users.findFirst({
-    where: eq(users.clerkId, user.id),
-  })
+    // Get midwife record
+    const dbUser = await db.query.users.findFirst({
+      where: eq(users.clerkId, user.id),
+    })
 
-  if (!dbUser || dbUser.role !== 'midwife' && dbUser.role !== 'admin') {
-    throw new Error('Unauthorized role')
+    // Allow midwife or hospital_staff (doctors/nurses) or admin
+    if (!dbUser || (dbUser.role !== 'midwife' && dbUser.role !== 'hospital_staff' && dbUser.role !== 'admin')) {
+      console.warn(`[getMidwifeDashboardData] Unexpected role: ${dbUser?.role} for user ${user.id}`)
+      return null
+    }
+
+    // Get assigned patients/pregnancies
+    const patients = await db.query.users.findMany({
+      where: eq(users.role, 'pregnant_woman'),
+      limit: 20,
+    })
+
+    // Get hospital details
+    const hospital = dbUser.hospitalId
+      ? await db.query.hospitals.findFirst({ where: eq(hospitals.id, dbUser.hospitalId) })
+      : null
+
+    return JSON.parse(JSON.stringify({
+      midwife: dbUser,
+      patients,
+      hospital,
+    }))
+  } catch (error) {
+    console.error('[getMidwifeDashboardData] Error:', error)
+    return null
   }
-
-  // Get assigned patients/pregnancies (mocking for now, could be via a 'assignedMidwifeId' field)
-  const patients = await db.query.users.findMany({
-    where: eq(users.role, 'pregnant_woman'),
-    limit: 20,
-  })
-
-  // Get hospital details
-  const hospital = dbUser.hospitalId
-    ? await db.query.hospitals.findFirst({ where: eq(hospitals.id, dbUser.hospitalId) })
-    : null
-
-  return JSON.parse(JSON.stringify({
-    midwife: dbUser,
-    patients,
-    hospital,
-  }))
 }
 
 
