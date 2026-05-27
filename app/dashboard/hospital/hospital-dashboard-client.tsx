@@ -461,7 +461,7 @@ export default function HospitalDashboardClient({ user, data }: { user: any, dat
 
         {/* Main Content */}
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-2 sm:grid-cols-6">
+          <TabsList className={`grid w-full ${canManageStaff ? 'grid-cols-2 sm:grid-cols-6' : 'grid-cols-2 sm:grid-cols-5'}`}>
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="messages" className="relative">
               Messages
@@ -482,7 +482,7 @@ export default function HospitalDashboardClient({ user, data }: { user: any, dat
             <TabsTrigger value="patients">Patients</TabsTrigger>
             <TabsTrigger value="pregnancies">Pregnancies</TabsTrigger>
             <TabsTrigger value="appointments">Appointments</TabsTrigger>
-            <TabsTrigger value="staff">Staff & Duty Logs</TabsTrigger>
+            {canManageStaff && <TabsTrigger value="staff">Staff & Duty Logs</TabsTrigger>}
           </TabsList>
 
           <TabsContent value="overview" className="space-y-6">
@@ -991,7 +991,8 @@ export default function HospitalDashboardClient({ user, data }: { user: any, dat
             </Card>
           </TabsContent>
 
-          <TabsContent value="staff" className="space-y-6">
+          {canManageStaff && (
+            <TabsContent value="staff" className="space-y-6">
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               
               {/* Left 2 Columns: Active Staff List & Action */}
@@ -1267,7 +1268,8 @@ export default function HospitalDashboardClient({ user, data }: { user: any, dat
               </div>
 
             </div>
-          </TabsContent>
+            </TabsContent>
+          )}
         </Tabs>
       </div>
 
