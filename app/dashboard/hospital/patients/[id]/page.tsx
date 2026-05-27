@@ -103,6 +103,7 @@ export default async function PatientProfilePage({ params }: { params: Promise<{
       availableMidwives,
       careHistory,
       careFacilitySummary,
+      currentStaffId: dbUser.id,
     }))
 
     return <PatientProfileClient data={safeData} />

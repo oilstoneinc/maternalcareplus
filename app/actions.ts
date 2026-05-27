@@ -587,16 +587,51 @@ export async function getMidwifeDashboardData() {
       return null
     }
 
-    // Get assigned patients/pregnancies
-    const patients = await db.query.users.findMany({
-      where: eq(users.role, 'pregnant_woman'),
-      limit: 20,
-    })
-
     // Get hospital details
     const hospital = dbUser.hospitalId
       ? await db.query.hospitals.findFirst({ where: eq(hospitals.id, dbUser.hospitalId) })
       : null
+
+    // Get active pregnancies at this midwife's hospital or assigned to this midwife
+    const activePregnanciesRaw = dbUser.hospitalId
+      ? await db.query.pregnancies.findMany({
+          where: and(
+            eq(pregnancies.status, 'active'),
+            or(
+              eq(pregnancies.hospitalId, dbUser.hospitalId),
+              eq(pregnancies.midwifeId, dbUser.id)
+            )
+          ),
+        })
+      : []
+
+    const patientUserIds = [...new Set(activePregnanciesRaw.map((p) => p.userId))]
+    const patientUsers =
+      patientUserIds.length > 0
+        ? await db.query.users.findMany({
+            where: inArray(users.id, patientUserIds),
+          })
+        : []
+
+    const patientById = new Map(patientUsers.map((u) => [u.id, u]))
+
+    const patients = activePregnanciesRaw.map((p) => {
+      const u = patientById.get(p.userId)
+      const ga = p.gestationalAge ?? calcGestationalAgeWeeks(p.lmp)
+      return {
+        id: u?.id || p.userId,
+        firstName: u?.firstName || 'Unknown',
+        lastName: u?.lastName || 'Patient',
+        email: u?.email || '',
+        phone: u?.phone || '',
+        isActive: u?.isActive ?? true,
+        pregnancyId: p.id,
+        hospitalId: p.hospitalId,
+        gestationalAge: ga,
+        riskLevel: p.riskFactors?.length ? 'High Risk' : 'Low Risk',
+        assignedMidwifeId: p.midwifeId,
+      }
+    })
 
     return JSON.parse(JSON.stringify({
       midwife: dbUser,

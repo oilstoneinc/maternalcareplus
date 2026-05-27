@@ -49,6 +49,7 @@ import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import SessionTimeoutGuard from '@/components/SessionTimeoutGuard'
 import ShiftCodeGate from '@/components/ShiftCodeGate'
+import FloatingChatWindow from '@/components/dashboard/FloatingChatWindow'
 import { useClerk } from '@clerk/nextjs'
 import { useRouter } from 'next/navigation'
 
@@ -61,20 +62,23 @@ export default function MidwifeDashboardClient({ user, data }: MidwifeDashboardP
   const [showRecording, setShowRecording] = useState(false)
   const [selectedPatient, setSelectedPatient] = useState<any>(null)
   const [searchTerm, setSearchTerm] = useState('')
+  const [openChats, setOpenChats] = useState<Array<{ id: string; name: string }>>([]) 
   
+  const lowCount = data?.patients?.filter((p: any) => p.riskLevel?.toLowerCase().includes('low')).length || 0
+  const highCount = data?.patients?.filter((p: any) => p.riskLevel?.toLowerCase().includes('high')).length || 0
+
   // Stats
   const stats = [
     { label: 'Total Patients', value: data?.patients?.length || 0, icon: Users, color: 'text-blue-500' },
-    { label: 'High Risk', value: '3', icon: AlertCircle, color: 'text-red-500' },
-    { label: 'Upcoming Today', value: '5', icon: Calendar, color: 'text-purple-500' },
-    { label: 'Unread Messages', value: '12', icon: MessageSquare, color: 'text-green-500' },
+    { label: 'High Risk Patients', value: highCount, icon: AlertCircle, color: 'text-rose-500' },
+    { label: 'Clinic Patients', value: data?.patients?.length || 0, icon: Heart, color: 'text-teal-500' },
+    { label: 'Assigned to Me', value: data?.patients?.filter((p: any) => p.assignedMidwifeId === data?.midwife?.id).length || 0, icon: Users, color: 'text-purple-500' },
   ]
 
-  // Mock Patient Risk Data for Chart
+  // Real Patient Risk Data for Chart
   const riskData = [
-    { name: 'Low', count: 12, color: '#10b981' },
-    { name: 'Medium', count: 5, color: '#f59e0b' },
-    { name: 'High', count: 3, color: '#ef4444' },
+    { name: 'Low Risk', count: lowCount, color: '#10b981' },
+    { name: 'High Risk', count: highCount, color: '#ef4444' },
   ]
 
   const weeklyVisits = [
@@ -163,7 +167,13 @@ export default function MidwifeDashboardClient({ user, data }: MidwifeDashboardP
                   <Card 
                     key={patient.id} 
                     className="group hover:bg-muted/50 transition-all border-none bg-white/80 shadow-sm hover:shadow-md cursor-pointer overflow-hidden ring-1 ring-black/5"
-                    onClick={() => window.location.href = `/dashboard/chat?with=${patient.id}`}
+                    onClick={() => {
+                      const patientName = `${patient.firstName} ${patient.lastName}`.trim()
+                      setOpenChats(prev => {
+                        if (prev.some(c => c.id === patient.id)) return prev
+                        return [...prev, { id: patient.id, name: patientName }]
+                      })
+                    }}
                   >
                     <CardContent className="p-4 flex items-center gap-4">
                       <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center border-2 border-white shadow-sm flex-shrink-0">
@@ -179,8 +189,12 @@ export default function MidwifeDashboardClient({ user, data }: MidwifeDashboardP
                           </Badge>
                         </div>
                         <div className="flex items-center gap-3 mt-1 text-sm text-muted-foreground">
-                          <span className="flex items-center gap-1"><Heart className="h-3 w-3 text-secondary" /> Week 24</span>
-                          <span className="flex items-center gap-1 border-l pl-3"><AlertCircle className="h-3 w-3 text-yellow-500" /> Low Risk</span>
+                          <span className="flex items-center gap-1">
+                            <Heart className="h-3 w-3 text-rose-400" /> Week {patient.gestationalAge || 0}
+                          </span>
+                          <span className="flex items-center gap-1 border-l pl-3">
+                            <AlertCircle className={`h-3 w-3 ${patient.riskLevel?.includes('High') ? 'text-rose-500 animate-pulse' : 'text-teal-500'}`} /> {patient.riskLevel || 'Low Risk'}
+                          </span>
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
@@ -368,6 +382,21 @@ export default function MidwifeDashboardClient({ user, data }: MidwifeDashboardP
       )}
     </div>
     </ShiftCodeGate>
+
+    {/* Floating Chat Stack — Facebook/LinkedIn-style */}
+    {openChats.length > 0 && (
+      <div className="fixed bottom-0 right-6 flex items-end gap-4 z-50">
+        {openChats.map((chat) => (
+          <FloatingChatWindow
+            key={chat.id}
+            currentUserId={data?.midwife?.id || user?.id}
+            otherUserId={chat.id}
+            otherUserName={chat.name}
+            onClose={() => setOpenChats(prev => prev.filter(c => c.id !== chat.id))}
+          />
+        ))}
+      </div>
+    )}
     </SessionTimeoutGuard>
   )
 }

@@ -13,6 +13,7 @@ import { recordAntenatalVisit, recordVitals, recordLabOrScan, assignMidwifeToPre
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
+import FloatingChatWindow from '@/components/dashboard/FloatingChatWindow'
 
 const clinicalFieldClass =
   'bg-white border-slate-300 text-slate-900 shadow-sm focus-visible:ring-[#D48BA1] focus-visible:border-[#D48BA1]'
@@ -59,9 +60,11 @@ export default function PatientProfileClient({ data }: { data: any }) {
     availableMidwives,
     careHistory = [],
     careFacilitySummary = [],
+    currentStaffId = '',
   } = data
   const router = useRouter()
   const [activeTab, setActiveTab] = useState('overview')
+  const [chatOpen, setChatOpen] = useState(false)
   const [showVitalForm, setShowVitalForm] = useState(false)
   const [showQuickVitals, setShowQuickVitals] = useState(false)
   const [showLabForm, setShowLabForm] = useState(false)
@@ -173,6 +176,7 @@ export default function PatientProfileClient({ data }: { data: any }) {
   }, [patient.dateOfBirth, editingAge])
 
   return (
+    <>
     <div className="min-h-screen bg-[#F6F4F3] p-4 md:p-6">
       <div className="max-w-7xl mx-auto space-y-6">
         {/* Header */}
@@ -257,12 +261,14 @@ export default function PatientProfileClient({ data }: { data: any }) {
           </div>
           <div className="ml-auto flex flex-wrap gap-2">
             {patient?.id && (
-              <Link href={`/dashboard/chat?with=${patient.id}`}>
-                <Button variant="outline" className="rounded-xl font-bold">
-                  <MessageCircle className="w-4 h-4 mr-2" />
-                  Message Patient
-                </Button>
-              </Link>
+              <Button
+                variant="outline"
+                className="rounded-xl font-bold"
+                onClick={() => setChatOpen(true)}
+              >
+                <MessageCircle className="w-4 h-4 mr-2" />
+                Message Patient
+              </Button>
             )}
             <Link href={`/dashboard/hospital/patients/${pregnancy.id}/mch-book`}>
               <Button className="bg-slate-900 hover:bg-slate-800 text-white rounded-xl shadow-lg flex items-center gap-2">
@@ -623,6 +629,42 @@ export default function PatientProfileClient({ data }: { data: any }) {
           </TabsContent>
         </Tabs>
       </div>
+    </div>
+
+    <PatientFloatingChatWrapper
+      patientId={patient.id}
+      patientName={patientName}
+      currentStaffId={currentStaffId}
+      open={chatOpen}
+      onClose={() => setChatOpen(false)}
+    />
+    </>
+  )
+}
+
+// Floating chat window for direct patient messaging from patient profile
+function PatientFloatingChatWrapper({
+  patientId,
+  patientName,
+  currentStaffId,
+  open,
+  onClose,
+}: {
+  patientId: string
+  patientName: string
+  currentStaffId: string
+  open: boolean
+  onClose: () => void
+}) {
+  if (!open) return null
+  return (
+    <div className="fixed bottom-0 right-6 z-50">
+      <FloatingChatWindow
+        currentUserId={currentStaffId}
+        otherUserId={patientId}
+        otherUserName={patientName}
+        onClose={onClose}
+      />
     </div>
   )
 }

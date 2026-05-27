@@ -11,6 +11,7 @@ import { Badge } from '@/components/ui/badge'
 import { searchGlobalPatients, scheduleNextVisit, assignMidwifeToPregnancy, addHospitalStaffMember, exportHospitalPatientsCsv, removeHospitalStaffMember, getHospitalStaffLoginHistory, generateHospitalShiftCode } from '@/app/actions'
 import SessionTimeoutGuard from '@/components/SessionTimeoutGuard'
 import ShiftCodeGate from '@/components/ShiftCodeGate'
+import FloatingChatWindow from '@/components/dashboard/FloatingChatWindow'
 import {
   Dialog,
   DialogContent,
@@ -78,6 +79,14 @@ export default function HospitalDashboardClient({ user, data }: { user: any, dat
   const [activeTab, setActiveTab] = useState('overview')
   const [loginLogs, setLoginLogs] = useState<any[]>([])
   const [loadingLogs, setLoadingLogs] = useState(false)
+  const [openChats, setOpenChats] = useState<Array<{ id: string; name: string }>>([]) 
+
+  const openFloatingChat = (patientUserId: string, patientName: string) => {
+    setOpenChats(prev => {
+      if (prev.some(c => c.id === patientUserId)) return prev
+      return [...prev, { id: patientUserId, name: patientName }]
+    })
+  }
 
   useEffect(() => {
     if (activeTab === 'staff') {
@@ -541,10 +550,10 @@ export default function HospitalDashboardClient({ user, data }: { user: any, dat
                       unreadCount: number
                       assignedStaffName: string | null
                     }) => (
-                      <Link
+                      <div
                         key={thread.patientUserId}
-                        href={`/dashboard/chat?with=${thread.patientUserId}`}
-                        className="flex items-center gap-4 p-4 rounded-xl border border-slate-100 bg-slate-50/80 hover:bg-white hover:shadow-sm transition-all"
+                        onClick={() => openFloatingChat(thread.patientUserId, thread.patientName)}
+                        className="flex items-center gap-4 p-4 rounded-xl border border-slate-100 bg-slate-50/80 hover:bg-white hover:shadow-sm transition-all cursor-pointer"
                       >
                         <div className="w-11 h-11 rounded-2xl bg-[#D48BA1]/15 flex items-center justify-center shrink-0 font-black text-[#D48BA1] text-sm">
                           {thread.patientName
@@ -580,7 +589,7 @@ export default function HospitalDashboardClient({ user, data }: { user: any, dat
                             {thread.unreadCount}
                           </Badge>
                         )}
-                      </Link>
+                      </div>
                     ))}
                   </div>
                 )}
@@ -859,11 +868,13 @@ export default function HospitalDashboardClient({ user, data }: { user: any, dat
                             </Button>
                           </Link>
                           {pregnancy.patientUserId && (
-                            <Link href={`/dashboard/chat?with=${pregnancy.patientUserId}`}>
-                              <Button variant="outline" size="sm" aria-label="Message patient" title="Send message">
-                                <MessageCircle className="w-4 h-4" />
-                              </Button>
-                            </Link>
+                            <Button
+                              variant="outline" size="sm"
+                              aria-label="Message patient" title="Open chat"
+                              onClick={() => openFloatingChat(pregnancy.patientUserId, pregnancy.patientName)}
+                            >
+                              <MessageCircle className="w-4 h-4" />
+                            </Button>
                           )}
                         </div>
                       </CardContent>
@@ -906,11 +917,12 @@ export default function HospitalDashboardClient({ user, data }: { user: any, dat
                             <Button size="sm" variant="outline">Profile</Button>
                           </Link>
                           {apt.patientUserId && (
-                            <Link href={`/dashboard/chat?with=${apt.patientUserId}`}>
-                              <Button size="sm" className="bg-slate-900">
-                                <MessageCircle className="w-4 h-4" />
-                              </Button>
-                            </Link>
+                            <Button
+                              size="sm" className="bg-slate-900"
+                              onClick={() => openFloatingChat(apt.patientUserId, apt.patientName)}
+                            >
+                              <MessageCircle className="w-4 h-4" />
+                            </Button>
                           )}
                         </div>
                       </div>
@@ -1371,6 +1383,21 @@ export default function HospitalDashboardClient({ user, data }: { user: any, dat
 
     </div>
     </ShiftCodeGate>
+
+    {/* Floating Chat Stack — Facebook/LinkedIn style */}
+    {openChats.length > 0 && (
+      <div className="fixed bottom-0 right-6 flex items-end gap-4 z-50">
+        {openChats.map((chat) => (
+          <FloatingChatWindow
+            key={chat.id}
+            currentUserId={data?.dbUser?.id || user?.id}
+            otherUserId={chat.id}
+            otherUserName={chat.name}
+            onClose={() => setOpenChats(prev => prev.filter(c => c.id !== chat.id))}
+          />
+        ))}
+      </div>
+    )}
     </SessionTimeoutGuard>
   )
 }
