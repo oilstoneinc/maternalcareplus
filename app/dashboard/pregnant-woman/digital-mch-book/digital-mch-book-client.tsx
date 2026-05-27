@@ -15,7 +15,7 @@ import Link from 'next/link'
 import { updateMCHChecklists } from '@/app/actions'
 import { useToast } from '@/hooks/use-toast'
 import { useRouter } from 'next/navigation'
-import { pusherClient } from '@/lib/pusher-client'
+import { pusherClient, pusherEnabled } from '@/lib/pusher-client'
 import { 
   LineChart, 
   Line, 
@@ -108,8 +108,7 @@ export default function DigitalMCHBookClient({
   useEffect(() => {
     if (
       readOnly ||
-      !process.env.NEXT_PUBLIC_PUSHER_APP_KEY ||
-      process.env.NEXT_PUBLIC_PUSHER_APP_KEY === 'dummy_key'
+      !pusherEnabled
     ) {
       return
     }

@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useEffect, useRef, useCallback } from 'react'
-import { pusherClient } from '@/lib/pusher-client'
+import { pusherClient, pusherEnabled } from '@/lib/pusher-client'
 import { sendMessage, getMessages } from '@/app/actions'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -25,11 +25,6 @@ type Msg = {
   createdAt: string | Date
   status?: string
 }
-
-const pusherEnabled =
-  typeof window !== 'undefined' &&
-  process.env.NEXT_PUBLIC_PUSHER_APP_KEY &&
-  process.env.NEXT_PUBLIC_PUSHER_APP_KEY !== 'dummy_key'
 
 export default function ChatHub({
   currentUserId,

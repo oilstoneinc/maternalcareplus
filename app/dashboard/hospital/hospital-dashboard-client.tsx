@@ -12,7 +12,7 @@ import { searchGlobalPatients, scheduleNextVisit, assignMidwifeToPregnancy, addH
 import SessionTimeoutGuard from '@/components/SessionTimeoutGuard'
 import ShiftCodeGate from '@/components/ShiftCodeGate'
 import FloatingChatWindow from '@/components/dashboard/FloatingChatWindow'
-import { pusherClient } from '@/lib/pusher-client'
+import { pusherClient, pusherEnabled } from '@/lib/pusher-client'
 import {
   Dialog,
   DialogContent,
@@ -104,7 +104,7 @@ export default function HospitalDashboardClient({ user, data }: { user: any, dat
 
   useEffect(() => {
     const userId = data?.dbUser?.id
-    if (!userId || !process.env.NEXT_PUBLIC_PUSHER_APP_KEY || process.env.NEXT_PUBLIC_PUSHER_APP_KEY === 'dummy_key') {
+    if (!userId || !pusherEnabled) {
       return
     }
 

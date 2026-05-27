@@ -44,7 +44,7 @@ import type { DashboardData } from '@/types'
 import { generateFatherJoinCode, markNotificationsRead } from '@/app/actions'
 import NearestHospitalsDialog from '@/components/dashboard/NearestHospitalsDialog'
 import InstallAppFooter from '@/components/install-app-footer'
-import { pusherClient } from '@/lib/pusher-client'
+import { pusherClient, pusherEnabled } from '@/lib/pusher-client'
 import { useRouter } from 'next/navigation'
 import { Sparkles as SparklesIcon } from 'lucide-react'
 import { 
@@ -152,7 +152,7 @@ export default function PregnantWomanClient({ user, data }: { user: any, data: D
 
   useEffect(() => {
     if (!data?.user?.id) return
-    if (!process.env.NEXT_PUBLIC_PUSHER_APP_KEY || process.env.NEXT_PUBLIC_PUSHER_APP_KEY === 'dummy_key') {
+    if (!pusherEnabled) {
       return
     }
 
