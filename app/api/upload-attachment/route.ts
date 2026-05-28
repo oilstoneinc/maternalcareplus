@@ -47,10 +47,11 @@ export async function POST(req: NextRequest) {
     const safeId = pregnancyId?.replace(/[^a-z0-9-]/gi, '') || 'general'
     const filename = `lab-uploads/${safeId}/${randomUUID()}${ext}`
 
-    // Upload to Vercel Blob — omit `access` so it respects the store's
-    // configured access level (public or private). Private stores reject
-    // `access: 'public'` with "Cannot use public access on a private store".
+    // Upload to Vercel Blob with private access. The store is configured
+    // as private — using 'public' here would fail with "Cannot use public
+    // access on a private store". Private blobs use token-authenticated URLs.
     const blob = await put(filename, file, {
+      access: 'private',
       contentType: file.type,
     })
 
