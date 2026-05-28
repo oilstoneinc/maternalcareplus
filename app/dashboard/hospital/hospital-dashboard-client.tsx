@@ -2035,54 +2035,6 @@ function PatientOnboardingForm({ onSuccess }: { onSuccess: () => void }) {
         />
       </div>
 
-      <div className="border-t pt-6">
-        <h3 className="text-lg font-semibold mb-2">Partner / Father (optional)</h3>
-        <p className="text-xs text-gray-500 mb-4">
-          If provided, he receives his own invite email with read-only access — he does not use the
-          mother&apos;s password.
-        </p>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-          <div>
-            <label htmlFor="partnerFirstName" className="block text-sm font-medium text-gray-700 mb-2">
-              Partner first name
-            </label>
-            <input
-              type="text"
-              id="partnerFirstName"
-              value={formData.partnerFirstName}
-              onChange={(e) => setFormData({ ...formData, partnerFirstName: e.target.value })}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#D48BA1]"
-              placeholder="Optional"
-            />
-          </div>
-          <div>
-            <label htmlFor="partnerLastName" className="block text-sm font-medium text-gray-700 mb-2">
-              Partner last name
-            </label>
-            <input
-              type="text"
-              id="partnerLastName"
-              value={formData.partnerLastName}
-              onChange={(e) => setFormData({ ...formData, partnerLastName: e.target.value })}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#D48BA1]"
-              placeholder="Optional"
-            />
-          </div>
-          <div>
-            <label htmlFor="partnerEmail" className="block text-sm font-medium text-gray-700 mb-2">
-              Partner email
-            </label>
-            <input
-              type="email"
-              id="partnerEmail"
-              value={formData.partnerEmail}
-              onChange={(e) => setFormData({ ...formData, partnerEmail: e.target.value })}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#D48BA1]"
-              placeholder="partner@email.com"
-            />
-          </div>
-        </div>
-      </div>
 
       <div className="border-t pt-6">
         <h3 className="text-lg font-semibold mb-4">Pregnancy Information</h3>
