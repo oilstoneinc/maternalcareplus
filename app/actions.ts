@@ -1122,6 +1122,19 @@ export async function onboardPatient(formData: any) {
         throw new Error('You must be assigned to a hospital to onboard a patient.')
       }
 
+      // Parse blood type from combined format e.g. "O+" -> { bloodType: 'O', rhesusFactor: 'Positive' }
+      let parsedBloodType: string | null = null
+      let parsedRhesusFactor: 'Positive' | 'Negative' | null = null
+      if (formData.bloodType && formData.bloodType.trim()) {
+        const btMatch = formData.bloodType.trim().match(/^(A|B|AB|O)(\+|-)$/)
+        if (btMatch) {
+          parsedBloodType = btMatch[1]
+          parsedRhesusFactor = btMatch[2] === '+' ? 'Positive' : 'Negative'
+        } else {
+          parsedBloodType = formData.bloodType.trim()
+        }
+      }
+
       // Check if pregnancy record already exists for this patient
       const existingPregnancy = await db.query.pregnancies.findFirst({
         where: eq(pregnancies.userId, newUser.id)
@@ -1134,11 +1147,13 @@ export async function onboardPatient(formData: any) {
           gravidity: parseInt(formData.gravidity) || 1,
           parity: parseInt(formData.parity) || 0,
           lmp: new Date(formData.lmp),
-          edd: new Date(new Date(formData.lmp).setDate(new Date(formData.lmp).getDate() + 280)), // Rule of thumb
+          edd: new Date(new Date(formData.lmp).setDate(new Date(formData.lmp).getDate() + 280)),
           status: 'active',
+          ...(parsedBloodType && { bloodType: parsedBloodType }),
+          ...(parsedRhesusFactor && { rhesusFactor: parsedRhesusFactor }),
         }).returning()
         activePregnancyId = createdPregnancy.id
-        console.log(`[onboardPatient] Instantiated new pregnancy record for user ${newUser.id}`)
+        console.log(`[onboardPatient] Instantiated new pregnancy record for user ${newUser.id} (blood type: ${parsedBloodType || 'not provided'})`)
       } else {
         // Update existing pregnancy record
         await db.update(pregnancies)
@@ -1148,10 +1163,12 @@ export async function onboardPatient(formData: any) {
             parity: parseInt(formData.parity) || existingPregnancy.parity,
             lmp: new Date(formData.lmp),
             edd: new Date(new Date(formData.lmp).setDate(new Date(formData.lmp).getDate() + 280)),
+            ...(parsedBloodType && { bloodType: parsedBloodType }),
+            ...(parsedRhesusFactor && { rhesusFactor: parsedRhesusFactor }),
           })
           .where(eq(pregnancies.id, existingPregnancy.id))
         activePregnancyId = existingPregnancy.id
-        console.log(`[onboardPatient] Updated existing pregnancy record ${existingPregnancy.id} for user ${newUser.id}`)
+        console.log(`[onboardPatient] Updated existing pregnancy record ${existingPregnancy.id} for user ${newUser.id} (blood type: ${parsedBloodType || 'not provided'})`)
       }
     }
 
