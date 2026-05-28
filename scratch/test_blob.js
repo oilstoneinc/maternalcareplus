@@ -1,4 +1,4 @@
-const { put } = require('@vercel/blob')
+const { UTApi, UTFile } = require('uploadthing/server')
 const fs = require('fs')
 const path = require('path')
 
@@ -16,25 +16,56 @@ envContent.split('\n').forEach(line => {
   }
 })
 
-process.env.BLOB_READ_WRITE_TOKEN = env.BLOB_READ_WRITE_TOKEN
+process.env.UPLOADTHING_SECRET = env.UPLOADTHING_SECRET
+process.env.UPLOADTHING_APP_ID = env.UPLOADTHING_APP_ID
 
-async function testBlob() {
-  console.log('Testing Vercel Blob upload...')
-  console.log('Token starts with:', process.env.BLOB_READ_WRITE_TOKEN?.slice(0, 30) + '...')
-  
-  try {
-    // Upload a tiny test text file
-    const testContent = new Blob(['MaternalCare Plus blob test - ' + new Date().toISOString()], { type: 'text/plain' })
-    const blob = await put('lab-uploads/test/blob-connectivity-test.txt', testContent, {
-      access: 'public',
-      contentType: 'text/plain',
-    })
-    console.log('✅ Blob upload SUCCESS!')
-    console.log('   Public URL:', blob.url)
-    console.log('   Size:', blob.size, 'bytes')
-  } catch (err) {
-    console.error('❌ Blob upload FAILED:', err.message || err)
+// We will test several regions to see which one succeeds
+const REGIONS_TO_TRY = ["fra1", "us-east-1", "sea1", "us1"];
+
+async function testUploadThing() {
+  console.log('Testing UploadThing upload with dynamic region detection...')
+  console.log('Secret starts with:', process.env.UPLOADTHING_SECRET?.slice(0, 15) + '...')
+  console.log('App ID:', process.env.UPLOADTHING_APP_ID)
+
+  for (const region of REGIONS_TO_TRY) {
+    console.log(`\nTrying region: "${region}"...`)
+    
+    // Construct UPLOADTHING_TOKEN for this region
+    const tokenObj = {
+      apiKey: process.env.UPLOADTHING_SECRET,
+      appId: process.env.UPLOADTHING_APP_ID,
+      regions: [region]
+    }
+    process.env.UPLOADTHING_TOKEN = Buffer.from(JSON.stringify(tokenObj)).toString('base64')
+
+    try {
+      const utapi = new UTApi()
+      
+      // Use UTFile with a buffer
+      const buffer = Buffer.from('MaternalCare Plus UploadThing connectivity test - ' + new Date().toISOString())
+      const file = new UTFile([buffer], 'uploadthing-connectivity-test.txt', { type: 'text/plain' })
+      
+      const result = await utapi.uploadFiles(file)
+      
+      if (result.error) {
+        console.warn(`⚠️  Region "${region}" failed:`, result.error.message || result.error)
+        continue
+      }
+      
+      console.log(`\n✅ UploadThing SUCCESS on region "${region}"!`)
+      console.log('   Public URL:', result.data.url)
+      console.log('   Key:', result.data.key)
+      console.log('   Size:', result.data.size, 'bytes')
+      console.log('\nUse this region in your production token!')
+      return region
+    } catch (err) {
+      console.warn(`⚠️  Region "${region}" error:`, err.message || err)
+    }
   }
+  
+  console.error('\n❌ All regions failed to upload.')
 }
 
-testBlob()
+testUploadThing()
+
+

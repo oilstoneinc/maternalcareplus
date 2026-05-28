@@ -1,8 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { currentUser } from '@clerk/nextjs/server'
-import { put } from '@vercel/blob'
-import { randomUUID } from 'crypto'
-import { extname } from 'path'
+
+// Dynamically construct UPLOADTHING_TOKEN for UploadThing v7+ compatibility if not present
+if (process.env.UPLOADTHING_SECRET && process.env.UPLOADTHING_APP_ID && !process.env.UPLOADTHING_TOKEN) {
+  const tokenObj = {
+    apiKey: process.env.UPLOADTHING_SECRET,
+    appId: process.env.UPLOADTHING_APP_ID,
+    regions: ["sea1"]
+  }
+  process.env.UPLOADTHING_TOKEN = Buffer.from(JSON.stringify(tokenObj)).toString('base64')
+}
+
+import { UTApi } from 'uploadthing/server'
 
 const ALLOWED_TYPES = [
   'image/jpeg',
@@ -14,6 +23,8 @@ const ALLOWED_TYPES = [
 
 const MAX_SIZE_BYTES = 10 * 1024 * 1024 // 10 MB
 
+const utapi = new UTApi()
+
 export async function POST(req: NextRequest) {
   try {
     const user = await currentUser()
@@ -23,7 +34,6 @@ export async function POST(req: NextRequest) {
 
     const formData = await req.formData()
     const file = formData.get('file') as File | null
-    const pregnancyId = formData.get('pregnancyId') as string | null
 
     if (!file) {
       return NextResponse.json({ error: 'No file provided' }, { status: 400 })
@@ -43,18 +53,26 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    const ext = extname(file.name) || '.' + file.type.split('/')[1]
-    const safeId = pregnancyId?.replace(/[^a-z0-9-]/gi, '') || 'general'
-    const filename = `lab-uploads/${safeId}/${randomUUID()}${ext}`
+    // Upload to UploadThing
+    const uploadResult = await utapi.uploadFiles(file)
 
-    // Upload to Vercel Blob (works in both local dev & production on Vercel)
-    const blob = await put(filename, file, {
-      access: 'public',
-      contentType: file.type,
-    })
+    if (uploadResult.error) {
+      console.error('[upload-attachment] UploadThing error:', uploadResult.error)
+      return NextResponse.json(
+        { error: uploadResult.error.message || 'Upload failed via UploadThing' },
+        { status: 400 }
+      )
+    }
+
+    if (!uploadResult.data) {
+      return NextResponse.json(
+        { error: 'No data returned from UploadThing' },
+        { status: 500 }
+      )
+    }
 
     return NextResponse.json({
-      url: blob.url,
+      url: uploadResult.data.url,
       name: file.name,
       type: file.type,
       size: file.size,
@@ -67,3 +85,4 @@ export async function POST(req: NextRequest) {
     )
   }
 }
+
