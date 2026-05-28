@@ -1,8 +1,12 @@
 import { sql } from 'drizzle-orm'
 import { db } from '@/lib/db'
 
+let mchSchemaEnsured = false
+
 /** Ensures MCH-related tables/columns exist (production DB may predate schema additions). */
 export async function ensureMCHSchema() {
+  if (mchSchemaEnsured) return
+
   const statements = [
     sql`ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "ghana_card_id" text UNIQUE`,
     sql`ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "last_shift_code_verified" text`,
@@ -157,4 +161,6 @@ export async function ensureMCHSchema() {
       console.warn('[ensureMCHSchema] statement skipped:', err)
     }
   }
+
+  mchSchemaEnsured = true
 }

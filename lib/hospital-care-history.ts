@@ -27,7 +27,10 @@ const ACTION_LABELS: Record<CareEncounterAction, string> = {
   timeline_update: 'Pregnancy dates updated',
 }
 
+let hospitalCareSchemaEnsured = false
+
 export async function ensureHospitalCareSchema() {
+  if (hospitalCareSchemaEnsured) return
   await db.execute(sql`
     CREATE TABLE IF NOT EXISTS "hospital_care_encounters" (
       "id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
@@ -43,6 +46,7 @@ export async function ensureHospitalCareSchema() {
       "created_at" timestamp DEFAULT now()
     )
   `)
+  hospitalCareSchemaEnsured = true
 }
 
 export async function recordFacilityCareEvent(params: {

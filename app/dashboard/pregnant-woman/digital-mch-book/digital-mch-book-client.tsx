@@ -673,7 +673,9 @@ export default function DigitalMCHBookClient({
                 </CardHeader>
                 <CardContent className="space-y-3">
                   {labs.map((lab: any) => {
-                    const isImg = lab.attachmentUrl && !lab.attachmentUrl.endsWith('.pdf')
+                    const isPdf = (lab.attachmentUrl && lab.attachmentUrl.toLowerCase().endsWith('.pdf')) ||
+                                  (lab.attachmentName && lab.attachmentName.toLowerCase().endsWith('.pdf'))
+                    const isImg = lab.attachmentUrl && !isPdf
                     return (
                     <div key={lab.id} className="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-2">
                       <div className="flex justify-between items-start gap-2">
