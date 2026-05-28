@@ -1170,6 +1170,8 @@ export async function onboardPatient(formData: any) {
     }
 
     // 4. Send programmatic Clerk Invitation to trigger automatic email delivery
+    let clerkInviteSent = false
+    let clerkErrorMsg: string | null = null
     try {
       const client = await clerkClient()
       await client.invitations.createInvitation({
@@ -1182,8 +1184,10 @@ export async function onboardPatient(formData: any) {
         },
         ignoreExisting: true,
       })
+      clerkInviteSent = true
       console.log(`[onboardPatient] Programmatic Clerk Invitation successfully sent/resent to pregnant woman ${emailLower}`)
     } catch (clerkErr: any) {
+      clerkErrorMsg = clerkErr?.message || clerkErr?.longMessage || String(clerkErr)
       console.error('[onboardPatient] Warning: Clerk programmatic invitation failed:', clerkErr)
       // We still proceed so the DB record is persisted
     }
@@ -1196,6 +1200,8 @@ export async function onboardPatient(formData: any) {
         isInvitationFlow: true,
         loginUrl: `${origin}/sign-up`,
         partnerInvite,
+        clerkInviteSent,
+        clerkErrorMsg,
       }
     }
   } catch (error: any) {
@@ -1294,12 +1300,13 @@ async function invitePartnerDuringOnboarding(params: {
     })
     console.log(`[onboardPatient] Partner invitation sent to ${emailLower}`)
     return { email: emailLower, invited: true }
-  } catch (clerkErr: unknown) {
+  } catch (clerkErr: any) {
     console.error('[onboardPatient] Partner Clerk invitation failed:', clerkErr)
+    const errorMsg = clerkErr?.message || clerkErr?.longMessage || String(clerkErr)
     return {
       email: emailLower,
       invited: false,
-      error: 'Partner record created but email invitation failed — resend from Clerk dashboard',
+      error: `Clerk invitation failed: ${errorMsg}`,
     }
   }
 }

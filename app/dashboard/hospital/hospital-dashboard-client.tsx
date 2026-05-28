@@ -1765,6 +1765,8 @@ function PatientOnboardingForm({ onSuccess }: { onSuccess: () => void }) {
     loginUrl: string
     isInvitationFlow?: boolean
     partnerInvite?: { email: string; invited: boolean; error?: string } | null
+    clerkInviteSent?: boolean
+    clerkErrorMsg?: string | null
   } | null>(null)
   const [copied, setCopied] = useState(false)
   
@@ -1830,18 +1832,45 @@ function PatientOnboardingForm({ onSuccess }: { onSuccess: () => void }) {
   }
 
   if (successData) {
+    const isClerkFailed = successData.clerkInviteSent === false;
+
     return (
       <div className="p-6 text-center space-y-6">
-        <div className="h-20 w-20 bg-green-100 rounded-full flex items-center justify-center mx-auto animate-bounce">
-          <Check className="h-10 w-10 text-green-600" />
-        </div>
+        {isClerkFailed ? (
+          <div className="h-20 w-20 bg-amber-100 rounded-full flex items-center justify-center mx-auto text-amber-600">
+            <span className="text-3xl">⚠️</span>
+          </div>
+        ) : (
+          <div className="h-20 w-20 bg-green-100 rounded-full flex items-center justify-center mx-auto animate-bounce">
+            <Check className="h-10 w-10 text-green-600" />
+          </div>
+        )}
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">Patient Onboarded!</h2>
-          <p className="text-gray-500 mt-2 text-sm">
-            {successData.isInvitationFlow 
-              ? "An official email invitation has been sent directly to the patient." 
-              : "Please give these credentials to the patient now."}
-          </p>
+          <h2 className="text-2xl font-bold text-gray-900">
+            {isClerkFailed ? "Patient Registered (Invite Failed)" : "Patient Onboarded!"}
+          </h2>
+          {isClerkFailed ? (
+            <div className="mt-3 p-4 bg-amber-50 border border-amber-200 rounded-2xl text-left text-amber-800 space-y-2">
+              <p className="text-xs font-bold uppercase flex items-center gap-1">
+                ⚠️ Email invitation could not be sent automatically
+              </p>
+              <p className="text-[11px] font-medium leading-relaxed">
+                The local patient record was created successfully in the database, but the Clerk email invite failed.
+              </p>
+              <p className="text-[10px] font-mono bg-amber-100/70 p-2 rounded-lg text-amber-900 select-all overflow-x-auto max-w-full">
+                Error: {successData.clerkErrorMsg || 'CLERK_SECRET_KEY is missing or invalid in environment.'}
+              </p>
+              <p className="text-[11px] font-semibold text-slate-700 mt-1">
+                👉 Please ask your system administrator to configure the Clerk Secret Key in the <span className="font-mono text-xs font-bold">.env</span> file.
+              </p>
+            </div>
+          ) : (
+            <p className="text-gray-500 mt-2 text-sm">
+              {successData.isInvitationFlow 
+                ? "An official email invitation has been sent directly to the patient." 
+                : "Please give these credentials to the patient now."}
+            </p>
+          )}
         </div>
 
         <div className="bg-gray-50 p-4 rounded-xl border border-gray-200 text-left space-y-3 relative">
@@ -1852,9 +1881,15 @@ function PatientOnboardingForm({ onSuccess }: { onSuccess: () => void }) {
           {successData.isInvitationFlow ? (
             <div>
               <p className="text-xs font-medium text-gray-500 uppercase">Registration Access</p>
-              <p className="text-sm font-bold text-emerald-600 bg-emerald-50 px-2.5 py-1.5 rounded-lg inline-block">
-                Secure Invitation Sent via Email
-              </p>
+              {isClerkFailed ? (
+                <p className="text-sm font-bold text-rose-600 bg-rose-50 px-2.5 py-1.5 rounded-lg inline-block border border-rose-100">
+                  Email Delivery Failed (Setup Required)
+                </p>
+              ) : (
+                <p className="text-sm font-bold text-emerald-600 bg-emerald-50 px-2.5 py-1.5 rounded-lg inline-block border border-emerald-100">
+                  Secure Invitation Sent via Email
+                </p>
+              )}
             </div>
           ) : (
             <div>
