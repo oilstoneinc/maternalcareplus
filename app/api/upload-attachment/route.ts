@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { currentUser } from '@clerk/nextjs/server'
-import { writeFile, mkdir } from 'fs/promises'
-import { join, extname } from 'path'
+import { put } from '@vercel/blob'
 import { randomUUID } from 'crypto'
+import { extname } from 'path'
 
 const ALLOWED_TYPES = [
   'image/jpeg',
@@ -45,26 +45,25 @@ export async function POST(req: NextRequest) {
 
     const ext = extname(file.name) || '.' + file.type.split('/')[1]
     const safeId = pregnancyId?.replace(/[^a-z0-9-]/gi, '') || 'general'
-    const filename = `${randomUUID()}${ext}`
+    const filename = `lab-uploads/${safeId}/${randomUUID()}${ext}`
 
-    // Save to public/uploads/<pregnancyId>/
-    const uploadDir = join(process.cwd(), 'public', 'uploads', safeId)
-    await mkdir(uploadDir, { recursive: true })
-
-    const bytes = await file.arrayBuffer()
-    const buffer = Buffer.from(bytes)
-    await writeFile(join(uploadDir, filename), buffer)
-
-    const publicUrl = `/uploads/${safeId}/${filename}`
+    // Upload to Vercel Blob (works in both local dev & production on Vercel)
+    const blob = await put(filename, file, {
+      access: 'public',
+      contentType: file.type,
+    })
 
     return NextResponse.json({
-      url: publicUrl,
+      url: blob.url,
       name: file.name,
       type: file.type,
       size: file.size,
     })
-  } catch (err) {
-    console.error('[upload-attachment]', err)
-    return NextResponse.json({ error: 'Upload failed' }, { status: 500 })
+  } catch (err: any) {
+    console.error('[upload-attachment] error:', err?.message || err)
+    return NextResponse.json(
+      { error: err?.message || 'Upload failed' },
+      { status: 500 }
+    )
   }
 }
