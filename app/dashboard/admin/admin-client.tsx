@@ -34,8 +34,8 @@ import {
   Tooltip,
   Legend
 } from 'recharts'
-import { assignUserToHospital, inviteHospital, approvePartnershipRequest, getMonthlyAuditReport } from '@/app/actions'
-import { Calendar, Clock, ClipboardList, RefreshCw, Heart } from 'lucide-react'
+import { assignUserToHospital, inviteHospital, approvePartnershipRequest, getMonthlyAuditReport, getAdminDatabaseTableData } from '@/app/actions'
+import { Calendar, Clock, ClipboardList, RefreshCw, Heart, FileText, ChevronRight } from 'lucide-react'
 
 interface AdminDashboardProps {
   user: any
@@ -47,6 +47,97 @@ export default function AdminDashboardClient({ user, data }: AdminDashboardProps
   const [assigningUser, setAssigningUser] = useState<string | null>(null)
   const [selectedHospital, setSelectedHospital] = useState('')
   const [isUpdating, setIsUpdating] = useState(false)
+
+  // Neon Database Explorer States
+  const [selectedTable, setSelectedTable] = useState<string | null>(null)
+  const [tableData, setTableData] = useState<any[] | null>(null)
+  const [isLoadingTable, setIsLoadingTable] = useState(false)
+  const [dbSearchQuery, setDbSearchQuery] = useState('')
+
+  const fetchTableData = async (tableName: string) => {
+    setIsLoadingTable(true)
+    setDbSearchQuery('')
+    try {
+      const res = await getAdminDatabaseTableData(tableName)
+      if (res.success) {
+        setTableData(res.data || [])
+      } else {
+        console.error(res.error)
+        setTableData([])
+      }
+    } catch (err) {
+      console.error(err)
+      setTableData([])
+    } finally {
+      setIsLoadingTable(false)
+    }
+  }
+
+  // Neon Table list corresponding exactly to the database schema
+  const neonTables = React.useMemo(() => [
+    { name: 'appointments', label: 'appointments' },
+    { name: 'child_growth', label: 'child_growth' },
+    { name: 'children', label: 'children' },
+    { name: 'deliveries', label: 'deliveries' },
+    { name: 'educational_resources', label: 'educational_resources' },
+    { name: 'hospital_care_encounters', label: 'hospital_care_encounters' },
+    { name: 'hospital_invites', label: 'hospital_invites' },
+    { name: 'hospitals', label: 'hospitals' },
+    { name: 'immunizations', label: 'immunizations' },
+    { name: 'lab_tests', label: 'lab_tests' },
+    { name: 'mandatory_lab_tests', label: 'mandatory_lab_tests' },
+    { name: 'messages', label: 'messages' },
+    { name: 'notifications', label: 'notifications' },
+    { name: 'partner_access', label: 'partner_access' },
+    { name: 'partnership_requests', label: 'partnership_requests' },
+    { name: 'postnatal_care', label: 'postnatal_care' },
+    { name: 'pregnancies', label: 'pregnancies' },
+    { name: 'previous_pregnancies', label: 'previous_pregnancies' },
+    { name: 'risk_factors', label: 'risk_factors' },
+    { name: 'staff_login_logs', label: 'staff_login_logs' },
+    { name: 'users', label: 'users' },
+    { name: 'vital_signs', label: 'vital_signs' },
+    { name: 'pregnant_women', label: 'pregnant_women', isView: true },
+  ], [])
+
+  const filteredTableRows = React.useMemo(() => {
+    if (!tableData) return []
+    if (!dbSearchQuery) return tableData
+    return tableData.filter((row: any) => {
+      return Object.values(row).some((val) => 
+        String(val || '').toLowerCase().includes(dbSearchQuery.toLowerCase())
+      )
+    })
+  }, [tableData, dbSearchQuery])
+
+  const renderCellContent = (value: any) => {
+    if (value === null || value === undefined) {
+      return <span className="text-slate-300 italic text-[11px]">NULL</span>
+    }
+    if (typeof value === 'boolean') {
+      return value ? (
+        <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 py-0 px-1.5 text-[10px]">true</Badge>
+      ) : (
+        <Badge className="bg-rose-50 text-rose-700 border-rose-200 py-0 px-1.5 text-[10px]">false</Badge>
+      )
+    }
+    if (typeof value === 'object') {
+      return (
+        <pre className="text-[10px] bg-slate-50 p-1 rounded border border-slate-100 max-w-[180px] max-h-[60px] overflow-auto font-mono text-slate-600 select-all">
+          {JSON.stringify(value)}
+        </pre>
+      )
+    }
+    const strVal = String(value)
+    if (strVal.startsWith('http://') || strVal.startsWith('https://')) {
+      return (
+        <a href={strVal} target="_blank" rel="noreferrer" className="text-pink-600 font-semibold hover:underline flex items-center gap-0.5 text-xs">
+          URL <ArrowUpRight className="h-3 w-3 inline" />
+        </a>
+      )
+    }
+    return <span className="font-mono text-xs text-slate-700 select-all">{strVal}</span>
+  }
 
   // Monthly Audit States
   const currentYear = new Date().getFullYear()
@@ -219,6 +310,9 @@ export default function AdminDashboardClient({ user, data }: AdminDashboardProps
                   <TabsTrigger value="admin" className="rounded-lg px-4">Admin & Requests</TabsTrigger>
                   <TabsTrigger value="audit" className="rounded-lg px-4 flex items-center gap-1">
                     <ClipboardList className="h-3.5 w-3.5 text-indigo-600" /> Monthly Audits
+                  </TabsTrigger>
+                  <TabsTrigger value="database_explorer" className="rounded-lg px-4 flex items-center gap-1">
+                    <Database className="h-3.5 w-3.5 text-pink-600 animate-pulse" /> Neon DB Explorer
                   </TabsTrigger>
                   <TabsTrigger value="system" className="rounded-lg px-4">Status</TabsTrigger>
                 </TabsList>
@@ -781,6 +875,173 @@ export default function AdminDashboardClient({ user, data }: AdminDashboardProps
                       </div>
                     </div>
                   )}
+                </TabsContent>
+
+                {/* Database Explorer Tab: Neon Real-time DB Schema & Data */}
+                <TabsContent value="database_explorer" className="p-0">
+                  <div className="flex flex-col lg:flex-row min-h-[600px] divide-y lg:divide-y-0 lg:divide-x divide-border">
+                    {/* Left Panel: Table Lists matching Neon sidebar aesthetic */}
+                    <div className="w-full lg:w-[280px] bg-slate-50/50 p-4 shrink-0 max-h-[600px] overflow-y-auto">
+                      <div className="mb-4">
+                        <span className="text-[10px] font-black uppercase text-pink-600 tracking-widest block mb-2">
+                          Neon Database Tables
+                        </span>
+                        <p className="text-[11px] text-slate-400 font-medium">
+                          Select any table to query real-time data directly from the server.
+                        </p>
+                      </div>
+
+                      <div className="space-y-1">
+                        {neonTables.map((table) => {
+                          const isSelected = selectedTable === table.name;
+                          return (
+                            <button
+                              key={table.name}
+                              onClick={() => {
+                                setSelectedTable(table.name);
+                                fetchTableData(table.name);
+                              }}
+                              className={`w-full flex items-center justify-between text-left px-3 py-2 rounded-lg text-xs font-semibold transition-all ${
+                                isSelected
+                                  ? 'bg-[#D48BA1]/10 text-pink-700 shadow-sm border-l-2 border-[#D48BA1]'
+                                  : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                              }`}
+                            >
+                              <div className="flex items-center gap-2 truncate">
+                                {table.isView ? (
+                                  <svg className={`h-4 w-4 shrink-0 ${isSelected ? 'text-pink-600' : 'text-slate-400'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                  </svg>
+                                ) : (
+                                  <FileText className={`h-4 w-4 shrink-0 ${isSelected ? 'text-pink-600' : 'text-slate-400'}`} />
+                                )}
+                                <span className="truncate font-mono">{table.label}</span>
+                              </div>
+                              <ChevronRight className={`h-3.5 w-3.5 opacity-60 ${isSelected ? 'text-pink-600' : 'text-slate-400'}`} />
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* Right Panel: Data Explorer grid */}
+                    <div className="flex-1 bg-white flex flex-col min-h-[500px]">
+                      {!selectedTable ? (
+                        <div className="flex-1 flex flex-col items-center justify-center p-8 text-center bg-slate-50/20">
+                          <div className="p-4 bg-pink-50 rounded-full text-pink-500 mb-4 animate-bounce">
+                            <Database className="h-10 w-10" />
+                          </div>
+                          <h4 className="font-black text-slate-800 text-base">Select a Table to Explore</h4>
+                          <p className="text-xs text-slate-500 max-w-sm mt-2 leading-relaxed">
+                            No table has been queried. Select any Neon database table from the sidebar to inspect its structure and live records.
+                          </p>
+                        </div>
+                      ) : (
+                        <>
+                          {/* Table Controls */}
+                          <div className="p-4 border-b bg-slate-50/20 flex flex-col md:flex-row md:items-center justify-between gap-3 shrink-0">
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <span className="text-[10px] font-black uppercase text-pink-600 tracking-widest">
+                                  Table Schema
+                                </span>
+                                <Badge className="bg-slate-100 text-slate-700 hover:bg-slate-100 border-none font-mono py-0 px-1 text-[10px]">
+                                  SELECT * FROM {selectedTable}
+                                </Badge>
+                              </div>
+                              <h3 className="text-base font-black text-slate-800 font-mono mt-1">
+                                {selectedTable}
+                              </h3>
+                            </div>
+
+                            <div className="flex items-center gap-2">
+                              <div className="relative">
+                                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
+                                <input
+                                  type="text"
+                                  placeholder="Filter current view..."
+                                  value={dbSearchQuery}
+                                  onChange={(e) => setDbSearchQuery(e.target.value)}
+                                  className="pl-8 pr-3 py-1.5 rounded-lg border border-slate-200 text-xs w-44 focus:outline-none focus:ring-2 focus:ring-[#D48BA1]/20 focus:border-[#D48BA1] transition-all bg-white"
+                                />
+                              </div>
+
+                              <button
+                                onClick={() => fetchTableData(selectedTable)}
+                                disabled={isLoadingTable}
+                                className="p-2 bg-white border rounded-lg hover:bg-slate-50 transition-all text-slate-600 disabled:opacity-50 flex items-center gap-1.5 text-xs font-semibold"
+                                title="Refresh Neon DB Table"
+                              >
+                                <RefreshCw className={`h-3.5 w-3.5 ${isLoadingTable ? 'animate-spin' : ''}`} />
+                                <span className="hidden sm:inline">Refresh</span>
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Live Table Data Grid */}
+                          <div className="flex-1 overflow-auto max-h-[500px] relative">
+                            {isLoadingTable ? (
+                              <div className="absolute inset-0 bg-white/80 backdrop-blur-sm z-10 flex flex-col items-center justify-center">
+                                <RefreshCw className="h-8 w-8 text-pink-500 animate-spin mb-2" />
+                                <span className="text-xs font-bold text-slate-600">Querying live Neon DB cluster...</span>
+                              </div>
+                            ) : null}
+
+                            {!isLoadingTable && (!tableData || tableData.length === 0) ? (
+                              <div className="flex flex-col items-center justify-center p-12 text-center h-full min-h-[300px]">
+                                <AlertCircle className="h-8 w-8 text-slate-400 mb-2" />
+                                <span className="text-xs font-bold text-slate-500">Table is empty</span>
+                                <p className="text-[11px] text-slate-400 mt-1 max-w-xs">
+                                  No records were returned from this database table cluster.
+                                </p>
+                              </div>
+                            ) : (
+                              <table className="w-full text-left border-collapse min-w-[600px]">
+                                <thead className="bg-slate-50 border-b text-[10px] font-black text-slate-600 uppercase tracking-widest sticky top-0 bg-white z-10">
+                                  <tr>
+                                    {tableData && tableData.length > 0 && Object.keys(tableData[0]).map((col) => (
+                                      <th key={col} className="px-4 py-3 font-mono text-[10px] border-r border-b">
+                                        {col}
+                                      </th>
+                                    ))}
+                                  </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-100 bg-white">
+                                  {filteredTableRows.map((row: any, rIdx: number) => (
+                                    <tr key={rIdx} className="hover:bg-slate-50/50 transition-colors">
+                                      {Object.keys(row).map((col) => (
+                                        <td key={col} className="px-4 py-2.5 max-w-[240px] truncate border-r">
+                                          {renderCellContent(row[col])}
+                                        </td>
+                                      ))}
+                                    </tr>
+                                  ))}
+                                  {filteredTableRows.length === 0 && tableData && tableData.length > 0 && (
+                                    <tr>
+                                      <td colSpan={Object.keys(tableData[0]).length} className="px-4 py-8 text-center text-xs text-slate-400">
+                                        No records match search filter.
+                                      </td>
+                                    </tr>
+                                  )}
+                                </tbody>
+                              </table>
+                            )}
+                          </div>
+
+                          {/* Stats footer */}
+                          <div className="p-3 border-t bg-slate-50/50 text-[10px] font-black text-slate-500 uppercase tracking-widest flex justify-between items-center shrink-0">
+                            <span>
+                              {filteredTableRows.length} of {tableData?.length || 0} Records Displayed (Max 200)
+                            </span>
+                            <span className="font-mono text-emerald-600 flex items-center gap-1">
+                              ● Live Hot Connection
+                            </span>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  </div>
                 </TabsContent>
 
                 {/* System Tab: Database & Infrastructure Status */}

@@ -810,6 +810,69 @@ export async function getAdminDashboardData() {
 }
 
 /**
+ * Fetch real-time data for the Admin Database Explorer
+ */
+export async function getAdminDatabaseTableData(tableName: string) {
+  try {
+    const user = await currentUser()
+    if (!user) throw new Error('Unauthorized')
+
+    const dbUser = await db.query.users.findFirst({
+      where: eq(users.clerkId, user.id),
+    })
+
+    if (!dbUser || dbUser.role !== 'admin') {
+      throw new Error('Unauthorized role')
+    }
+
+    // Dynamic imports for tables not imported at the file-level top to keep imports clean
+    const { mandatoryLabTests: mandatoryTestsTable, educationalResources: eduTable } = await import('@/lib/db/schema')
+
+    // Whitelist mapping of all Neon tables for stakeholders
+    const tableMapping: Record<string, any> = {
+      users,
+      pregnancies,
+      appointments,
+      lab_tests: labTests,
+      messages,
+      hospitals,
+      vital_signs: vitalSigns,
+      previous_pregnancies: previousPregnancies,
+      deliveries,
+      postnatal_care: postnatalCare,
+      children,
+      immunizations,
+      child_growth: childGrowth,
+      hospital_invites: hospitalInvites,
+      partnership_requests: partnershipRequests,
+      notifications,
+      staff_login_logs: staffLoginLogs,
+      hospital_care_encounters: hospitalCareEncounters,
+      partner_access: partnerAccess,
+      educational_resources: eduTable,
+      mandatory_lab_tests: mandatoryTestsTable,
+    }
+
+    if (tableName === 'pregnant_women') {
+      const rows = await db.select().from(users).where(eq(users.role, 'pregnant_woman')).limit(200)
+      return { success: true, data: JSON.parse(JSON.stringify(rows)) }
+    }
+
+    const schemaTable = tableMapping[tableName]
+    if (!schemaTable) {
+      throw new Error(`Secure or unrecognized database table: ${tableName}`)
+    }
+
+    const rows = await db.select().from(schemaTable).limit(200)
+    return { success: true, data: JSON.parse(JSON.stringify(rows)) }
+  } catch (error: any) {
+    console.error(`Error querying database table ${tableName}:`, error)
+    return { success: false, error: error.message }
+  }
+}
+
+
+/**
  * Manually assign a user to a hospital
  */
 export async function assignUserToHospital(userId: string, hospitalId: string) {
