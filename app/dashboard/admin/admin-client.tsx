@@ -211,11 +211,12 @@ export default function AdminDashboardClient({ user, data }: AdminDashboardProps
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2">
           <Card className="border-none shadow-xl bg-white/60 backdrop-blur-md min-h-[600px] overflow-hidden">
-            <Tabs defaultValue="users" className="w-full">
+            <Tabs defaultValue="pregnant_women" className="w-full">
               <div className="px-6 pt-6 flex items-center justify-between border-b pb-4">
-                 <TabsList className="bg-muted/50 p-1 rounded-xl">
-                  <TabsTrigger value="users" className="rounded-lg px-4">User Records</TabsTrigger>
-                  <TabsTrigger value="hospitals" className="rounded-lg px-4">Hospitals</TabsTrigger>
+                 <TabsList className="bg-muted/50 p-1 rounded-xl flex flex-wrap gap-1">
+                  <TabsTrigger value="pregnant_women" className="rounded-lg px-4">Pregnant Women</TabsTrigger>
+                  <TabsTrigger value="hospitals" className="rounded-lg px-4">Hospitals & Staff</TabsTrigger>
+                  <TabsTrigger value="admin" className="rounded-lg px-4">Admin & Requests</TabsTrigger>
                   <TabsTrigger value="audit" className="rounded-lg px-4 flex items-center gap-1">
                     <ClipboardList className="h-3.5 w-3.5 text-indigo-600" /> Monthly Audits
                   </TabsTrigger>
@@ -233,204 +234,214 @@ export default function AdminDashboardClient({ user, data }: AdminDashboardProps
                 </div>
               </div>
 
-              <TabsContent value="users" className="p-0">
-                <div className="bg-slate-50 border-b p-4 text-xs font-bold text-slate-500 uppercase tracking-widest">
-                  Unassigned / System Users
-                </div>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left border-collapse bg-white">
-                    <thead className="bg-muted/30 text-[10px] font-black text-muted-foreground uppercase tracking-widest hidden">
-                      <tr>
-                        <th className="px-6 py-4">Full Name</th>
-                        <th className="px-6 py-4">Role</th>
-                        <th className="px-6 py-4">Status</th>
-                        <th className="px-6 py-4 text-right">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-border/50">
-                      {allUsers.filter((u: any) => !u.hospitalId).map((u: any) => (
-                        <tr key={u.id} className="hover:bg-slate-50 transition-colors group">
-                          <td className="px-6 py-4 w-[30%]">
-                            <div className="flex flex-col">
-                              <span className="text-sm font-bold">{u.firstName} {u.lastName}</span>
-                              <span className="text-[10px] text-muted-foreground font-mono">{u.email}</span>
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 w-[30%]">
-                            <Badge variant="outline" className="rounded-full px-3 py-0 scale-90 origin-left">
-                              {u.role === 'hospital_staff' ? 'Hospital Administrator' : (u.role || 'Unknown').replace('_', ' ')}
-                            </Badge>
-                          </td>
-                          <td className="px-6 py-4 w-[15%]">
-                             {u.isActive ? (
-                               <Badge className="bg-green-50 text-green-700 border-green-200">Active</Badge>
-                             ) : (
-                               <Badge className="bg-slate-100 text-slate-400 border-slate-200">Inactive</Badge>
-                             )}
-                          </td>
-                          <td className="px-6 py-4 text-right">
-                             {assigningUser === u.id ? (
-                               <div className="flex items-center justify-end gap-2">
-                                  <select 
-                                    className="text-[10px] border rounded p-1 bg-white"
-                                    value={selectedHospital}
-                                    onChange={(e) => setSelectedHospital(e.target.value)}
-                                  >
-                                    <option value="">Select Hospital...</option>
-                                    {allHospitals.map((h: any) => (
-                                      <option key={h.id} value={h.id}>{h.name}</option>
-                                    ))}
-                                  </select>
-                                  <button onClick={() => handleAssign(u.id)} className="p-1 bg-green-600 text-white rounded hover:bg-green-700">
-                                    <CheckCircle2 className="h-3 w-3" />
-                                  </button>
-                                  <button onClick={() => setAssigningUser(null)} className="p-1 bg-slate-200 rounded">
-                                    <Trash2 className="h-3 w-3" />
-                                  </button>
-                               </div>
-                             ) : (
-                               <button onClick={() => setAssigningUser(u.id)} className="text-[10px] font-bold text-indigo-600 flex items-center gap-1 ml-auto hover:underline">
-                                 <LinkIcon className="h-3 w-3" /> Assign Hospital
-                               </button>
-                             )}
-                          </td>
-                        </tr>
-                      ))}
-                      {allUsers.filter((u: any) => !u.hospitalId).length === 0 && (
-                        <tr><td colSpan={4} className="px-6 py-8 text-center text-sm text-slate-500">No unassigned users.</td></tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
+              <TabsContent value="pregnant_women" className="p-0 space-y-6">
+                <div className="p-6">
+                  <h3 className="text-sm font-bold text-slate-800 mb-4 flex items-center gap-2">
+                    <Heart className="h-4 w-4 text-pink-500" />
+                    Pregnant Women (System-wide by Hospital)
+                  </h3>
+                  
+                  {allHospitals.map((hospital: any) => {
+                    const hospitalPatients = allUsers.filter((u: any) => u.hospitalId === hospital.id && u.role === 'pregnant_woman');
+                    if (hospitalPatients.length === 0) return null;
 
-                {allHospitals.map((hospital: any) => {
-                  const hospitalPatients = allUsers.filter((u: any) => u.hospitalId === hospital.id && u.role === 'pregnant_woman');
-                  const hospitalStaff = allUsers.filter((u: any) => u.hospitalId === hospital.id && u.role !== 'pregnant_woman');
+                    return (
+                      <div key={hospital.id} className="border border-pink-100 rounded-xl overflow-hidden mb-6 bg-white shadow-sm">
+                        <div className="p-4 bg-pink-50/50 flex items-center justify-between border-b border-pink-100">
+                           <div className="flex items-center gap-3">
+                             <div className="p-2 bg-pink-100 rounded-lg">
+                                <Building2 className="h-5 w-5 text-pink-700" />
+                             </div>
+                             <div>
+                               <h3 className="font-bold text-slate-900">{hospital.name}</h3>
+                               <p className="text-xs text-slate-500 font-mono tracking-widest">{hospital.code}</p>
+                             </div>
+                           </div>
+                           <Badge className="bg-pink-100 text-pink-700 hover:bg-pink-200 border-none">
+                             {hospitalPatients.length} Patient{hospitalPatients.length !== 1 && 's'}
+                           </Badge>
+                        </div>
 
-                  return (
-                    <div key={hospital.id} className="border-t-[4px] border-indigo-50 bg-white">
-                      <div className="p-4 bg-indigo-50/30 flex items-center gap-3 border-b">
-                         <div className="p-2 bg-indigo-100 rounded-lg">
-                            <Building2 className="h-5 w-5 text-indigo-700" />
-                         </div>
-                         <div>
-                           <h3 className="font-bold text-slate-900">{hospital.name}</h3>
-                           <p className="text-xs text-slate-500 font-mono tracking-widest">{hospital.code} • {hospitalPatients.length} Patients • {hospitalStaff.length} Staff</p>
-                         </div>
-                      </div>
-
-                      <div className="grid grid-cols-1 lg:grid-cols-2 divide-y lg:divide-y-0 lg:divide-x divide-border/50">
-                        {/* Patients Side */}
                         <div className="overflow-x-auto">
-                          <div className="p-3 bg-pink-50/50 text-[10px] font-black text-pink-700 uppercase tracking-widest border-b">
-                            Pregnant Women (Patients)
-                          </div>
                           <table className="w-full text-left border-collapse">
+                            <thead className="bg-slate-50 text-[10px] font-black text-slate-600 uppercase tracking-widest border-b">
+                               <tr>
+                                  <th className="px-6 py-3">Patient Name</th>
+                                  <th className="px-6 py-3">Email</th>
+                                  <th className="px-6 py-3 text-right">Role</th>
+                               </tr>
+                            </thead>
                             <tbody className="divide-y divide-border/50">
                               {hospitalPatients.map((u: any) => (
                                 <tr key={u.id} className="hover:bg-pink-50/20 transition-colors">
-                                  <td className="px-4 py-3">
-                                    <div className="flex flex-col">
-                                      <span className="text-sm font-bold text-slate-800">{u.firstName} {u.lastName}</span>
-                                      <span className="text-[10px] text-muted-foreground font-mono">{u.email}</span>
-                                    </div>
+                                  <td className="px-6 py-4">
+                                    <span className="text-sm font-bold text-slate-800">{u.firstName} {u.lastName}</span>
                                   </td>
-                                  <td className="px-4 py-3 text-right">
+                                  <td className="px-6 py-4">
+                                    <span className="text-xs text-muted-foreground font-mono">{u.email}</span>
+                                  </td>
+                                  <td className="px-6 py-4 text-right">
                                      <Badge className="bg-pink-50 text-pink-600 border-pink-200">Patient</Badge>
                                   </td>
                                 </tr>
                               ))}
-                              {hospitalPatients.length === 0 && (
-                                <tr><td colSpan={2} className="px-4 py-6 text-center text-xs text-slate-400">No patients registered yet.</td></tr>
-                              )}
-                            </tbody>
-                          </table>
-                        </div>
-
-                        {/* Staff Side */}
-                        <div className="overflow-x-auto">
-                          <div className="p-3 bg-slate-50 text-[10px] font-black text-slate-600 uppercase tracking-widest border-b">
-                            Hospital Staff
-                          </div>
-                          <table className="w-full text-left border-collapse">
-                            <tbody className="divide-y divide-border/50">
-                              {hospitalStaff.map((u: any) => (
-                                <tr key={u.id} className="hover:bg-slate-50/50 transition-colors">
-                                  <td className="px-4 py-3">
-                                    <div className="flex flex-col">
-                                      <span className="text-sm font-bold text-slate-800">{u.firstName} {u.lastName}</span>
-                                      <span className="text-[10px] text-muted-foreground font-mono">{u.email}</span>
-                                    </div>
-                                  </td>
-                                  <td className="px-4 py-3 text-right">
-                                     <Badge variant="outline" className="text-slate-500 border-slate-200">
-                                       {u.role === 'hospital_staff' ? 'Admin' : (u.role || 'Staff')}
-                                     </Badge>
-                                  </td>
-                                </tr>
-                              ))}
-                              {hospitalStaff.length === 0 && (
-                                <tr><td colSpan={2} className="px-4 py-6 text-center text-xs text-slate-400">No staff registered yet.</td></tr>
-                              )}
                             </tbody>
                           </table>
                         </div>
                       </div>
+                    )
+                  })}
+                  
+                  {allHospitals.every((h: any) => allUsers.filter((u: any) => u.hospitalId === h.id && u.role === 'pregnant_woman').length === 0) && (
+                    <div className="text-center py-12 border rounded-xl border-dashed">
+                      <p className="text-sm text-slate-500">No pregnant women registered yet.</p>
                     </div>
-                  )
-                })}
+                  )}
+                </div>
               </TabsContent>
 
-              <TabsContent value="hospitals" className="p-6 space-y-8">
-                 <div>
-                   <h3 className="text-sm font-bold text-slate-800 mb-3 flex items-center gap-2">
+              <TabsContent value="hospitals" className="p-0 space-y-6">
+                <div className="p-6">
+                   <h3 className="text-sm font-bold text-slate-800 mb-4 flex items-center gap-2">
                      <Building2 className="h-4 w-4 text-indigo-500" />
-                     Registered Clinical Facilities
+                     Hospitals & Clinical Staff
                    </h3>
-                   <div className="overflow-x-auto border border-slate-100 rounded-xl bg-white">
-                     <table className="w-full text-left border-collapse">
-                       <thead className="bg-muted/30 text-[10px] font-black text-slate-900 uppercase tracking-widest">
-                         <tr>
-                           <th className="px-6 py-4">Hospital Name</th>
-                           <th className="px-6 py-4">Location</th>
-                           <th className="px-6 py-4 text-center">Staff Count</th>
-                           <th className="px-6 py-4 text-right">Action</th>
-                         </tr>
-                       </thead>
-                       <tbody className="divide-y divide-border/50 text-sm">
-                         {allHospitals.map((h: any) => (
-                           <tr key={h.id} className="hover:bg-slate-50/50 transition-colors">
-                             <td className="px-6 py-4">
-                               <div className="flex items-center gap-3">
-                                  <div className="p-2 bg-indigo-50 rounded-lg">
-                                     <Building2 className="h-4 w-4 text-indigo-600" />
-                                  </div>
-                                  <div className="flex flex-col">
-                                     <span className="text-sm font-bold">{h.name}</span>
-                                     <span className="text-[10px] text-muted-foreground uppercase tracking-widest">{h.code}</span>
-                                  </div>
-                               </div>
-                             </td>
-                             <td className="px-6 py-4">
-                               <div className="flex flex-col gap-0.5">
-                                  <span className="text-xs font-medium flex items-center gap-1"><MapPin className="h-3 w-3" /> {h.city}</span>
-                                  <span className="text-[10px] text-muted-foreground">{h.region}</span>
-                               </div>
-                             </td>
-                             <td className="px-6 py-4 text-center font-bold text-sm">
-                               {allUsers.filter((u: any) => u.hospitalId === h.id).length}
-                             </td>
-                             <td className="px-6 py-4 text-right">
-                               <button className="p-2 hover:bg-slate-100 rounded-lg" title="Manage Hospital">
-                                  <MoreVertical className="h-4 w-4" />
-                               </button>
-                             </td>
-                           </tr>
-                         ))}
-                       </tbody>
-                     </table>
-                   </div>
-                 </div>
+                   
+                   {allHospitals.map((hospital: any) => {
+                     const hospitalStaff = allUsers.filter((u: any) => u.hospitalId === hospital.id && u.role !== 'pregnant_woman');
+
+                     return (
+                       <div key={hospital.id} className="border border-indigo-100 rounded-xl overflow-hidden mb-6 bg-white shadow-sm">
+                         <div className="p-4 bg-indigo-50/50 flex items-center justify-between border-b border-indigo-100">
+                            <div className="flex items-center gap-3">
+                              <div className="p-2 bg-indigo-100 rounded-lg">
+                                 <Building2 className="h-5 w-5 text-indigo-700" />
+                              </div>
+                              <div>
+                                <h3 className="font-bold text-slate-900">{hospital.name}</h3>
+                                <p className="text-xs text-slate-500 font-mono tracking-widest">{hospital.code} • {hospital.city}, {hospital.region}</p>
+                              </div>
+                            </div>
+                            <Badge className="bg-indigo-100 text-indigo-700 hover:bg-indigo-200 border-none">
+                              {hospitalStaff.length} Staff Member{hospitalStaff.length !== 1 && 's'}
+                            </Badge>
+                         </div>
+
+                         <div className="overflow-x-auto">
+                           <table className="w-full text-left border-collapse">
+                             <thead className="bg-slate-50 text-[10px] font-black text-slate-600 uppercase tracking-widest border-b">
+                                <tr>
+                                   <th className="px-6 py-3">Staff Name</th>
+                                   <th className="px-6 py-3">Email</th>
+                                   <th className="px-6 py-3 text-right">Role</th>
+                                </tr>
+                             </thead>
+                             <tbody className="divide-y divide-border/50">
+                               {hospitalStaff.map((u: any) => (
+                                 <tr key={u.id} className="hover:bg-indigo-50/20 transition-colors">
+                                   <td className="px-6 py-4">
+                                     <span className="text-sm font-bold text-slate-800">{u.firstName} {u.lastName}</span>
+                                   </td>
+                                   <td className="px-6 py-4">
+                                     <span className="text-xs text-muted-foreground font-mono">{u.email}</span>
+                                   </td>
+                                   <td className="px-6 py-4 text-right">
+                                      <Badge variant="outline" className="text-slate-500 border-slate-200">
+                                        {u.role === 'hospital_staff' ? 'Admin' : (u.role || 'Staff').replace('_', ' ')}
+                                      </Badge>
+                                   </td>
+                                 </tr>
+                               ))}
+                               {hospitalStaff.length === 0 && (
+                                 <tr><td colSpan={3} className="px-6 py-6 text-center text-xs text-slate-400">No staff registered yet.</td></tr>
+                               )}
+                             </tbody>
+                           </table>
+                         </div>
+                       </div>
+                     )
+                   })}
+                   
+                   {allHospitals.length === 0 && (
+                     <div className="text-center py-12 border rounded-xl border-dashed">
+                       <p className="text-sm text-slate-500">No hospitals registered yet.</p>
+                     </div>
+                   )}
+                </div>
+              </TabsContent>
+
+              <TabsContent value="admin" className="p-6 space-y-8">
+                 <div>
+                  <h3 className="text-sm font-bold text-slate-800 mb-3 flex items-center gap-2">
+                    <Shield className="h-4 w-4 text-indigo-500" />
+                    Unassigned / System Admin Users
+                  </h3>
+                  <div className="overflow-x-auto border border-slate-100 rounded-xl bg-white">
+                    <table className="w-full text-left border-collapse">
+                      <thead className="bg-muted/30 text-[10px] font-black text-muted-foreground uppercase tracking-widest hidden">
+                        <tr>
+                          <th className="px-6 py-4">Full Name</th>
+                          <th className="px-6 py-4">Role</th>
+                          <th className="px-6 py-4">Status</th>
+                          <th className="px-6 py-4 text-right">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-border/50">
+                        {allUsers.filter((u: any) => !u.hospitalId).map((u: any) => (
+                          <tr key={u.id} className="hover:bg-slate-50 transition-colors group">
+                            <td className="px-6 py-4 w-[30%]">
+                              <div className="flex flex-col">
+                                <span className="text-sm font-bold">{u.firstName} {u.lastName}</span>
+                                <span className="text-[10px] text-muted-foreground font-mono">{u.email}</span>
+                              </div>
+                            </td>
+                            <td className="px-6 py-4 w-[30%]">
+                              <Badge variant="outline" className="rounded-full px-3 py-0 scale-90 origin-left">
+                                {u.role === 'hospital_staff' ? 'Hospital Administrator' : (u.role || 'Unknown').replace('_', ' ')}
+                              </Badge>
+                            </td>
+                            <td className="px-6 py-4 w-[15%]">
+                               {u.isActive ? (
+                                 <Badge className="bg-green-50 text-green-700 border-green-200">Active</Badge>
+                               ) : (
+                                 <Badge className="bg-slate-100 text-slate-400 border-slate-200">Inactive</Badge>
+                               )}
+                            </td>
+                            <td className="px-6 py-4 text-right">
+                               {assigningUser === u.id ? (
+                                 <div className="flex items-center justify-end gap-2">
+                                    <select 
+                                      className="text-[10px] border rounded p-1 bg-white"
+                                      value={selectedHospital}
+                                      onChange={(e) => setSelectedHospital(e.target.value)}
+                                    >
+                                      <option value="">Select Hospital...</option>
+                                      {allHospitals.map((h: any) => (
+                                        <option key={h.id} value={h.id}>{h.name}</option>
+                                      ))}
+                                    </select>
+                                    <button onClick={() => handleAssign(u.id)} className="p-1 bg-green-600 text-white rounded hover:bg-green-700">
+                                      <CheckCircle2 className="h-3 w-3" />
+                                    </button>
+                                    <button onClick={() => setAssigningUser(null)} className="p-1 bg-slate-200 rounded">
+                                      <Trash2 className="h-3 w-3" />
+                                    </button>
+                                 </div>
+                               ) : (
+                                 <button onClick={() => setAssigningUser(u.id)} className="text-[10px] font-bold text-indigo-600 flex items-center gap-1 ml-auto hover:underline">
+                                   <LinkIcon className="h-3 w-3" /> Assign Hospital
+                                 </button>
+                               )}
+                            </td>
+                          </tr>
+                        ))}
+                        {allUsers.filter((u: any) => !u.hospitalId).length === 0 && (
+                          <tr><td colSpan={4} className="px-6 py-8 text-center text-sm text-slate-500">No unassigned users.</td></tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
 
                  <div className="pt-6 border-t border-slate-100">
                    <h3 className="text-sm font-bold text-slate-800 mb-3 flex items-center gap-2">
@@ -551,7 +562,7 @@ export default function AdminDashboardClient({ user, data }: AdminDashboardProps
                      </table>
                    </div>
                  </div>
-               </TabsContent>
+              </TabsContent>
                             {/* Audit Tab: Real-Time Monthly Audits */}
                 <TabsContent value="audit" className="p-0">
                   <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-6 bg-slate-50 border-b">
