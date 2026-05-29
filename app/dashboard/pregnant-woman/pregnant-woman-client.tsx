@@ -30,7 +30,9 @@ import {
   Building2,
   LogOut,
   Info,
-  X
+  X,
+  ShieldCheck,
+  PenLine
 } from 'lucide-react'
 import HospitalCareHistoryPanel from '@/components/dashboard/HospitalCareHistoryPanel'
 import {
@@ -43,7 +45,7 @@ import {
 } from "@/components/ui/dialog"
 import ProgressChart from '@/components/dashboard/ProgressChart'
 import type { DashboardData } from '@/types'
-import { generateFatherJoinCode, markNotificationsRead, onboardPartnerByMother } from '@/app/actions'
+import { generateFatherJoinCode, markNotificationsRead, onboardPartnerByMother, updateNhisDetails } from '@/app/actions'
 import NearestHospitalsDialog from '@/components/dashboard/NearestHospitalsDialog'
 import InstallAppFooter from '@/components/install-app-footer'
 import { pusherClient, pusherEnabled } from '@/lib/pusher-client'
@@ -143,8 +145,49 @@ export default function PregnantWomanClient({ user, data }: { user: any, data: D
   const [inviteSuccess, setInviteSuccess] = useState(false)
   const [showHelpDialog, setShowHelpDialog] = useState(false)
 
+  // NHIS Card States & Handlers
+  const [isEditingNhis, setIsEditingNhis] = useState(false)
+  const [nhisNumberInput, setNhisNumberInput] = useState(data?.user?.nhisNumber || '')
+  const [nhisExpiryInput, setNhisExpiryInput] = useState(
+    data?.user?.nhisExpiryDate
+      ? new Date(data.user.nhisExpiryDate).toISOString().split('T')[0]
+      : ''
+  )
+  const [nhisSaving, setNhisSaving] = useState(false)
+  const [nhisError, setNhisError] = useState<string | null>(null)
+
+  const handleSaveNhis = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setNhisSaving(true)
+    setNhisError(null)
+    try {
+      const result = await updateNhisDetails({
+        nhisNumber: nhisNumberInput,
+        nhisExpiryDate: nhisExpiryInput || undefined,
+      })
+      if (result.success) {
+        setIsEditingNhis(false)
+        router.refresh()
+      } else {
+        setNhisError('Failed to save NHIS details.')
+      }
+    } catch (err: any) {
+      console.error(err)
+      setNhisError('Failed to save NHIS details.')
+    } finally {
+      setNhisSaving(false)
+    }
+  }
+
   const hospitalPhone = data?.pregnancy?.hospital?.phone as string | undefined
   const registeredHospitalId = data?.pregnancy?.hospitalId as string | undefined
+
+  const isNhisLinked = !!data?.user?.nhisNumber
+  const nhisExpiryDate = data?.user?.nhisExpiryDate ? new Date(data.user.nhisExpiryDate) : null
+  const isNhisExpired = nhisExpiryDate ? nhisExpiryDate < new Date() : false
+  const isNhisExpiringSoon = nhisExpiryDate
+    ? !isNhisExpired && (nhisExpiryDate.getTime() - new Date().getTime()) < (60 * 24 * 60 * 60 * 1000)
+    : false
 
   const formatTel = (phone?: string) => {
     if (!phone) return null
@@ -285,7 +328,9 @@ export default function PregnantWomanClient({ user, data }: { user: any, data: D
         {/* Header Section */}
         <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Sweet Greetings, {user?.firstName}</h1>
+            <h1 className="text-3xl font-bold text-gray-900">
+              Sweet Greetings, {data?.user?.firstName || user?.firstName}{data?.user?.lastName ? ` ${data.user.lastName}` : ''}!
+            </h1>
             <p className="text-gray-600">You're making wonderful progress on your journey.</p>
           </div>
           <div className="flex flex-wrap items-center gap-2 sm:gap-3 w-full md:w-auto">
@@ -591,7 +636,7 @@ export default function PregnantWomanClient({ user, data }: { user: any, data: D
                     </div>
                     <p className="text-sm font-semibold text-slate-700">No visit records yet</p>
                     <p className="text-xs text-slate-400 mt-1 leading-relaxed">
-                      When your clinic records a visit — vitals, lab results, or advice — it will appear here in real-time.
+                      When your clinic records a visit (vitals, lab results, or advice) it will appear here in real-time.
                     </p>
                   </CardContent>
                 </Card>
@@ -656,7 +701,7 @@ export default function PregnantWomanClient({ user, data }: { user: any, data: D
                 </div>
                 <p className="text-xs text-slate-500 px-1 leading-relaxed">
                   When you visit another facility, they can update your national MCH record. You receive a
-                  notification each time — your home clinic sees the same history.
+                  notification each time. Your home clinic sees the same history.
                 </p>
                 <HospitalCareHistoryPanel
                   history={data!.careHistory!}
@@ -733,6 +778,133 @@ export default function PregnantWomanClient({ user, data }: { user: any, data: D
           {/* Right Sidebar Area */}
           <div className="space-y-8">
             
+            {/* NHIS Card Status & Linking */}
+            <Card className="border-none shadow-lg bg-gradient-to-br from-indigo-50/40 via-white to-white overflow-hidden relative group ring-1 ring-indigo-500/10">
+              <div className="absolute -right-4 -top-4 opacity-5 group-hover:scale-110 transition-transform">
+                <ShieldCheck className="w-24 h-24 text-indigo-600" />
+              </div>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm font-bold flex items-center justify-between text-indigo-950">
+                  <span className="flex items-center gap-2">
+                    <ShieldCheck className="w-4 h-4 text-indigo-600" />
+                    NHIS Insurance Link
+                  </span>
+                  {!isEditingNhis && isNhisLinked && (
+                    <button
+                      onClick={() => setIsEditingNhis(true)}
+                      className="text-[10px] text-indigo-600 hover:text-indigo-800 font-bold flex items-center gap-1 transition-colors"
+                    >
+                      <PenLine className="w-3 h-3" /> Edit
+                    </button>
+                  )}
+                </CardTitle>
+                <CardDescription className="text-slate-500 text-[10px] leading-relaxed">
+                  Link your National Health Insurance card to ensure free antenatal care, clinic tests, scans, and delivery services under the maternal exemption.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {nhisError && (
+                  <div className="p-2 rounded-xl bg-red-50 border border-red-100 text-red-700 text-[10px] font-bold">
+                    {nhisError}
+                  </div>
+                )}
+
+                {isEditingNhis || !isNhisLinked ? (
+                  <form onSubmit={handleSaveNhis} className="space-y-3">
+                    <div className="space-y-2">
+                      <div className="space-y-1">
+                        <label className="text-[9px] font-black text-indigo-900 uppercase tracking-wider">NHIS Card Number</label>
+                        <input
+                          type="text"
+                          required
+                          placeholder="Enter 8-digit NHIS number"
+                          value={nhisNumberInput}
+                          onChange={(e) => setNhisNumberInput(e.target.value)}
+                          className="w-full px-2.5 py-1.5 text-xs rounded-lg border border-indigo-100 bg-white focus:outline-none focus:ring-1 focus:ring-indigo-500 font-semibold text-slate-800"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[9px] font-black text-indigo-900 uppercase tracking-wider">Expiry Date</label>
+                        <input
+                          type="date"
+                          required
+                          value={nhisExpiryInput}
+                          onChange={(e) => setNhisExpiryInput(e.target.value)}
+                          className="w-full px-2.5 py-1.5 text-xs rounded-lg border border-indigo-100 bg-white focus:outline-none focus:ring-1 focus:ring-indigo-500 font-semibold text-slate-800"
+                        />
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      {isNhisLinked && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          onClick={() => {
+                            setIsEditingNhis(false)
+                            setNhisNumberInput(data?.user?.nhisNumber || '')
+                            setNhisExpiryInput(
+                              data?.user?.nhisExpiryDate
+                                ? new Date(data.user.nhisExpiryDate).toISOString().split('T')[0]
+                                : ''
+                            )
+                          }}
+                          className="flex-1 text-xs text-slate-500 hover:bg-slate-100 font-semibold py-1.5 rounded-xl h-auto"
+                        >
+                          Cancel
+                        </Button>
+                      )}
+                      <Button
+                        type="submit"
+                        disabled={nhisSaving}
+                        className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-1.5 rounded-xl transition-all shadow-md text-xs h-auto"
+                      >
+                        {nhisSaving ? 'Linking...' : isNhisLinked ? 'Update Link' : 'Link NHIS Card'}
+                      </Button>
+                    </div>
+                  </form>
+                ) : (
+                  <div className="bg-white p-3 rounded-xl border border-indigo-100 text-xs space-y-2.5 shadow-sm">
+                    <div className="flex items-center justify-between">
+                      <span className="font-mono text-sm font-black tracking-widest text-indigo-900">
+                        {data?.user?.nhisNumber}
+                      </span>
+                      {isNhisExpired ? (
+                        <span className="text-[9px] font-black bg-rose-100 text-rose-700 px-2 py-0.5 rounded-full uppercase tracking-wider">
+                          Expired
+                        </span>
+                      ) : isNhisExpiringSoon ? (
+                        <span className="text-[9px] font-black bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full uppercase tracking-wider">
+                          Expiring Soon
+                        </span>
+                      ) : (
+                        <span className="text-[9px] font-black bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full uppercase tracking-wider">
+                          Active Coverage
+                        </span>
+                      )}
+                    </div>
+                    
+                    <div className="flex justify-between items-center text-[10px] text-slate-500 pt-1 border-t border-slate-50">
+                      <span>Coverage Expiry</span>
+                      <span className="font-semibold text-slate-700">
+                        {nhisExpiryDate ? nhisExpiryDate.toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' }) : 'N/A'}
+                      </span>
+                    </div>
+
+                    {isNhisExpired && (
+                      <p className="text-[9px] text-rose-600 font-semibold leading-relaxed pt-1">
+                        ⚠️ Your card has expired. Under Ghana Health Service policy, please renew it via *929# or the MyNHIS app immediately to retain free care.
+                      </p>
+                    )}
+                    {isNhisExpiringSoon && (
+                      <p className="text-[9px] text-amber-600 font-semibold leading-relaxed pt-1">
+                        ⚠️ Card expires soon. Please ensure renewal before your estimated delivery date to avoid out-of-pocket costs.
+                      </p>
+                    )}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
             {/* Partner (hospital invite) */}
             <Card className="border-none shadow-lg bg-primary/5 overflow-hidden relative group ring-1 ring-primary/10">
               <div className="absolute -right-4 -top-4 opacity-5 group-hover:scale-110 transition-transform">
@@ -970,7 +1142,7 @@ export default function PregnantWomanClient({ user, data }: { user: any, data: D
                     </Button>
                   ) : (
                     <p className="text-xs text-pink-100/90 text-center px-2">
-                      Hospital phone not on file — use Find Nearest Hospital below.
+                      Hospital phone not on file. Use Find Nearest Hospital below.
                     </p>
                   )}
                   <NearestHospitalsDialog

@@ -21,6 +21,8 @@ export const users = pgTable('users', {
   region: text('region'), // Ghana region
   city: text('city'),
   ghanaCardId: text('ghana_card_id').unique(),
+  nhisNumber: text('nhis_number'),
+  nhisExpiryDate: timestamp('nhis_expiry_date'),
   emergencyContact: text('emergency_contact'),
   emergencyPhone: text('emergency_phone'),
   isVerified: boolean('is_verified').default(false),

@@ -1728,6 +1728,8 @@ function PatientOnboardingForm({ onSuccess }: { onSuccess: () => void }) {
     firstName: '',
     lastName: '',
     ghanaCardId: '',
+    nhisNumber: '',
+    nhisExpiryDate: '',
     email: '',
     phone: '',
     dateOfBirth: '',
@@ -1932,6 +1934,37 @@ function PatientOnboardingForm({ onSuccess }: { onSuccess: () => void }) {
           onChange={(e) => setFormData({ ...formData, ghanaCardId: e.target.value.toUpperCase() })}
           className="w-full px-4 py-2 border border-teal-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent font-mono font-bold text-teal-900 placeholder:font-normal placeholder:text-teal-300"
         />
+      </div>
+
+      {/* NHIS Card Linking field */}
+      <div className="bg-indigo-50/50 border border-indigo-100 rounded-xl p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <label htmlFor="nhisNumber" className="block text-sm font-bold text-indigo-900 mb-1">
+            NHIS Number
+          </label>
+          <p className="text-[11px] text-indigo-700/80 mb-2">National Health Insurance Scheme number.</p>
+          <input
+            type="text"
+            id="nhisNumber"
+            placeholder="XXXXXXXX"
+            value={formData.nhisNumber}
+            onChange={(e) => setFormData({ ...formData, nhisNumber: e.target.value.trim() })}
+            className="w-full px-4 py-2 border border-indigo-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent font-mono font-bold text-indigo-950 placeholder:font-normal"
+          />
+        </div>
+        <div>
+          <label htmlFor="nhisExpiryDate" className="block text-sm font-bold text-indigo-900 mb-1">
+            NHIS Expiry Date
+          </label>
+          <p className="text-[11px] text-indigo-700/80 mb-2">To check for validity throughout pregnancy.</p>
+          <input
+            type="date"
+            id="nhisExpiryDate"
+            value={formData.nhisExpiryDate}
+            onChange={(e) => setFormData({ ...formData, nhisExpiryDate: e.target.value })}
+            className="w-full px-4 py-2 border border-indigo-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-indigo-950 font-bold"
+          />
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

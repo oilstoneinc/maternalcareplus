@@ -9,6 +9,8 @@ export async function ensureMCHSchema() {
 
   const statements = [
     sql`ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "ghana_card_id" text UNIQUE`,
+    sql`ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "nhis_number" text`,
+    sql`ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "nhis_expiry_date" timestamp`,
     sql`ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "last_shift_code_verified" text`,
     sql`ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "last_shift_code_verified_at" timestamp`,
     sql`ALTER TABLE "hospitals" ADD COLUMN IF NOT EXISTS "shift_code" text`,

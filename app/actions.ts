@@ -1295,6 +1295,8 @@ export async function onboardPatient(formData: any) {
           address: formData.address || existingUser.address,
           hospitalId: dbUser.hospitalId || existingUser.hospitalId,
           ghanaCardId: formData.ghanaCardId ? formData.ghanaCardId.trim() : existingUser.ghanaCardId,
+          nhisNumber: formData.nhisNumber ? formData.nhisNumber.trim() : existingUser.nhisNumber,
+          nhisExpiryDate: formData.nhisExpiryDate ? new Date(formData.nhisExpiryDate) : existingUser.nhisExpiryDate,
           updatedAt: new Date(),
           ...existingDobUpdate,
         })
@@ -1327,6 +1329,8 @@ export async function onboardPatient(formData: any) {
         dateOfBirth: newUserDob,
         isVerified: false,
         ghanaCardId: formData.ghanaCardId ? formData.ghanaCardId.trim() : null,
+        nhisNumber: formData.nhisNumber ? formData.nhisNumber.trim() : null,
+        nhisExpiryDate: formData.nhisExpiryDate ? new Date(formData.nhisExpiryDate) : null,
       }).returning()
       newUser = inserted
       console.log(`[onboardPatient] Created new patient record ${newUser.id} in DB`)
@@ -4004,4 +4008,44 @@ export async function getMonthlyAuditReport(year: number, month: number) {
   }
 }
 
+/**
+ * Update NHIS number and expiry for a user.
+ * Called by the pregnant woman (self-service) or hospital staff updating a patient record.
+ */
+export async function updateNhisDetails({
+  userId,
+  nhisNumber,
+  nhisExpiryDate,
+}: {
+  userId?: string
+  nhisNumber: string
+  nhisExpiryDate?: string
+}) {
+  const clerkUser = await currentUser()
+  if (!clerkUser) throw new Error('Unauthorized')
 
+  const callerDb = await db.query.users.findFirst({
+    where: eq(users.clerkId, clerkUser.id),
+  })
+  if (!callerDb) throw new Error('User not found')
+
+  // Staff can update any patient; the woman updates herself
+  const targetId =
+    userId && ['midwife', 'hospital_staff', 'admin'].includes(callerDb.role)
+      ? userId
+      : callerDb.id
+
+  await db
+    .update(users)
+    .set({
+      nhisNumber: nhisNumber.trim() || null,
+      nhisExpiryDate: nhisExpiryDate ? new Date(nhisExpiryDate) : null,
+      updatedAt: new Date(),
+    })
+    .where(eq(users.id, targetId))
+
+  revalidatePath('/dashboard/pregnant-woman')
+  revalidatePath('/dashboard/hospital')
+
+  return { success: true }
+}
