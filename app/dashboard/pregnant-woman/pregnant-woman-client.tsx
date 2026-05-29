@@ -29,6 +29,8 @@ import {
   AlertCircle,
   Building2,
   LogOut,
+  Info,
+  X
 } from 'lucide-react'
 import HospitalCareHistoryPanel from '@/components/dashboard/HospitalCareHistoryPanel'
 import {
@@ -139,6 +141,7 @@ export default function PregnantWomanClient({ user, data }: { user: any, data: D
   const [partnerLastName, setPartnerLastName] = useState('')
   const [inviteError, setInviteError] = useState<string | null>(null)
   const [inviteSuccess, setInviteSuccess] = useState(false)
+  const [showHelpDialog, setShowHelpDialog] = useState(false)
 
   const hospitalPhone = data?.pregnancy?.hospital?.phone as string | undefined
   const registeredHospitalId = data?.pregnancy?.hospitalId as string | undefined
@@ -982,6 +985,15 @@ export default function PregnantWomanClient({ user, data }: { user: any, data: D
                       </Button>
                     }
                   />
+                  <Button
+                    type="button"
+                    onClick={() => setShowHelpDialog(true)}
+                    variant="outline"
+                    className="w-full border-white/50 bg-transparent text-white hover:bg-white hover:text-secondary font-bold shadow-sm transition-all duration-300"
+                  >
+                    <Info className="w-4 h-4 mr-2" />
+                    Help & Education Guide
+                  </Button>
                 </div>
               </CardContent>
             </Card>
@@ -1073,6 +1085,107 @@ export default function PregnantWomanClient({ user, data }: { user: any, data: D
           <InstallAppFooter />
         </footer>
       </div>
+
+      {/* Real-time Help & Education Guide Dialog */}
+      {showHelpDialog && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-4">
+          <div className="bg-white rounded-3xl w-full max-w-md overflow-hidden shadow-2xl animate-in slide-in-from-bottom duration-200">
+            <div className="p-6 bg-pink-50 border-b border-pink-100 flex justify-between items-center">
+              <div className="flex items-center gap-2 text-pink-900">
+                <Info className="h-5 w-5 text-pink-600" />
+                <h3 className="font-black text-lg">Maternal Education Guide</h3>
+              </div>
+              <button 
+                onClick={() => setShowHelpDialog(false)}
+                className="p-1 rounded-full hover:bg-pink-100 text-pink-600 transition-colors"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="p-6 space-y-4 max-h-[60vh] overflow-y-auto">
+              <div className="space-y-3">
+                <h4 className="text-xs font-black text-pink-700 uppercase tracking-wider">Your Trimester-Specific Guidance</h4>
+                <div className="text-xs text-slate-600 space-y-2 font-medium">
+                  {gestationalAge <= 12 ? (
+                    <>
+                      <p className="leading-relaxed">
+                        <strong className="text-pink-900">First Trimester (Weeks 1 - 12):</strong> Your body is working hard to build the placenta and support early organ development.
+                      </p>
+                      <ul className="list-disc pl-5 space-y-1">
+                        <li><strong className="text-slate-700">Nutrition:</strong> Keep taking your folic acid/iron daily. Small, frequent meals of dry bread or crackers help ease morning sickness.</li>
+                        <li><strong className="text-slate-700">Activity:</strong> Light walking and plenty of rest. Avoid over-exhaustion.</li>
+                      </ul>
+                    </>
+                  ) : gestationalAge <= 27 ? (
+                    <>
+                      <p className="leading-relaxed">
+                        <strong className="text-pink-900">Second Trimester (Weeks 13 - 27):</strong> Often called the "golden phase". You may feel more energetic, and baby is growing rapidly.
+                      </p>
+                      <ul className="list-disc pl-5 space-y-1">
+                        <li><strong className="text-slate-700">Nutrition:</strong> Focus on calcium-rich foods (milk, yogurt) and iron (kontomire/cocoyam leaves, fish, beans) to prevent gestational anemia.</li>
+                        <li><strong className="text-slate-700">Activity:</strong> Try safe prenatal exercise, stretch your legs regularly to prevent swelling, and start sleeping on your left side to improve blood flow.</li>
+                      </ul>
+                    </>
+                  ) : (
+                    <>
+                      <p className="leading-relaxed">
+                        <strong className="text-pink-900">Third Trimester (Weeks 28 - 40):</strong> Baby is packing on weight, and you're entering the home stretch.
+                      </p>
+                      <ul className="list-disc pl-5 space-y-1">
+                        <li><strong className="text-slate-700">Nutrition:</strong> Eat small, nutrient-dense meals. Keep drinking lots of water.</li>
+                        <li><strong className="text-slate-700">Activity:</strong> Practice deep breathing exercises and gentle pelvic tilts to prepare for labor. Avoid heavy lifting entirely.</li>
+                      </ul>
+                    </>
+                  )}
+                </div>
+              </div>
+
+              <div className="h-px bg-slate-100 my-4" />
+
+              <div className="space-y-3">
+                <h4 className="text-xs font-black text-pink-700 uppercase tracking-wider">Ghanaian Maternal Danger Signs</h4>
+                <p className="text-xs text-slate-500 leading-relaxed font-medium">
+                  Seek immediate medical attention at your hospital clinic if you experience any of the following warning signs:
+                </p>
+                <ul className="list-disc pl-5 text-xs text-slate-600 space-y-1.5 font-medium">
+                  <li className="text-red-600 font-bold">Vaginal bleeding or sudden fluid leakage</li>
+                  <li>Severe, persistent headache or blurred/double vision</li>
+                  <li>Sudden swelling of face, hands, or ankles/feet</li>
+                  <li>Fever, chills, or lower abdominal pain</li>
+                  <li>Baby moving less than usual (after 24 weeks)</li>
+                  <li>Fits, convulsions, or severe breathing difficulties</li>
+                </ul>
+              </div>
+
+              <div className="h-px bg-slate-100 my-4" />
+
+              <div className="space-y-3">
+                <h4 className="text-xs font-black text-pink-700 uppercase tracking-wider">Your NHIS Policy Rights</h4>
+                <p className="text-xs text-slate-600 leading-relaxed font-medium">
+                  Under the Ghana NHIS Maternal Exemption policy, all comprehensive antenatal care visits, ultrasound scans, routine laboratory checkups, and delivery services are fully covered at NHIS-accredited facilities without charge. Always carry her valid NHIS card.
+                </p>
+              </div>
+
+              <div className="h-px bg-slate-100 my-4" />
+
+              <div className="space-y-3">
+                <h4 className="text-xs font-black text-pink-700 uppercase tracking-wider">Your Ghanaian Delivery Bag Essentials</h4>
+                <ul className="list-disc pl-5 text-xs text-slate-600 space-y-1 font-medium">
+                  <li>Your Ghana Card & valid NHIS Card</li>
+                  <li>MCH Record Book (Pink Book)</li>
+                  <li>Baby clothes, blankets, and diaper wraps</li>
+                  <li>Maternal hygiene supplies (pads, cotton wool, Dettol, toilet roll)</li>
+                </ul>
+              </div>
+            </div>
+            <div className="p-4 bg-slate-50 border-t border-slate-100 flex justify-end">
+              <Button onClick={() => setShowHelpDialog(false)} className="rounded-xl px-5 bg-pink-600 text-white font-bold text-xs hover:bg-pink-700">
+                Close
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

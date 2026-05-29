@@ -264,7 +264,7 @@ export default function FatherDashboardClient({ user, data }: FatherDashboardPro
               <span className="text-sm">Due Date: <span className="font-bold">{edd}</span></span>
             </div>
             <Badge variant="secondary" className="bg-white/20 text-white hover:bg-white/30 border-none">
-              Second Trimester
+              {week <= 12 ? 'First Trimester' : week <= 27 ? 'Second Trimester' : 'Third Trimester'}
             </Badge>
           </div>
         </CardContent>
