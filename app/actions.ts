@@ -655,11 +655,46 @@ export async function getFatherDashboardData() {
   const user = await currentUser()
   if (!user) throw new Error('Unauthorized')
 
-  const dbUser = await db.query.users.findFirst({
+  let dbUser = await db.query.users.findFirst({
     where: eq(users.clerkId, user.id),
   })
 
-  if (!dbUser) throw new Error('Unauthorized')
+  // 1. If not found by Clerk ID, try self-healing fallback by matching email address
+  if (!dbUser && user.emailAddresses?.[0]?.emailAddress) {
+    const primaryEmail = user.emailAddresses[0].emailAddress.trim().toLowerCase()
+    dbUser = await db.query.users.findFirst({
+      where: eq(users.email, primaryEmail),
+    })
+
+    if (dbUser) {
+      console.log(`[getFatherDashboardData] SELF-HEALING: Matching pre-registered user ${dbUser.id} to clerkId ${user.id}`)
+      await db.update(users)
+        .set({
+          clerkId: user.id,
+          isVerified: true,
+          firstName: user.firstName || dbUser.firstName,
+          lastName: user.lastName || dbUser.lastName,
+          updatedAt: new Date(),
+        })
+        .where(eq(users.id, dbUser.id))
+    }
+  }
+
+  // 2. If STILL not found (e.g. direct sign-up without mother onboarding), provision a safe user record dynamically
+  if (!dbUser) {
+    const primaryEmail = user.emailAddresses?.[0]?.emailAddress?.trim().toLowerCase() || `father-${user.id.substring(0, 8)}@maternalcare.com`
+    console.log(`[getFatherDashboardData] Fallback: Provisioning new user record for clerkId ${user.id} (${primaryEmail})`)
+    const [newPartner] = await db.insert(users).values({
+      clerkId: user.id,
+      email: primaryEmail,
+      firstName: user.firstName || 'User',
+      lastName: user.lastName || '',
+      role: 'father',
+      isVerified: true,
+      isActive: true,
+    }).returning()
+    dbUser = newPartner
+  }
 
   let pregnancy: (typeof pregnancies.$inferSelect) | null = null
   if (dbUser.role === 'father' || dbUser.role === 'admin') {

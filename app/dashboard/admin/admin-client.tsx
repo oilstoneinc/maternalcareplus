@@ -44,6 +44,7 @@ interface AdminDashboardProps {
 
 export default function AdminDashboardClient({ user, data }: AdminDashboardProps) {
   const [searchTerm, setSearchTerm] = useState('')
+  const [activeTab, setActiveTab] = useState('pregnant_women')
   const [assigningUser, setAssigningUser] = useState<string | null>(null)
   const [selectedHospital, setSelectedHospital] = useState('')
   const [isUpdating, setIsUpdating] = useState(false)
@@ -302,7 +303,7 @@ export default function AdminDashboardClient({ user, data }: AdminDashboardProps
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2">
           <Card className="border-none shadow-xl bg-white/60 backdrop-blur-md min-h-[600px] overflow-hidden">
-            <Tabs defaultValue="pregnant_women" className="w-full">
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
               <div className="px-6 pt-6 flex items-center justify-between border-b pb-4">
                  <TabsList className="bg-muted/50 p-1 rounded-xl flex flex-wrap gap-1">
                   <TabsTrigger value="pregnant_women" className="rounded-lg px-4">Pregnant Women</TabsTrigger>
@@ -312,7 +313,7 @@ export default function AdminDashboardClient({ user, data }: AdminDashboardProps
                     <ClipboardList className="h-3.5 w-3.5 text-indigo-600" /> Monthly Audits
                   </TabsTrigger>
                   <TabsTrigger value="database_explorer" className="rounded-lg px-4 flex items-center gap-1">
-                    <Database className="h-3.5 w-3.5 text-pink-600 animate-pulse" /> Neon DB Explorer
+                    <Database className="h-3.5 w-3.5 text-pink-600 animate-pulse" />  DB Explorer
                   </TabsTrigger>
                   <TabsTrigger value="system" className="rounded-lg px-4">Status</TabsTrigger>
                 </TabsList>
@@ -736,9 +737,21 @@ export default function AdminDashboardClient({ user, data }: AdminDashboardProps
 
                       {/* Clinical Encounter Audits */}
                       <div className="space-y-3">
-                        <h4 className="text-xs font-black text-slate-800 uppercase tracking-widest flex items-center gap-1.5">
-                          <Activity className="h-4 w-4 text-indigo-600" /> Clinical Encounter Trail
-                        </h4>
+                        <div className="flex items-center justify-between">
+                          <h4 className="text-xs font-black text-slate-800 uppercase tracking-widest flex items-center gap-1.5">
+                            <Activity className="h-4 w-4 text-indigo-600" /> Clinical Encounter Trail
+                          </h4>
+                          <button
+                            onClick={() => {
+                              setActiveTab('database_explorer');
+                              setSelectedTable('hospital_care_encounters');
+                              fetchTableData('hospital_care_encounters');
+                            }}
+                            className="text-[10px] font-bold text-pink-600 hover:text-pink-700 bg-pink-50 hover:bg-pink-100/80 px-2 py-1 rounded transition-colors flex items-center gap-1"
+                          >
+                            <Database className="h-3 w-3" /> View Raw in DB Explorer
+                          </button>
+                        </div>
                         <div className="overflow-x-auto border border-slate-100 rounded-xl">
                           <table className="w-full text-left border-collapse text-xs">
                             <thead className="bg-slate-50 text-[10px] font-black text-slate-900 uppercase tracking-widest border-b">
@@ -799,9 +812,21 @@ export default function AdminDashboardClient({ user, data }: AdminDashboardProps
 
                       {/* Staff Duty Logs Audits */}
                       <div className="space-y-3 pt-4 border-t border-slate-100">
-                        <h4 className="text-xs font-black text-slate-800 uppercase tracking-widest flex items-center gap-1.5">
-                          <Clock className="h-4 w-4 text-teal-600 animate-pulse" /> Personnel Shift Logs Audits
-                        </h4>
+                        <div className="flex items-center justify-between">
+                          <h4 className="text-xs font-black text-slate-800 uppercase tracking-widest flex items-center gap-1.5">
+                            <Clock className="h-4 w-4 text-teal-600 animate-pulse" /> Personnel Shift Logs Audits
+                          </h4>
+                          <button
+                            onClick={() => {
+                              setActiveTab('database_explorer');
+                              setSelectedTable('staff_login_logs');
+                              fetchTableData('staff_login_logs');
+                            }}
+                            className="text-[10px] font-bold text-pink-600 hover:text-pink-700 bg-pink-50 hover:bg-pink-100/80 px-2 py-1 rounded transition-colors flex items-center gap-1"
+                          >
+                            <Database className="h-3 w-3" /> View Raw in DB Explorer
+                          </button>
+                        </div>
                         <div className="overflow-x-auto border border-slate-100 rounded-xl">
                           <table className="w-full text-left border-collapse text-xs">
                             <thead className="bg-slate-50 text-[10px] font-black text-slate-900 uppercase tracking-widest border-b">
@@ -926,7 +951,7 @@ export default function AdminDashboardClient({ user, data }: AdminDashboardProps
                     </div>
 
                     {/* Right Panel: Data Explorer grid */}
-                    <div className="flex-1 bg-white flex flex-col min-h-[500px]">
+                    <div className="flex-1 bg-white flex flex-col min-h-[500px] min-w-0">
                       {!selectedTable ? (
                         <div className="flex-1 flex flex-col items-center justify-center p-8 text-center bg-slate-50/20">
                           <div className="p-4 bg-pink-50 rounded-full text-pink-500 mb-4 animate-bounce">
@@ -997,7 +1022,7 @@ export default function AdminDashboardClient({ user, data }: AdminDashboardProps
                                 </p>
                               </div>
                             ) : (
-                              <table className="w-full text-left border-collapse min-w-[600px]">
+                              <table className="min-w-max w-full text-left border-collapse">
                                 <thead className="bg-slate-50 border-b text-[10px] font-black text-slate-600 uppercase tracking-widest sticky top-0 bg-white z-10">
                                   <tr>
                                     {tableData && tableData.length > 0 && Object.keys(tableData[0]).map((col) => (
