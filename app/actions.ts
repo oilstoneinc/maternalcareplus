@@ -711,10 +711,14 @@ export async function getFatherDashboardData() {
       : null
   }
 
-  // Get upcoming appointments
+  // Get upcoming scheduled appointments
   const upcomingAppointments = pregnancy?.id ? await db.query.appointments.findMany({
-    where: eq(appointments.pregnancyId, pregnancy.id),
-    orderBy: [desc(appointments.scheduledDate)],
+    where: and(
+      eq(appointments.pregnancyId, pregnancy.id),
+      eq(appointments.status, 'scheduled'),
+      gte(appointments.scheduledDate, new Date(new Date().setHours(0, 0, 0, 0)))
+    ),
+    orderBy: [asc(appointments.scheduledDate)],
     limit: 5,
   }) : []
 

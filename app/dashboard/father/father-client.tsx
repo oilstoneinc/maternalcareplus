@@ -44,6 +44,46 @@ export default function FatherDashboardClient({ user, data }: FatherDashboardPro
   const readOnly = !!data?.readOnly
   const [joinCode, setJoinCode] = useState('')
   const [isJoining, setIsJoining] = useState(false)
+  const [completedTasks, setCompletedTasks] = useState<Record<string, boolean>>({
+    'pink-book': true,
+    'questions': false,
+    'water': false,
+    'transport': false,
+    'notebook': false,
+  })
+
+  // Load from localStorage on client-side mount
+  React.useEffect(() => {
+    try {
+      const saved = localStorage.getItem('father_prep_checklist')
+      if (saved) {
+        setCompletedTasks(JSON.parse(saved))
+      }
+    } catch (e) {
+      console.error('Failed to load checklist', e)
+    }
+  }, [])
+
+  const toggleTask = (taskId: string) => {
+    setCompletedTasks(prev => {
+      const updated = { ...prev, [taskId]: !prev[taskId] }
+      try {
+        localStorage.setItem('father_prep_checklist', JSON.stringify(updated))
+      } catch (e) {
+        console.error(e)
+      }
+      return updated
+    })
+  }
+
+  // Humanized checklists specific to ANC visits
+  const checklistTasks = [
+    { id: 'pink-book', task: 'Get her MCH Record Book (Pink Book) & NHIS card ready', due: 'Essential' },
+    { id: 'questions', task: 'Draft a list of questions/concerns for the midwife', due: 'This Week' },
+    { id: 'water', task: 'Pack a fresh water bottle & light snack (long wait times)', due: 'Before leaving' },
+    { id: 'transport', task: 'Confirm transportation & aim to arrive 15 mins early', due: 'Arriving' },
+    { id: 'notebook', task: 'Bring a pen to note vital updates & checkup guidelines', due: 'At Clinic' },
+  ]
 
   const handleJoin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -132,17 +172,25 @@ export default function FatherDashboardClient({ user, data }: FatherDashboardPro
   const latestFetalHeartRate = vitals.latestFetalHeartRate || null
   const lastRecordedDate = vitals.lastRecordedDate || null
 
-  const supportTips = [
-    { title: 'Hydration Check', description: 'Remind her to drink water. She needs about 2.5L daily.', icon: Heart, color: 'text-blue-500' },
-    { title: 'Back Massage', description: 'Week 24 often brings backaches. A 5-min rub helps!', icon: Zap, color: 'text-purple-500' },
-    { title: 'Hospital Bag', description: 'Its early, but start a list of essentials.', icon: ShoppingBag, color: 'text-orange-500' },
-  ]
-
-  const upcomingTasks = [
-    { task: 'Install Car Seat', status: 'pending', due: 'In 4 weeks' },
-    { task: 'Verify Insurance Coverage', status: 'completed', due: 'Done' },
-    { task: 'Book Prenatal Class', status: 'pending', due: 'Next week' },
-  ]
+  // Dynamic support tips based on real gestational week from DB
+  const getSupportTips = (w: number) => {
+    if (w <= 12) return [
+      { title: 'Be patient with mood swings', description: 'Hormones are surging — she needs extra emotional support right now.', icon: Heart, color: 'text-pink-500' },
+      { title: 'Help with morning sickness', description: 'Keep dry crackers and ginger tea handy. Small frequent meals help a lot.', icon: Zap, color: 'text-yellow-500' },
+      { title: 'Go to the first scan together', description: 'The first ultrasound is a big moment — being there means everything to her.', icon: Baby, color: 'text-blue-500' },
+    ]
+    if (w <= 27) return [
+      { title: 'Daily hydration reminder', description: `At week ${w} her body needs more water. Remind her to drink at least 2.5L daily.`, icon: Heart, color: 'text-blue-500' },
+      { title: 'Back & foot massage tonight', description: `Week ${w} often brings lower back and foot aches. A 5-minute massage goes a long way.`, icon: Zap, color: 'text-purple-500' },
+      { title: 'Start the hospital bag list', description: 'It\'s not too early — write down essentials: ID, NHIS card, baby clothes, snacks.', icon: ShoppingBag, color: 'text-orange-500' },
+    ]
+    return [
+      { title: 'Pack the hospital bag now', description: `You're at week ${w} — bag should be fully packed and ready at the door.`, icon: ShoppingBag, color: 'text-orange-500' },
+      { title: 'Confirm birth plan with her', description: 'Ask what she wants for delivery — pain management, who\'s in the room, breastfeeding.', icon: FileText, color: 'text-indigo-500' },
+      { title: 'Practice the drive to hospital', description: 'Know exactly which route to take — time it during morning hours when it matters most.', icon: Phone, color: 'text-emerald-500' },
+    ]
+  }
+  const supportTips = getSupportTips(week)
 
   return (
     <div className="p-4 space-y-6 max-w-5xl mx-auto pb-20">
@@ -345,45 +393,96 @@ export default function FatherDashboardClient({ user, data }: FatherDashboardPro
           <Card className="border-none shadow-md bg-white/50 backdrop-blur-sm overflow-hidden">
             <CardContent className="p-0">
               {data?.appointments?.length > 0 ? (
-                data.appointments.map((appt: any, idx: number) => (
-                  <div key={idx} className="p-4 flex items-center justify-between border-b last:border-0 hover:bg-indigo-50/30 transition-colors">
-                    <div className="flex items-center gap-3">
-                      <div className="h-10 w-10 rounded-lg bg-indigo-100 flex flex-col items-center justify-center text-indigo-700">
-                        <span className="text-[10px] font-bold uppercase">{new Date(appt.scheduledDate).toLocaleString('default', { month: 'short' })}</span>
-                        <span className="text-sm font-black leading-none">{new Date(appt.scheduledDate).getDate()}</span>
+                data.appointments.map((appt: any, idx: number) => {
+                  const apptDate = new Date(appt.scheduledDate)
+                  const hospitalName = pregnancy?.hospital?.name || appt.hospitalName || 'Your Clinic'
+                  const apptTime = apptDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
+                  const daysAway = Math.ceil((apptDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+                  return (
+                    <div key={idx} className="p-4 flex items-center justify-between border-b last:border-0 hover:bg-indigo-50/30 transition-colors">
+                      <div className="flex items-center gap-3">
+                        <div className="h-10 w-10 rounded-lg bg-indigo-100 flex flex-col items-center justify-center text-indigo-700">
+                          <span className="text-[10px] font-bold uppercase">{apptDate.toLocaleString('default', { month: 'short' })}</span>
+                          <span className="text-sm font-black leading-none">{apptDate.getDate()}</span>
+                        </div>
+                        <div>
+                          <p className="text-sm font-bold">{appt.type || 'Antenatal Visit'}</p>
+                          <p className="text-xs text-muted-foreground">{hospitalName} • {apptTime}</p>
+                        </div>
                       </div>
-                      <div>
-                        <p className="text-sm font-bold">{appt.type || 'Prenatal Checkup'}</p>
-                        <p className="text-xs text-muted-foreground">Hospital General • 10:00 AM</p>
+                      <div className="flex flex-col items-end gap-1">
+                        <Badge className={`text-[10px] px-2 py-0.5 font-bold border-none ${
+                          daysAway <= 3 ? 'bg-red-100 text-red-600' :
+                          daysAway <= 7 ? 'bg-amber-100 text-amber-700' :
+                          'bg-indigo-100 text-indigo-700'
+                        }`}>
+                          {daysAway === 0 ? 'Today' : daysAway === 1 ? 'Tomorrow' : `In ${daysAway}d`}
+                        </Badge>
+                        <ChevronRight className="h-4 w-4 text-muted-foreground" />
                       </div>
                     </div>
-                    <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                  </div>
-                ))
+                  )
+                })
               ) : (
                 <div className="p-8 text-center text-muted-foreground">
                   <Calendar className="h-8 w-8 mx-auto mb-2 opacity-20" />
-                  <p className="text-sm">No upcoming appointments scheduled.</p>
+                  <p className="text-sm font-medium">No upcoming appointments scheduled.</p>
+                  <p className="text-xs mt-1 opacity-60">The clinic will notify you when the next visit is booked.</p>
                 </div>
               )}
             </CardContent>
           </Card>
 
           <h2 className="text-lg font-semibold flex items-center gap-2 pt-2">
-            <CheckCircle2 className="h-5 w-5 text-green-500" /> Prep Checklist
+            <CheckCircle2 className="h-5 w-5 text-green-500" /> Antenatal Visit Prep
           </h2>
+          <p className="-mt-2 text-xs text-muted-foreground font-medium">Tick off before each checkup</p>
           <Card className="border-none shadow-md bg-white/50 backdrop-blur-sm p-4 space-y-3">
-            {upcomingTasks.map((t, idx) => (
-              <div key={idx} className="flex items-center justify-between group">
-                <div className="flex items-center gap-3">
-                  <div className={`h-5 w-5 rounded border-2 flex items-center justify-center transition-colors ${t.status === 'completed' ? 'bg-green-500 border-green-500' : 'border-muted-foreground/30'}`}>
-                    {t.status === 'completed' && <CheckCircle2 className="h-3 w-3 text-white" />}
+            {checklistTasks.map((t) => {
+              const done = !!completedTasks[t.id]
+              return (
+                <button
+                  key={t.id}
+                  onClick={() => toggleTask(t.id)}
+                  className="w-full flex items-center justify-between group text-left"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className={`h-5 w-5 rounded flex items-center justify-center transition-all duration-200 shrink-0 ${
+                      done
+                        ? 'bg-green-500 border-2 border-green-500 shadow-sm shadow-green-200'
+                        : 'border-2 border-slate-300 group-hover:border-indigo-400'
+                    }`}>
+                      {done && <CheckCircle2 className="h-3.5 w-3.5 text-white" />}
+                    </div>
+                    <span className={`text-sm leading-snug transition-colors ${
+                      done ? 'text-muted-foreground line-through' : 'font-medium text-slate-800'
+                    }`}>{t.task}</span>
                   </div>
-                  <span className={`text-sm ${t.status === 'completed' ? 'text-muted-foreground line-through' : 'font-medium'}`}>{t.task}</span>
-                </div>
-                <Badge variant="outline" className="text-[10px] py-0 px-1.5 opacity-50">{t.due}</Badge>
-              </div>
-            ))}
+                  <Badge variant="outline" className={`text-[10px] py-0 px-1.5 shrink-0 ml-2 ${
+                    done ? 'border-green-200 text-green-600 bg-green-50' : 'opacity-50'
+                  }`}>
+                    {done ? '✓ Done' : t.due}
+                  </Badge>
+                </button>
+              )
+            })}
+            <div className="pt-2 border-t border-slate-100 flex justify-between items-center">
+              <p className="text-[10px] text-slate-400 font-medium">
+                {Object.values(completedTasks).filter(Boolean).length} of {checklistTasks.length} completed
+              </p>
+              <button
+                onClick={() => {
+                  const allDone = checklistTasks.every(t => completedTasks[t.id])
+                  const reset: Record<string, boolean> = {}
+                  checklistTasks.forEach(t => { reset[t.id] = !allDone })
+                  setCompletedTasks(reset)
+                  try { localStorage.setItem('father_prep_checklist', JSON.stringify(reset)) } catch(e) { console.error(e) }
+                }}
+                className="text-[10px] font-bold text-indigo-500 hover:text-indigo-700 transition-colors"
+              >
+                {checklistTasks.every(t => completedTasks[t.id]) ? 'Reset all' : 'Mark all done'}
+              </button>
+            </div>
           </Card>
         </div>
       </div>
@@ -400,34 +499,64 @@ export default function FatherDashboardClient({ user, data }: FatherDashboardPro
           color="#6366f1"
         />
 
-        {/* Labs View */}
+        {/* Labs View — statuses match MCH book exactly */}
         <Card className="border-none shadow-md bg-white/50 backdrop-blur-sm h-full">
           <CardHeader>
             <CardTitle className="text-lg font-bold flex items-center gap-2">
-              <FlaskConical className="h-5 w-5 text-indigo-500" /> Medical Checks
+              <FlaskConical className="h-5 w-5 text-indigo-500" /> Lab & Scan Results
             </CardTitle>
-            <CardDescription className="text-xs">Results shared by your partner</CardDescription>
+            <CardDescription className="text-xs">Results recorded by the hospital</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
             {data?.labs?.length > 0 ? (
-              data.labs.map((lab: any, idx: number) => (
-                <div key={idx} className="flex justify-between items-center p-3 bg-white/80 rounded-xl shadow-sm border border-indigo-50">
-                  <div className="flex gap-3 items-center">
-                    <div className="p-2 bg-indigo-50 rounded-lg text-indigo-600">
-                      <Beaker className="h-4 w-4" />
+              data.labs.map((lab: any, idx: number) => {
+                const statusColor =
+                  lab.status === 'abnormal' || lab.status === 'critical'
+                    ? 'bg-red-100 text-red-800'
+                    : lab.status === 'completed'
+                    ? 'bg-green-100 text-green-800'
+                    : 'bg-amber-100 text-amber-800'
+                const statusLabel =
+                  lab.status === 'completed' ? 'Completed'
+                  : lab.status === 'abnormal' ? 'Abnormal'
+                  : lab.status === 'critical' ? 'Critical'
+                  : 'Pending'
+                return (
+                  <div key={idx} className="p-3 bg-white/80 rounded-xl shadow-sm border border-slate-100 space-y-1.5">
+                    <div className="flex justify-between items-start gap-2">
+                      <div className="flex gap-3 items-start">
+                        <div className="p-1.5 bg-indigo-50 rounded-lg text-indigo-600 mt-0.5 shrink-0">
+                          <Beaker className="h-3.5 w-3.5" />
+                        </div>
+                        <p className="text-sm font-bold text-slate-800 leading-snug">{lab.testName}</p>
+                      </div>
+                      <Badge className={`shrink-0 text-[10px] border-none font-bold ${statusColor}`}>
+                        {statusLabel}
+                      </Badge>
                     </div>
-                    <div>
-                      <p className="text-sm font-bold">{lab.testName}</p>
-                      <p className="text-[10px] text-muted-foreground">{new Date(lab.resultDate).toLocaleDateString()}</p>
-                    </div>
+                    {(lab.resultValue || lab.normalRange) && (
+                      <p className="text-xs text-slate-600 pl-8">
+                        {lab.resultValue ? `Result: ${lab.resultValue}` : 'Awaiting result'}
+                        {lab.normalRange && ` (Ref: ${lab.normalRange})`}
+                      </p>
+                    )}
+                    {lab.interpretation && (
+                      <p className="text-[10px] text-slate-500 italic pl-8">{lab.interpretation}</p>
+                    )}
+                    <p className="text-[10px] text-slate-400 font-bold uppercase pl-8">
+                      {lab.resultDate
+                        ? `Reported ${new Date(lab.resultDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`
+                        : lab.orderedDate
+                        ? `Ordered ${new Date(lab.orderedDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} — awaiting results`
+                        : 'Date not recorded'}
+                    </p>
                   </div>
-                  <Badge className="bg-green-100 text-green-700 border-none text-[10px]">Clear</Badge>
-                </div>
-              ))
+                )
+              })
             ) : (
               <div className="text-center py-8 opacity-20">
                 <FileText className="h-10 w-10 mx-auto mb-2" />
-                <p className="text-sm">No recent tests</p>
+                <p className="text-sm">No lab results recorded yet</p>
               </div>
             )}
           </CardContent>
@@ -436,19 +565,42 @@ export default function FatherDashboardClient({ user, data }: FatherDashboardPro
 
       {/* Educational Section - What to Expect */}
       <h2 className="text-lg font-black text-indigo-950 flex items-center gap-2 pt-4">
-        <Zap className="h-5 w-5 text-yellow-500" /> What to Expect this Week
+        <Zap className="h-5 w-5 text-yellow-500" /> What to Expect — Week {week > 0 ? week : '?'}
       </h2>
       <Card className="border-none shadow-xl bg-gradient-to-br from-indigo-900 to-indigo-950 text-white p-6 relative overflow-hidden">
         <div className="absolute right-0 bottom-0 opacity-10">
-          <Info className="h-32 w-32 translate-x-8 translate-y-8" />
+          <Baby className="h-32 w-32 translate-x-8 translate-y-8" />
         </div>
-        <div className="relative z-10 space-y-4">
-          <p className="text-indigo-100/90 leading-relaxed">
-            At week {week}, your baby is starting to grow real hair and their lungs are developing fast! Your partner might be feeling more "practice" contractions. Keep her hydration high and try to handle more of the household errands this week.
-          </p>
-          <p className="text-[10px] text-indigo-200/80 font-semibold uppercase tracking-wider">
-            {readOnly ? 'Educational summary — read only' : 'Educational summary'}
-          </p>
+        <div className="relative z-10 space-y-3">
+          {week <= 0 && (
+            <p className="text-indigo-100/90 leading-relaxed">No gestational age recorded yet. Once your partner's clinic logs her LMP or ultrasound date, you'll see weekly updates here.</p>
+          )}
+          {week >= 1 && week <= 12 && (
+            <p className="text-indigo-100/90 leading-relaxed">
+              At week {week}, the baby is still tiny but growing fast — all major organs are forming. Your partner may be dealing with nausea and extreme fatigue. Help with cooking, be patient, and make sure she's attending her early booking visit at the clinic.
+            </p>
+          )}
+          {week >= 13 && week <= 27 && (
+            <p className="text-indigo-100/90 leading-relaxed">
+              At week {week}, your baby can now hear sounds — talk or sing to the bump, it matters! Your partner is likely feeling more energetic but may have backaches and swollen feet. Help with household chores, attend the anatomy scan together, and keep her diet iron-rich.
+            </p>
+          )}
+          {week >= 28 && week <= 36 && (
+            <p className="text-indigo-100/90 leading-relaxed">
+              At week {week}, the baby is gaining weight rapidly and getting into position. Your partner may feel Braxton Hicks (practice contractions) and shortness of breath. Now is the time to pack the hospital bag, confirm your NHIS coverage, and know the fastest route to the hospital.
+            </p>
+          )}
+          {week >= 37 && (
+            <p className="text-indigo-100/90 leading-relaxed">
+              Week {week} — baby is full term and could arrive any day! Stay close, keep your phone charged, and make sure transport is ready at all times. Support her through any anxiety and ensure the hospital bag, MCH book, and NHIS card are all ready to go.
+            </p>
+          )}
+          <div className="flex items-center justify-between pt-1">
+            <p className="text-[10px] text-indigo-200/80 font-semibold uppercase tracking-wider">
+              {week <= 12 ? '1st Trimester' : week <= 27 ? '2nd Trimester' : '3rd Trimester'} · Week {week} of 40
+            </p>
+            {readOnly && <span className="text-[10px] text-indigo-300/60 font-semibold uppercase tracking-wider">Read only</span>}
+          </div>
         </div>
       </Card>
 
