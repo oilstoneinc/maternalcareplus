@@ -179,6 +179,42 @@ export default function PregnantWomanClient({ user, data }: { user: any, data: D
     }
   }
 
+  // Private Insurance States & Handlers
+  const [isEditingInsurance, setIsEditingInsurance] = useState(false)
+  const [insuranceProviderInput, setInsuranceProviderInput] = useState(data?.user?.insuranceProvider || '')
+  const [insurancePolicyNumberInput, setInsurancePolicyNumberInput] = useState(data?.user?.insurancePolicyNumber || '')
+  const [insuranceExpiryInput, setInsuranceExpiryInput] = useState(
+    data?.user?.insuranceExpiryDate
+      ? new Date(data.user.insuranceExpiryDate).toISOString().split('T')[0]
+      : ''
+  )
+  const [insuranceSaving, setInsuranceSaving] = useState(false)
+  const [insuranceError, setInsuranceError] = useState<string | null>(null)
+
+  const handleSaveInsurance = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setInsuranceSaving(true)
+    setInsuranceError(null)
+    try {
+      const result = await updateNhisDetails({
+        insuranceProvider: insuranceProviderInput,
+        insurancePolicyNumber: insurancePolicyNumberInput,
+        insuranceExpiryDate: insuranceExpiryInput || undefined,
+      })
+      if (result.success) {
+        setIsEditingInsurance(false)
+        router.refresh()
+      } else {
+        setInsuranceError('Failed to save private insurance details.')
+      }
+    } catch (err: any) {
+      console.error(err)
+      setInsuranceError('Failed to save private insurance details.')
+    } finally {
+      setInsuranceSaving(false)
+    }
+  }
+
   const hospitalPhone = data?.pregnancy?.hospital?.phone as string | undefined
   const registeredHospitalId = data?.pregnancy?.hospitalId as string | undefined
 
@@ -188,6 +224,10 @@ export default function PregnantWomanClient({ user, data }: { user: any, data: D
   const isNhisExpiringSoon = nhisExpiryDate
     ? !isNhisExpired && (nhisExpiryDate.getTime() - new Date().getTime()) < (60 * 24 * 60 * 60 * 1000)
     : false
+
+  const isInsuranceLinked = !!data?.user?.insuranceProvider
+  const insuranceExpiryDate = data?.user?.insuranceExpiryDate ? new Date(data.user.insuranceExpiryDate) : null
+  const isInsuranceExpired = insuranceExpiryDate ? insuranceExpiryDate < new Date() : false
 
   const formatTel = (phone?: string) => {
     if (!phone) return null
@@ -614,84 +654,6 @@ export default function PregnantWomanClient({ user, data }: { user: any, data: D
               </CardContent>
             </Card>
 
-            {/* Latest Visit Updates — always visible */}
-            <div className="space-y-3">
-              <div className="flex items-center justify-between px-1">
-                <div className="flex items-center gap-2">
-                  <Clock className="w-5 h-5 text-[#D48BA1]" />
-                  <h3 className="text-xl font-bold text-foreground">Latest Visit Updates</h3>
-                </div>
-                <Link href="/dashboard/pregnant-woman/digital-mch-book">
-                  <Button variant="ghost" size="sm" className="text-xs text-slate-500 hover:text-slate-700 font-semibold">
-                    Full Records →
-                  </Button>
-                </Link>
-              </div>
-
-              {(data?.careHistory?.length ?? 0) === 0 ? (
-                <Card className="border-none shadow-sm bg-slate-50/60">
-                  <CardContent className="p-6 text-center">
-                    <div className="w-12 h-12 rounded-2xl bg-pink-50 flex items-center justify-center mx-auto mb-3">
-                      <Heart className="w-6 h-6 text-[#D48BA1]" />
-                    </div>
-                    <p className="text-sm font-semibold text-slate-700">No visit records yet</p>
-                    <p className="text-xs text-slate-400 mt-1 leading-relaxed">
-                      When your clinic records a visit (vitals, lab results, or advice) it will appear here in real-time.
-                    </p>
-                  </CardContent>
-                </Card>
-              ) : (
-                <div className="relative">
-                  {/* Timeline vertical line */}
-                  <div className="absolute left-5 top-3 bottom-3 w-[2px] bg-gradient-to-b from-[#D48BA1]/40 via-[#D48BA1]/20 to-transparent rounded-full" />
-                  <div className="space-y-3">
-                    {(data?.careHistory ?? []).slice(0, 6).map((entry: any, idx: number) => (
-                      <div key={entry.id} className="flex items-start gap-4 relative">
-                        {/* Timeline dot */}
-                        <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 z-10 shadow-sm border-2 border-white ${idx === 0 ? 'bg-[#D48BA1]' : 'bg-slate-100'}`}>
-                          <Heart className={`w-4 h-4 ${idx === 0 ? 'text-white' : 'text-slate-400'}`} />
-                        </div>
-                        <div className={`flex-1 rounded-2xl p-4 shadow-sm border transition-all ${idx === 0 ? 'bg-pink-50/70 border-pink-100' : 'bg-white border-slate-100'}`}>
-                          <div className="flex items-start justify-between gap-2 flex-wrap">
-                            <div>
-                              <p className={`text-sm font-black tracking-tight ${idx === 0 ? 'text-[#c47a90]' : 'text-slate-700'}`}>
-                                {entry.actionLabel}
-                              </p>
-                              {entry.summary && (
-                                <p className="text-xs text-slate-600 mt-0.5 leading-relaxed">{entry.summary}</p>
-                              )}
-                            </div>
-                            {idx === 0 && (
-                              <span className="text-[9px] font-black bg-[#D48BA1] text-white px-2 py-0.5 rounded-full uppercase tracking-wider shrink-0">
-                                Latest
-                              </span>
-                            )}
-                          </div>
-                          <div className="flex items-center gap-3 mt-2 flex-wrap">
-                            <span className="text-[10px] text-slate-400 font-semibold flex items-center gap-1">
-                              <Building2 className="w-3 h-3" />
-                              {entry.hospitalName}
-                              {entry.isVisitingFacility && (
-                                <span className="ml-1 text-[9px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full font-bold">Visiting</span>
-                              )}
-                            </span>
-                            {entry.staffName && (
-                              <span className="text-[10px] text-slate-400 font-semibold">
-                                by {entry.staffName}
-                              </span>
-                            )}
-                            <span className="text-[10px] text-slate-400 font-semibold ml-auto">
-                              {entry.createdAt ? new Date(entry.createdAt).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' }) : ''}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-
             {/* Cross-hospital care panel */}
             {(data?.careHistory?.length ?? 0) > 0 && (
               <div className="space-y-3">
@@ -900,6 +862,137 @@ export default function PregnantWomanClient({ user, data }: { user: any, data: D
                         ⚠️ Card expires soon. Please ensure renewal before your estimated delivery date to avoid out-of-pocket costs.
                       </p>
                     )}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Private Health Insurance Card */}
+            <Card className="border-none shadow-lg bg-gradient-to-br from-sky-50/40 via-white to-white overflow-hidden relative group ring-1 ring-sky-500/10">
+              <div className="absolute -right-4 -top-4 opacity-5 group-hover:scale-110 transition-transform">
+                <ShieldCheck className="w-24 h-24 text-sky-600" />
+              </div>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm font-bold flex items-center justify-between text-sky-950">
+                  <span className="flex items-center gap-2">
+                    <ShieldCheck className="w-4 h-4 text-sky-600" />
+                    Private Insurance
+                  </span>
+                  {!isEditingInsurance && isInsuranceLinked && (
+                    <button
+                      onClick={() => setIsEditingInsurance(true)}
+                      className="text-[10px] text-sky-600 hover:text-sky-800 font-bold flex items-center gap-1 transition-colors"
+                    >
+                      <PenLine className="w-3 h-3" /> Edit
+                    </button>
+                  )}
+                </CardTitle>
+                <CardDescription className="text-slate-500 text-[10px] leading-relaxed">
+                  Link a private health insurance provider (e.g. Acacia, Glico, Metropolitan) if you have private coverage.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {insuranceError && (
+                  <div className="p-2 rounded-xl bg-red-50 border border-red-100 text-red-700 text-[10px] font-bold">
+                    {insuranceError}
+                  </div>
+                )}
+
+                {isEditingInsurance || !isInsuranceLinked ? (
+                  <form onSubmit={handleSaveInsurance} className="space-y-3">
+                    <div className="space-y-2">
+                      <div className="space-y-1">
+                        <label className="text-[9px] font-black text-sky-900 uppercase tracking-wider">Insurance Provider</label>
+                        <input
+                          type="text"
+                          required
+                          placeholder="e.g. Acacia, Glico, Metropolitan"
+                          value={insuranceProviderInput}
+                          onChange={(e) => setInsuranceProviderInput(e.target.value)}
+                          className="w-full px-2.5 py-1.5 text-xs rounded-lg border border-sky-100 bg-white focus:outline-none focus:ring-1 focus:ring-sky-500 font-semibold text-slate-800"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[9px] font-black text-sky-900 uppercase tracking-wider">Policy Number</label>
+                        <input
+                          type="text"
+                          required
+                          placeholder="Enter policy number"
+                          value={insurancePolicyNumberInput}
+                          onChange={(e) => setInsurancePolicyNumberInput(e.target.value)}
+                          className="w-full px-2.5 py-1.5 text-xs rounded-lg border border-sky-100 bg-white focus:outline-none focus:ring-1 focus:ring-sky-500 font-mono font-semibold text-slate-800"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[9px] font-black text-sky-900 uppercase tracking-wider">Expiry Date</label>
+                        <input
+                          type="date"
+                          required
+                          value={insuranceExpiryInput}
+                          onChange={(e) => setInsuranceExpiryInput(e.target.value)}
+                          className="w-full px-2.5 py-1.5 text-xs rounded-lg border border-sky-100 bg-white focus:outline-none focus:ring-1 focus:ring-sky-500 font-semibold text-slate-800"
+                        />
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      {isInsuranceLinked && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          onClick={() => {
+                            setIsEditingInsurance(false)
+                            setInsuranceProviderInput(data?.user?.insuranceProvider || '')
+                            setInsurancePolicyNumberInput(data?.user?.insurancePolicyNumber || '')
+                            setInsuranceExpiryInput(
+                              data?.user?.insuranceExpiryDate
+                                ? new Date(data.user.insuranceExpiryDate).toISOString().split('T')[0]
+                                : ''
+                            )
+                          }}
+                          className="flex-1 text-xs text-slate-500 hover:bg-slate-100 font-semibold py-1.5 rounded-xl h-auto"
+                        >
+                          Cancel
+                        </Button>
+                      )}
+                      <Button
+                        type="submit"
+                        disabled={insuranceSaving}
+                        className="flex-1 bg-sky-600 hover:bg-sky-700 text-white font-bold py-1.5 rounded-xl transition-all shadow-md text-xs h-auto"
+                      >
+                        {insuranceSaving ? 'Linking...' : isInsuranceLinked ? 'Update Link' : 'Link Insurance'}
+                      </Button>
+                    </div>
+                  </form>
+                ) : (
+                  <div className="bg-white p-3 rounded-xl border border-sky-100 text-xs space-y-2.5 shadow-sm">
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-sky-950">
+                        {data?.user?.insuranceProvider}
+                      </span>
+                      {isInsuranceExpired ? (
+                        <span className="text-[9px] font-black bg-rose-100 text-rose-700 px-2 py-0.5 rounded-full uppercase tracking-wider">
+                          Expired
+                        </span>
+                      ) : (
+                        <span className="text-[9px] font-black bg-sky-100 text-sky-700 px-2 py-0.5 rounded-full uppercase tracking-wider">
+                          Active Policy
+                        </span>
+                      )}
+                    </div>
+                    
+                    <div className="flex justify-between items-center text-[10px] text-slate-500 pt-1 border-t border-slate-50">
+                      <span>Policy Number</span>
+                      <span className="font-mono font-semibold text-slate-700">
+                        {data?.user?.insurancePolicyNumber}
+                      </span>
+                    </div>
+
+                    <div className="flex justify-between items-center text-[10px] text-slate-500 pt-1 border-t border-slate-50">
+                      <span>Policy Expiry</span>
+                      <span className="font-semibold text-slate-700">
+                        {insuranceExpiryDate ? insuranceExpiryDate.toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' }) : 'N/A'}
+                      </span>
+                    </div>
                   </div>
                 )}
               </CardContent>

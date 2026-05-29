@@ -1730,6 +1730,9 @@ function PatientOnboardingForm({ onSuccess }: { onSuccess: () => void }) {
     ghanaCardId: '',
     nhisNumber: '',
     nhisExpiryDate: '',
+    insuranceProvider: '',
+    insurancePolicyNumber: '',
+    insuranceExpiryDate: '',
     email: '',
     phone: '',
     dateOfBirth: '',
@@ -1964,6 +1967,51 @@ function PatientOnboardingForm({ onSuccess }: { onSuccess: () => void }) {
             onChange={(e) => setFormData({ ...formData, nhisExpiryDate: e.target.value })}
             className="w-full px-4 py-2 border border-indigo-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-indigo-950 font-bold"
           />
+        </div>
+      </div>
+
+      {/* Private Insurance Linking field */}
+      <div className="bg-sky-50/50 border border-sky-100 rounded-xl p-4 space-y-4">
+        <h4 className="text-xs font-bold text-sky-900 uppercase tracking-wider">Private Health Insurance (Optional)</h4>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div>
+            <label htmlFor="insuranceProvider" className="block text-xs font-bold text-sky-950 mb-1">
+              Insurance Provider
+            </label>
+            <input
+              type="text"
+              id="insuranceProvider"
+              placeholder="e.g. Acacia, Glico, Metropolitan"
+              value={formData.insuranceProvider}
+              onChange={(e) => setFormData({ ...formData, insuranceProvider: e.target.value })}
+              className="w-full px-3 py-1.5 text-xs border border-sky-200 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-transparent text-sky-950 font-semibold"
+            />
+          </div>
+          <div>
+            <label htmlFor="insurancePolicyNumber" className="block text-xs font-bold text-sky-950 mb-1">
+              Policy / Member Number
+            </label>
+            <input
+              type="text"
+              id="insurancePolicyNumber"
+              placeholder="Policy Number"
+              value={formData.insurancePolicyNumber}
+              onChange={(e) => setFormData({ ...formData, insurancePolicyNumber: e.target.value.trim() })}
+              className="w-full px-3 py-1.5 text-xs border border-sky-200 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-transparent font-mono text-sky-950 font-bold"
+            />
+          </div>
+          <div>
+            <label htmlFor="insuranceExpiryDate" className="block text-xs font-bold text-sky-950 mb-1">
+              Policy Expiry Date
+            </label>
+            <input
+              type="date"
+              id="insuranceExpiryDate"
+              value={formData.insuranceExpiryDate}
+              onChange={(e) => setFormData({ ...formData, insuranceExpiryDate: e.target.value })}
+              className="w-full px-3 py-1.5 text-xs border border-sky-200 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-transparent text-sky-950 font-semibold"
+            />
+          </div>
         </div>
       </div>
 

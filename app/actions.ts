@@ -1297,6 +1297,9 @@ export async function onboardPatient(formData: any) {
           ghanaCardId: formData.ghanaCardId ? formData.ghanaCardId.trim() : existingUser.ghanaCardId,
           nhisNumber: formData.nhisNumber ? formData.nhisNumber.trim() : existingUser.nhisNumber,
           nhisExpiryDate: formData.nhisExpiryDate ? new Date(formData.nhisExpiryDate) : existingUser.nhisExpiryDate,
+          insuranceProvider: formData.insuranceProvider ? formData.insuranceProvider.trim() : existingUser.insuranceProvider,
+          insurancePolicyNumber: formData.insurancePolicyNumber ? formData.insurancePolicyNumber.trim() : existingUser.insurancePolicyNumber,
+          insuranceExpiryDate: formData.insuranceExpiryDate ? new Date(formData.insuranceExpiryDate) : existingUser.insuranceExpiryDate,
           updatedAt: new Date(),
           ...existingDobUpdate,
         })
@@ -1331,6 +1334,9 @@ export async function onboardPatient(formData: any) {
         ghanaCardId: formData.ghanaCardId ? formData.ghanaCardId.trim() : null,
         nhisNumber: formData.nhisNumber ? formData.nhisNumber.trim() : null,
         nhisExpiryDate: formData.nhisExpiryDate ? new Date(formData.nhisExpiryDate) : null,
+        insuranceProvider: formData.insuranceProvider ? formData.insuranceProvider.trim() : null,
+        insurancePolicyNumber: formData.insurancePolicyNumber ? formData.insurancePolicyNumber.trim() : null,
+        insuranceExpiryDate: formData.insuranceExpiryDate ? new Date(formData.insuranceExpiryDate) : null,
       }).returning()
       newUser = inserted
       console.log(`[onboardPatient] Created new patient record ${newUser.id} in DB`)
@@ -4009,17 +4015,23 @@ export async function getMonthlyAuditReport(year: number, month: number) {
 }
 
 /**
- * Update NHIS number and expiry for a user.
+ * Update NHIS and/or Private Insurance details for a user.
  * Called by the pregnant woman (self-service) or hospital staff updating a patient record.
  */
 export async function updateNhisDetails({
   userId,
   nhisNumber,
   nhisExpiryDate,
+  insuranceProvider,
+  insurancePolicyNumber,
+  insuranceExpiryDate,
 }: {
   userId?: string
-  nhisNumber: string
+  nhisNumber?: string
   nhisExpiryDate?: string
+  insuranceProvider?: string
+  insurancePolicyNumber?: string
+  insuranceExpiryDate?: string
 }) {
   const clerkUser = await currentUser()
   if (!clerkUser) throw new Error('Unauthorized')
@@ -4035,13 +4047,29 @@ export async function updateNhisDetails({
       ? userId
       : callerDb.id
 
+  const updateFields: any = {
+    updatedAt: new Date(),
+  }
+
+  if (nhisNumber !== undefined) {
+    updateFields.nhisNumber = nhisNumber ? nhisNumber.trim() : null
+  }
+  if (nhisExpiryDate !== undefined) {
+    updateFields.nhisExpiryDate = nhisExpiryDate ? new Date(nhisExpiryDate) : null
+  }
+  if (insuranceProvider !== undefined) {
+    updateFields.insuranceProvider = insuranceProvider ? insuranceProvider.trim() : null
+  }
+  if (insurancePolicyNumber !== undefined) {
+    updateFields.insurancePolicyNumber = insurancePolicyNumber ? insurancePolicyNumber.trim() : null
+  }
+  if (insuranceExpiryDate !== undefined) {
+    updateFields.insuranceExpiryDate = insuranceExpiryDate ? new Date(insuranceExpiryDate) : null
+  }
+
   await db
     .update(users)
-    .set({
-      nhisNumber: nhisNumber.trim() || null,
-      nhisExpiryDate: nhisExpiryDate ? new Date(nhisExpiryDate) : null,
-      updatedAt: new Date(),
-    })
+    .set(updateFields)
     .where(eq(users.id, targetId))
 
   revalidatePath('/dashboard/pregnant-woman')
