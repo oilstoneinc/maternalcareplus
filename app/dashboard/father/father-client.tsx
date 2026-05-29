@@ -23,7 +23,8 @@ import {
   FileText,
   FlaskConical,
   Beaker,
-  BookOpen
+  BookOpen,
+  Activity
 } from 'lucide-react'
 import Link from 'next/link'
 import { useState } from 'react'
@@ -123,15 +124,13 @@ export default function FatherDashboardClient({ user, data }: FatherDashboardPro
   const clinicRecs: { title: string; content: string; date?: string }[] =
     data?.clinicRecommendations || []
 
-  // Weight tracking mock data
-  const weightData = [
-    { week: 4, weight: 62 },
-    { week: 8, weight: 62.5 },
-    { week: 12, weight: 63.8 },
-    { week: 16, weight: 65.2 },
-    { week: 20, weight: 67.1 },
-    { week: 24, weight: 68.5 },
-  ]
+  // Dynamic Real-time Vitals from Neon DB
+  const vitals = data?.vitals || {}
+  const weightHistory = vitals.weightHistory || []
+  const latestWeight = vitals.latestWeight || (pregnancy?.prePregnancyWeight ? parseFloat(pregnancy.prePregnancyWeight.toString()) : null)
+  const latestBloodPressure = vitals.latestBloodPressure || 'Pending'
+  const latestFetalHeartRate = vitals.latestFetalHeartRate || null
+  const lastRecordedDate = vitals.lastRecordedDate || null
 
   const supportTips = [
     { title: 'Hydration Check', description: 'Remind her to drink water. She needs about 2.5L daily.', icon: Heart, color: 'text-blue-500' },
@@ -220,6 +219,83 @@ export default function FatherDashboardClient({ user, data }: FatherDashboardPro
           </div>
         </CardContent>
       </Card>
+
+      {/* Real-time Vitals Panel */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        {/* Mother Weight Card */}
+        <Card className="border-none shadow-md bg-white hover:shadow-lg transition-all group overflow-hidden relative border-l-4 border-l-blue-500">
+          <CardContent className="p-4 flex items-center justify-between">
+            <div className="space-y-1">
+              <span className="text-[10px] font-black uppercase text-blue-500 tracking-wider">Mother's Weight</span>
+              <h4 className="text-2xl font-black text-slate-800 tracking-tight">
+                {latestWeight ? `${latestWeight} kg` : 'Pending'}
+              </h4>
+              <p className="text-[9px] text-slate-400 font-semibold">
+                {lastRecordedDate ? `Synced: ${lastRecordedDate}` : 'No weight records yet'}
+              </p>
+            </div>
+            <div className="p-2.5 bg-blue-50 rounded-2xl text-blue-500 group-hover:scale-110 transition-transform">
+              <Baby className="h-6 w-6" />
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Blood Pressure Card */}
+        <Card className="border-none shadow-md bg-white hover:shadow-lg transition-all group overflow-hidden relative border-l-4 border-l-emerald-500">
+          <CardContent className="p-4 flex items-center justify-between">
+            <div className="space-y-1">
+              <span className="text-[10px] font-black uppercase text-emerald-500 tracking-wider">Blood Pressure</span>
+              <h4 className="text-2xl font-black text-slate-800 tracking-tight">
+                {latestBloodPressure || 'Pending'}
+              </h4>
+              <p className="text-[9px] text-slate-400 font-semibold flex items-center gap-1">
+                {latestBloodPressure && latestBloodPressure !== 'Pending' ? (
+                  <>
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                    Normal Range
+                  </>
+                ) : (
+                  'No blood pressure records yet'
+                )}
+              </p>
+            </div>
+            <div className="p-2.5 bg-emerald-50 rounded-2xl text-emerald-500 group-hover:scale-110 transition-transform">
+              <Activity className="h-6 w-6" />
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Fetal Heart Rate Card */}
+        <Card className="border-none shadow-md bg-white hover:shadow-lg transition-all group overflow-hidden relative border-l-4 border-l-rose-500">
+          <CardContent className="p-4 flex items-center justify-between">
+            <div className="space-y-1">
+              <span className="text-[10px] font-black uppercase text-rose-500 tracking-wider">Fetal Heart Rate</span>
+              <h4 className="text-2xl font-black text-slate-800 tracking-tight flex items-center gap-1.5">
+                {latestFetalHeartRate ? `${latestFetalHeartRate} bpm` : 'Pending'}
+                {latestFetalHeartRate && (
+                  <span className="flex h-2 w-2 relative">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-rose-500"></span>
+                  </span>
+                )}
+              </h4>
+              <p className="text-[9px] text-slate-400 font-semibold flex items-center gap-1">
+                {latestFetalHeartRate ? (
+                  <>
+                    <span className="h-1.5 w-1.5 rounded-full bg-rose-500 animate-pulse"></span>
+                    Active Heartbeat
+                  </>
+                ) : (
+                  'No fetal heartbeat records yet'
+                )}
+              </p>
+            </div>
+            <div className="p-2.5 bg-rose-50 rounded-2xl text-rose-500 group-hover:scale-110 transition-transform">
+              <Heart className="h-6 w-6 animate-pulse" />
+            </div>
+          </CardContent>
+        </Card>
+      </div>
 
       {clinicRecs.length > 0 && (
         <Card className="border-none shadow-md">
@@ -315,9 +391,9 @@ export default function FatherDashboardClient({ user, data }: FatherDashboardPro
       {/* Progress Charts & Labs */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <ProgressChart 
-          title="Weight Gain Progress"
-          description="Monitoring healthy growth"
-          data={weightData}
+          title="Mother's Weight Gain"
+          description="Real-time clinical weight log"
+          data={weightHistory.length > 0 ? weightHistory : [{ week: 4, weight: pregnancy?.prePregnancyWeight ? parseFloat(pregnancy.prePregnancyWeight.toString()) : 60, date: 'Baseline' }]}
           dataKey="weight"
           xAxisKey="week"
           unit=" kg"

@@ -773,6 +773,107 @@ export async function getFatherDashboardData() {
     pendingVerification = !!pending && !pending.isActive
   }
 
+  // --- START REAL-TIME VITALS COMPILATION ---
+  const completedCheckups = pregnancy?.id ? await db.query.appointments.findMany({
+    where: and(
+      eq(appointments.pregnancyId, pregnancy.id),
+      eq(appointments.status, 'completed')
+    ),
+    orderBy: [asc(appointments.actualDate)],
+  }) : []
+
+  const directVitals = pregnancy?.id ? await db.query.vitalSigns.findMany({
+    where: eq(vitalSigns.pregnancyId, pregnancy.id),
+    orderBy: [asc(vitalSigns.recordedDate)],
+  }) : []
+
+  const weightHistory: { week: number; weight: number; date: string }[] = []
+  const bpHistory: { date: string; systolic: number; diastolic: number }[] = []
+  const fhrHistory: { date: string; fhr: number }[] = []
+
+  let latestWeight: number | null = null
+  let latestBloodPressure: string | null = null
+  let latestFetalHeartRate: number | null = null
+  let lastRecordedDate: string | null = null
+
+  // 1. Compile completed checkups
+  for (const c of completedCheckups) {
+    const dateStr = c.actualDate ? new Date(c.actualDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Clinic Visit'
+    
+    if (c.weight) {
+      const w = parseFloat(c.weight.toString())
+      weightHistory.push({
+        week: c.gestationalAge || 0,
+        weight: w,
+        date: dateStr,
+      })
+      latestWeight = w
+      if (c.actualDate) lastRecordedDate = dateStr
+    }
+    if (c.bloodPressure) {
+      latestBloodPressure = c.bloodPressure
+      const bpParts = c.bloodPressure.split('/')
+      if (bpParts.length === 2) {
+        bpHistory.push({
+          date: dateStr,
+          systolic: parseInt(bpParts[0]) || 120,
+          diastolic: parseInt(bpParts[1]) || 80,
+        })
+      }
+      if (c.actualDate) lastRecordedDate = dateStr
+    }
+    if (c.fetalHeartRate) {
+      fhrHistory.push({
+        date: dateStr,
+        fhr: c.fetalHeartRate,
+      })
+      latestFetalHeartRate = c.fetalHeartRate
+      if (c.actualDate) lastRecordedDate = dateStr
+    }
+  }
+
+  // 2. Compile direct vital signs logs
+  for (const v of directVitals) {
+    const dateStr = v.recordedDate ? new Date(v.recordedDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Vitals Log'
+    
+    let estWeek = 0
+    if (pregnancy?.lmp && v.recordedDate) {
+      const diffMs = new Date(v.recordedDate).getTime() - new Date(pregnancy.lmp).getTime()
+      estWeek = Math.max(0, Math.floor(diffMs / (7 * 24 * 60 * 60 * 1000)))
+    }
+
+    if (v.weight) {
+      const w = parseFloat(v.weight.toString())
+      weightHistory.push({
+        week: estWeek,
+        weight: w,
+        date: dateStr,
+      })
+      latestWeight = w
+      if (v.recordedDate) lastRecordedDate = dateStr
+    }
+    if (v.bloodPressureSystolic && v.bloodPressureDiastolic) {
+      latestBloodPressure = `${v.bloodPressureSystolic}/${v.bloodPressureDiastolic}`
+      bpHistory.push({
+        date: dateStr,
+        systolic: v.bloodPressureSystolic,
+        diastolic: v.bloodPressureDiastolic,
+      })
+      if (v.recordedDate) lastRecordedDate = dateStr
+    }
+  }
+
+  // Sort weight history chronologically by gestational week
+  weightHistory.sort((a, b) => a.week - b.week)
+
+  // Use pre-pregnancy weight as fallback if history is empty
+  if (weightHistory.length === 0 && pregnancy?.prePregnancyWeight) {
+    const w = parseFloat(pregnancy.prePregnancyWeight.toString())
+    weightHistory.push({ week: 4, weight: w, date: 'Baseline' })
+    latestWeight = w
+  }
+  // --- END REAL-TIME VITALS COMPILATION ---
+
   return JSON.parse(
     JSON.stringify({
       user: dbUser,
@@ -782,6 +883,15 @@ export async function getFatherDashboardData() {
       clinicRecommendations,
       readOnly: dbUser.role === 'father',
       pendingVerification,
+      vitals: {
+        weightHistory,
+        bpHistory,
+        fhrHistory,
+        latestWeight,
+        latestBloodPressure,
+        latestFetalHeartRate,
+        lastRecordedDate,
+      }
     })
   )
 }
