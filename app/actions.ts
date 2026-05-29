@@ -1807,7 +1807,7 @@ export async function linkFatherViaToken(joinCode: string) {
   if (!dbUser || dbUser.role !== 'father') {
     return {
       success: false,
-      error: 'Sign in with your partner invitation email from the hospital.',
+      error: 'Sign in with your partner invitation email.',
     }
   }
 
@@ -1826,7 +1826,7 @@ export async function linkFatherViaToken(joinCode: string) {
       }
     }
 
-    const pendingAccess = await db.query.partnerAccess.findFirst({
+    let pendingAccess = await db.query.partnerAccess.findFirst({
       where: and(
         eq(partnerAccess.partnerId, dbUser.id),
         eq(partnerAccess.pregnancyId, pregnancy.id)
@@ -1834,10 +1834,18 @@ export async function linkFatherViaToken(joinCode: string) {
     })
 
     if (!pendingAccess) {
-      return {
-        success: false,
-        error: 'Your email was not registered for this pregnancy. Contact the hospital.',
-      }
+      console.log(`Auto-creating partnerAccess for partner ${dbUser.id} and pregnancy ${pregnancy.id}`)
+      const [newAccess] = await db.insert(partnerAccess).values({
+        pregnantWomanId: pregnancy.userId,
+        partnerId: dbUser.id,
+        pregnancyId: pregnancy.id,
+        canViewAppointments: true,
+        canViewLabResults: true,
+        canViewProgress: true,
+        canReceiveNotifications: true,
+        isActive: false, // will be activated below
+      }).returning()
+      pendingAccess = newAccess
     }
 
     if (pendingAccess.isActive) {
@@ -1864,6 +1872,127 @@ export async function linkFatherViaToken(joinCode: string) {
   } catch (error) {
     console.error('linkFatherViaToken error:', error)
     return { success: false, error: 'Verification failed' }
+  }
+}
+
+/** Mother directly onboards her partner/father from her own dashboard */
+export async function onboardPartnerByMother(formData: {
+  email: string
+  firstName: string
+  lastName: string
+  pregnancyId: string
+}) {
+  try {
+    const user = await currentUser()
+    if (!user) return { success: false, error: 'Unauthorized' }
+
+    const dbUser = await db.query.users.findFirst({
+      where: eq(users.clerkId, user.id),
+    })
+
+    if (!dbUser || dbUser.role !== 'pregnant_woman') {
+      return { success: false, error: 'Only pregnant mothers can onboard their partners.' }
+    }
+
+    const emailLower = formData.email.trim().toLowerCase()
+    const firstName = formData.firstName.trim()
+    const lastName = formData.lastName.trim()
+
+    // 1. Verify pregnancy ownership
+    const pregnancy = await db.query.pregnancies.findFirst({
+      where: eq(pregnancies.id, formData.pregnancyId),
+    })
+
+    if (!pregnancy || pregnancy.userId !== dbUser.id) {
+      return { success: false, error: 'Not your pregnancy record' }
+    }
+
+    // 2. Pre-register partner/father in the users table so syncClerkAccount works
+    let partnerUser = await db.query.users.findFirst({
+      where: eq(users.email, emailLower),
+    })
+
+    if (partnerUser) {
+      if (partnerUser.role !== 'father') {
+        return { success: false, error: 'This email is already registered with another role.' }
+      }
+      await db
+        .update(users)
+        .set({
+          firstName,
+          lastName,
+          updatedAt: new Date(),
+        })
+        .where(eq(users.id, partnerUser.id))
+    } else {
+      const inviteToken = `INV-PARTNER-${Math.random().toString(36).substring(2, 10).toUpperCase()}`
+      const [newPartner] = await db.insert(users).values({
+        clerkId: inviteToken,
+        email: emailLower,
+        firstName,
+        lastName,
+        role: 'father',
+        isVerified: false,
+      }).returning()
+      partnerUser = newPartner
+    }
+
+    // 3. Setup/Ensure partnerAccess record is provisioned
+    const existingAccess = await db.query.partnerAccess.findFirst({
+      where: and(
+        eq(partnerAccess.partnerId, partnerUser.id),
+        eq(partnerAccess.pregnancyId, pregnancy.id)
+      ),
+    })
+
+    if (!existingAccess) {
+      await db.insert(partnerAccess).values({
+        pregnantWomanId: dbUser.id,
+        partnerId: partnerUser.id,
+        pregnancyId: pregnancy.id,
+        canViewAppointments: true,
+        canViewLabResults: true,
+        canViewProgress: true,
+        canReceiveNotifications: true,
+        isActive: false, // will be true once they verify
+      })
+    }
+
+    // 4. Send Clerk invitation email
+    const origin = process.env.NEXT_PUBLIC_APP_URL || 'https://maternalcareplus.vercel.app'
+    try {
+      const client = await clerkClient()
+      await client.invitations.createInvitation({
+        emailAddress: emailLower,
+        redirectUrl: `${origin}/sign-up`,
+        publicMetadata: {
+          role: 'father',
+          phone: '',
+        },
+        ignoreExisting: true,
+      })
+    } catch (clerkErr) {
+      console.warn('[onboardPartnerByMother] Clerk invite warning:', clerkErr)
+    }
+
+    // 5. Proactively generate their join code so the mother can view and share it immediately
+    const joinCode = Math.random().toString(36).substring(2, 8).toUpperCase()
+    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000)
+
+    await db
+      .update(pregnancies)
+      .set({
+        fatherJoinCode: joinCode,
+        fatherJoinCodeExpires: expiresAt,
+      })
+      .where(eq(pregnancies.id, pregnancy.id))
+
+    revalidatePath('/dashboard/pregnant-woman')
+    return { success: true, code: joinCode }
+  } catch (err: unknown) {
+    console.error('onboardPartnerByMother error:', err)
+    const message = err instanceof Error ? err.message : 'Failed to onboard partner'
+    return { success: false, error: message }
   }
 }
 

@@ -41,7 +41,7 @@ import {
 } from "@/components/ui/dialog"
 import ProgressChart from '@/components/dashboard/ProgressChart'
 import type { DashboardData } from '@/types'
-import { generateFatherJoinCode, markNotificationsRead } from '@/app/actions'
+import { generateFatherJoinCode, markNotificationsRead, onboardPartnerByMother } from '@/app/actions'
 import NearestHospitalsDialog from '@/components/dashboard/NearestHospitalsDialog'
 import InstallAppFooter from '@/components/install-app-footer'
 import { pusherClient, pusherEnabled } from '@/lib/pusher-client'
@@ -133,6 +133,13 @@ export default function PregnantWomanClient({ user, data }: { user: any, data: D
   const router = useRouter()
   const { signOut } = useClerk()
 
+  // State for mother inviting partner/father directly
+  const [partnerEmail, setPartnerEmail] = useState('')
+  const [partnerFirstName, setPartnerFirstName] = useState('')
+  const [partnerLastName, setPartnerLastName] = useState('')
+  const [inviteError, setInviteError] = useState<string | null>(null)
+  const [inviteSuccess, setInviteSuccess] = useState(false)
+
   const hospitalPhone = data?.pregnancy?.hospital?.phone as string | undefined
   const registeredHospitalId = data?.pregnancy?.hospitalId as string | undefined
 
@@ -220,6 +227,36 @@ export default function PregnantWomanClient({ user, data }: { user: any, data: D
       }
     } catch (error) {
       console.error('Error generating code:', error)
+    } finally {
+      setIsGenerating(false)
+    }
+  }
+
+  const handleInvitePartner = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!data?.pregnancy?.id || !partnerEmail || !partnerFirstName || !partnerLastName) return
+    setIsGenerating(true)
+    setInviteError(null)
+    setInviteSuccess(false)
+    try {
+      const result = await onboardPartnerByMother({
+        email: partnerEmail,
+        firstName: partnerFirstName,
+        lastName: partnerLastName,
+        pregnancyId: data.pregnancy.id,
+      })
+      if (result.success) {
+        setInviteSuccess(true)
+        if (result.code) {
+          setShareCode(result.code)
+        }
+        router.refresh()
+      } else {
+        setInviteError(result.error || 'Failed to onboard partner')
+      }
+    } catch (err) {
+      console.error('Invite partner error:', err)
+      setInviteError('An unexpected error occurred.')
     } finally {
       setIsGenerating(false)
     }
@@ -708,7 +745,7 @@ export default function PregnantWomanClient({ user, data }: { user: any, data: D
                     ? data.linkedPartner.accessActive
                       ? 'Partner has verified access to your records'
                       : 'After your partner registers, share a code so only they can view your records'
-                    : 'Ask your hospital to add partner email when registering you'}
+                    : 'Invite your partner directly to support you on your pregnancy journey'}
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4 pt-2">
@@ -768,9 +805,69 @@ export default function PregnantWomanClient({ user, data }: { user: any, data: D
                     )}
                   </>
                 ) : (
-                  <p className="text-[10px] text-indigo-800/80 font-medium">
-                    Partner gets a separate invite email, then you share a code to unlock their read-only view.
-                  </p>
+                  <form onSubmit={handleInvitePartner} className="space-y-3">
+                    <p className="text-[10px] text-indigo-800/80 font-semibold leading-relaxed">
+                      Enter your partner's details to email him an access link and generate an unlock code immediately.
+                    </p>
+                    
+                    {inviteError && (
+                      <div className="p-2 rounded-xl bg-red-50 border border-red-100 text-red-700 text-[10px] font-bold">
+                        {inviteError}
+                      </div>
+                    )}
+
+                    {inviteSuccess && (
+                      <div className="p-2 rounded-xl bg-emerald-50 border border-emerald-100 text-emerald-700 text-[10px] font-bold">
+                        Invite sent! Tell him to check his email. Share code: <strong>{shareCode}</strong>
+                      </div>
+                    )}
+
+                    <div className="space-y-2">
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="space-y-1">
+                          <label className="text-[9px] font-black text-indigo-900 uppercase tracking-wider">First Name</label>
+                          <input
+                            type="text"
+                            required
+                            placeholder="John"
+                            value={partnerFirstName}
+                            onChange={(e) => setPartnerFirstName(e.target.value)}
+                            className="w-full px-2.5 py-1.5 text-xs rounded-lg border border-indigo-100 bg-white focus:outline-none focus:ring-1 focus:ring-indigo-500 font-semibold text-slate-800"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[9px] font-black text-indigo-900 uppercase tracking-wider">Last Name</label>
+                          <input
+                            type="text"
+                            required
+                            placeholder="Doe"
+                            value={partnerLastName}
+                            onChange={(e) => setPartnerLastName(e.target.value)}
+                            className="w-full px-2.5 py-1.5 text-xs rounded-lg border border-indigo-100 bg-white focus:outline-none focus:ring-1 focus:ring-indigo-500 font-semibold text-slate-800"
+                          />
+                        </div>
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[9px] font-black text-indigo-900 uppercase tracking-wider">Partner's Email</label>
+                        <input
+                          type="email"
+                          required
+                          placeholder="partner@example.com"
+                          value={partnerEmail}
+                          onChange={(e) => setPartnerEmail(e.target.value)}
+                          className="w-full px-2.5 py-1.5 text-xs rounded-lg border border-indigo-100 bg-white focus:outline-none focus:ring-1 focus:ring-indigo-500 font-semibold text-slate-800"
+                        />
+                      </div>
+                    </div>
+
+                    <Button
+                      type="submit"
+                      disabled={isGenerating}
+                      className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 rounded-xl transition-all shadow-md text-xs flex items-center justify-center gap-1.5"
+                    >
+                      {isGenerating ? 'Sending Invite...' : 'Send Invite & Generate Code'}
+                    </Button>
+                  </form>
                 )}
               </CardContent>
             </Card>
