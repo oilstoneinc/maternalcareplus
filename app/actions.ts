@@ -697,6 +697,7 @@ export async function getFatherDashboardData() {
   }
 
   let pregnancy: (typeof pregnancies.$inferSelect) | null = null
+  let motherUser: (typeof users.$inferSelect) | null = null
   if (dbUser.role === 'father' || dbUser.role === 'admin') {
     const access = await db.query.partnerAccess.findFirst({
       where: and(
@@ -704,11 +705,16 @@ export async function getFatherDashboardData() {
         eq(partnerAccess.isActive, true)
       ),
     })
-    pregnancy = access?.pregnancyId
-      ? (await db.query.pregnancies.findFirst({
-          where: eq(pregnancies.id, access.pregnancyId),
-        })) ?? null
-      : null
+    if (access?.pregnancyId) {
+      pregnancy = await db.query.pregnancies.findFirst({
+        where: eq(pregnancies.id, access.pregnancyId),
+      }) || null
+      if (pregnancy?.userId) {
+        motherUser = await db.query.users.findFirst({
+          where: eq(users.id, pregnancy.userId),
+        }) || null
+      }
+    }
   }
 
   // Get upcoming scheduled appointments
@@ -882,6 +888,7 @@ export async function getFatherDashboardData() {
     JSON.stringify({
       user: dbUser,
       pregnancy: pregnancy ? { ...pregnancy, gestationalAge: ga, hospital } : null,
+      motherUser,
       appointments: upcomingAppointments,
       labs,
       clinicRecommendations,

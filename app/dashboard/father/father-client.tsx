@@ -24,7 +24,8 @@ import {
   FlaskConical,
   Beaker,
   BookOpen,
-  Activity
+  Activity,
+  X
 } from 'lucide-react'
 import Link from 'next/link'
 import { useState } from 'react'
@@ -42,6 +43,8 @@ interface FatherDashboardProps {
 
 export default function FatherDashboardClient({ user, data }: FatherDashboardProps) {
   const readOnly = !!data?.readOnly
+  const [showHelpDialog, setShowHelpDialog] = useState(false)
+  const [showEmergencyDialog, setShowEmergencyDialog] = useState(false)
   const [joinCode, setJoinCode] = useState('')
   const [isJoining, setIsJoining] = useState(false)
   const [completedTasks, setCompletedTasks] = useState<Record<string, boolean>>({
@@ -78,11 +81,10 @@ export default function FatherDashboardClient({ user, data }: FatherDashboardPro
 
   // Humanized checklists specific to ANC visits
   const checklistTasks = [
-    { id: 'pink-book', task: 'Get her MCH Record Book (Pink Book) & NHIS card ready', due: 'Essential' },
+    { id: 'pink-book', task: 'Get her Ghana Card & NHIS card ready', due: 'Essential' },
     { id: 'questions', task: 'Draft a list of questions/concerns for the midwife', due: 'This Week' },
     { id: 'water', task: 'Pack a fresh water bottle & light snack (long wait times)', due: 'Before leaving' },
     { id: 'transport', task: 'Confirm transportation & aim to arrive 15 mins early', due: 'Arriving' },
-    { id: 'notebook', task: 'Bring a pen to note vital updates & checkup guidelines', due: 'At Clinic' },
   ]
 
   const handleJoin = async (e: React.FormEvent) => {
@@ -564,8 +566,8 @@ export default function FatherDashboardClient({ user, data }: FatherDashboardPro
       </div>
 
       {/* Educational Section - What to Expect */}
-      <h2 className="text-lg font-black text-indigo-950 flex items-center gap-2 pt-4">
-        <Zap className="h-5 w-5 text-yellow-500" /> What to Expect — Week {week > 0 ? week : '?'}
+      <h2 className="text-lg font-black text-indigo-950 pt-4">
+        What to Expect: Week {week > 0 ? week : '?'}
       </h2>
       <Card className="border-none shadow-xl bg-gradient-to-br from-indigo-900 to-indigo-950 text-white p-6 relative overflow-hidden">
         <div className="absolute right-0 bottom-0 opacity-10">
@@ -577,12 +579,12 @@ export default function FatherDashboardClient({ user, data }: FatherDashboardPro
           )}
           {week >= 1 && week <= 12 && (
             <p className="text-indigo-100/90 leading-relaxed">
-              At week {week}, the baby is still tiny but growing fast — all major organs are forming. Your partner may be dealing with nausea and extreme fatigue. Help with cooking, be patient, and make sure she's attending her early booking visit at the clinic.
+              At week {week}, the baby is still tiny but growing fast, and all major organs are forming. Your partner may be dealing with nausea and extreme fatigue. Help with cooking, be patient, and make sure she's attending her early booking visit at the clinic.
             </p>
           )}
           {week >= 13 && week <= 27 && (
             <p className="text-indigo-100/90 leading-relaxed">
-              At week {week}, your baby can now hear sounds — talk or sing to the bump, it matters! Your partner is likely feeling more energetic but may have backaches and swollen feet. Help with household chores, attend the anatomy scan together, and keep her diet iron-rich.
+              At week {week}, your baby can now hear sounds, so talk or sing to the bump because it matters! Your partner is likely feeling more energetic but may have backaches and swollen feet. Help with household chores, attend the anatomy scan together, and keep her diet iron-rich.
             </p>
           )}
           {week >= 28 && week <= 36 && (
@@ -592,7 +594,7 @@ export default function FatherDashboardClient({ user, data }: FatherDashboardPro
           )}
           {week >= 37 && (
             <p className="text-indigo-100/90 leading-relaxed">
-              Week {week} — baby is full term and could arrive any day! Stay close, keep your phone charged, and make sure transport is ready at all times. Support her through any anxiety and ensure the hospital bag, MCH book, and NHIS card are all ready to go.
+              Week {week}: baby is full term and could arrive any day! Stay close, keep your phone charged, and make sure transport is ready at all times. Support her through any anxiety and ensure the hospital bag, MCH book, and NHIS card are all ready to go.
             </p>
           )}
           <div className="flex items-center justify-between pt-1">
@@ -606,10 +608,16 @@ export default function FatherDashboardClient({ user, data }: FatherDashboardPro
 
       {/* Emergency Quick Access */}
       <div className="flex gap-4">
-        <button className="flex-1 bg-red-50 text-red-600 py-3 rounded-2xl flex items-center justify-center gap-2 font-bold hover:bg-red-100 transition-colors shadow-sm">
+        <button 
+          onClick={() => setShowEmergencyDialog(true)}
+          className="flex-1 bg-red-50 text-red-600 py-3 rounded-2xl flex items-center justify-center gap-2 font-bold hover:bg-red-100 transition-colors shadow-sm"
+        >
           <Phone className="h-5 w-5" /> Emergency Call
         </button>
-        <button className="flex-1 bg-indigo-50 text-indigo-600 py-3 rounded-2xl flex items-center justify-center gap-2 font-bold hover:bg-indigo-100 transition-colors shadow-sm">
+        <button 
+          onClick={() => setShowHelpDialog(true)}
+          className="flex-1 bg-indigo-50 text-indigo-600 py-3 rounded-2xl flex items-center justify-center gap-2 font-bold hover:bg-indigo-100 transition-colors shadow-sm"
+        >
           <Info className="h-5 w-5" /> Help Guide
         </button>
       </div>
@@ -617,6 +625,150 @@ export default function FatherDashboardClient({ user, data }: FatherDashboardPro
       <footer className="rounded-2xl border border-indigo-100 bg-white/80 px-6 py-4 shadow-sm">
         <InstallAppFooter />
       </footer>
+
+      {/* Real-time Emergency Contacts Dialog */}
+      {showEmergencyDialog && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-4">
+          <div className="bg-white rounded-3xl w-full max-w-md overflow-hidden shadow-2xl animate-in slide-in-from-bottom duration-200">
+            <div className="p-6 bg-red-50 border-b border-red-100 flex justify-between items-center">
+              <div className="flex items-center gap-2 text-red-600">
+                <Phone className="h-5 w-5" />
+                <h3 className="font-black text-lg">Emergency Contact</h3>
+              </div>
+              <button 
+                onClick={() => setShowEmergencyDialog(false)}
+                className="p-1 rounded-full hover:bg-red-100 text-red-600 transition-colors"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="p-6 space-y-4">
+              <p className="text-xs text-slate-500 font-medium">Click any contact number below to make a direct call in case of emergency:</p>
+              
+              <div className="space-y-3">
+                {/* Mother Phone */}
+                <a 
+                  href={data?.motherUser?.phone ? `tel:${data.motherUser.phone}` : '#'}
+                  className="flex items-center justify-between p-3.5 bg-slate-50 hover:bg-slate-100/85 rounded-2xl border border-slate-100 transition-all group"
+                >
+                  <div>
+                    <p className="text-xs text-slate-400 font-bold uppercase">Partner (Mother)</p>
+                    <p className="text-sm font-bold text-slate-700">{data?.motherUser?.firstName} {data?.motherUser?.lastName}</p>
+                  </div>
+                  <span className="text-xs font-bold text-indigo-600 group-hover:underline">
+                    {data?.motherUser?.phone || 'Not recorded'}
+                  </span>
+                </a>
+
+                {/* Mother Emergency Contact */}
+                <a 
+                  href={data?.motherUser?.emergencyPhone ? `tel:${data.motherUser.emergencyPhone}` : '#'}
+                  className="flex items-center justify-between p-3.5 bg-slate-50 hover:bg-slate-100/85 rounded-2xl border border-slate-100 transition-all group"
+                >
+                  <div>
+                    <p className="text-xs text-slate-400 font-bold uppercase">Mother's Emergency Contact</p>
+                    <p className="text-sm font-bold text-slate-700">{data?.motherUser?.emergencyContact || 'Family Contact'}</p>
+                  </div>
+                  <span className="text-xs font-bold text-indigo-600 group-hover:underline">
+                    {data?.motherUser?.emergencyPhone || 'Not recorded'}
+                  </span>
+                </a>
+
+                {/* Hospital Phone */}
+                <a 
+                  href={data?.pregnancy?.hospital?.phone ? `tel:${data.pregnancy.hospital.phone}` : '#'}
+                  className="flex items-center justify-between p-3.5 bg-slate-50 hover:bg-slate-100/85 rounded-2xl border border-slate-100 transition-all group"
+                >
+                  <div>
+                    <p className="text-xs text-slate-400 font-bold uppercase">Facility / Hospital Clinic</p>
+                    <p className="text-sm font-bold text-slate-700">{data?.pregnancy?.hospital?.name || 'Assigned Clinic'}</p>
+                  </div>
+                  <span className="text-xs font-bold text-indigo-600 group-hover:underline">
+                    {data?.pregnancy?.hospital?.phone || 'Not recorded'}
+                  </span>
+                </a>
+
+                {/* Ghana General Emergency */}
+                <a 
+                  href="tel:112"
+                  className="flex items-center justify-between p-3.5 bg-red-50/50 hover:bg-red-50 rounded-2xl border border-red-100/50 transition-all group"
+                >
+                  <div>
+                    <p className="text-xs text-red-500 font-bold uppercase">National Service</p>
+                    <p className="text-sm font-bold text-red-700">Ghana National Emergency</p>
+                  </div>
+                  <span className="text-xs font-bold text-red-600 group-hover:underline">112</span>
+                </a>
+              </div>
+            </div>
+            <div className="p-4 bg-slate-50 border-t border-slate-100 flex justify-end">
+              <Button onClick={() => setShowEmergencyDialog(false)} className="rounded-xl px-5 bg-slate-800 text-white font-bold text-xs hover:bg-slate-700">
+                Dismiss
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Help Guide Dialog */}
+      {showHelpDialog && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-4">
+          <div className="bg-white rounded-3xl w-full max-w-md overflow-hidden shadow-2xl animate-in slide-in-from-bottom duration-200">
+            <div className="p-6 bg-indigo-50 border-b border-indigo-100 flex justify-between items-center">
+              <div className="flex items-center gap-2 text-indigo-900">
+                <Info className="h-5 w-5 text-indigo-600" />
+                <h3 className="font-black text-lg">Partner Support Guide</h3>
+              </div>
+              <button 
+                onClick={() => setShowHelpDialog(false)}
+                className="p-1 rounded-full hover:bg-indigo-100 text-indigo-600 transition-colors"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="p-6 space-y-4 max-h-[60vh] overflow-y-auto">
+              <div className="space-y-3">
+                <h4 className="text-xs font-black text-red-600 uppercase tracking-wider">Ghanaian Maternal Warning Signs</h4>
+                <p className="text-xs text-slate-500 leading-relaxed">
+                  Accompany your partner to the nearest clinic or call the ambulance immediately if she experiences:
+                </p>
+                <ul className="list-disc pl-5 text-xs text-slate-600 space-y-1.5 font-medium">
+                  <li>Vaginal bleeding or sudden fluid leakage</li>
+                  <li>Severe, persistent headache or blurred vision</li>
+                  <li>Sudden swelling of face, fingers, hands or feet</li>
+                  <li>Severe abdominal pain or high fever</li>
+                  <li>Baby moving significantly less than usual</li>
+                </ul>
+              </div>
+
+              <div className="h-px bg-slate-100 my-4" />
+
+              <div className="space-y-3">
+                <h4 className="text-xs font-black text-indigo-900 uppercase tracking-wider">NHIS Maternal Coverage Exemptions</h4>
+                <p className="text-xs text-slate-600 leading-relaxed">
+                  Under the Ghana NHIS Maternal Exemption policy, all comprehensive antenatal care visits, ultrasound scans, routine laboratory checkups, and delivery services are fully covered at NHIS-accredited facilities without charge. Always carry her valid NHIS card.
+                </p>
+              </div>
+
+              <div className="h-px bg-slate-100 my-4" />
+
+              <div className="space-y-3">
+                <h4 className="text-xs font-black text-indigo-900 uppercase tracking-wider">Midwife Recommendations</h4>
+                <ul className="list-disc pl-5 text-xs text-slate-600 space-y-1.5 font-medium">
+                  <li>Ensure she takes her daily iron/folic acid supplements.</li>
+                  <li>Help keep track of her vaccination card schedule.</li>
+                  <li>Support her sleep positions, resting comfortably on her left side.</li>
+                </ul>
+              </div>
+            </div>
+            <div className="p-4 bg-slate-50 border-t border-slate-100 flex justify-end">
+              <Button onClick={() => setShowHelpDialog(false)} className="rounded-xl px-5 bg-indigo-600 text-white font-bold text-xs hover:bg-indigo-700">
+                Close
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
