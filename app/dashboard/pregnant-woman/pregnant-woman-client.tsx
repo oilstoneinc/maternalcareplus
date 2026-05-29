@@ -1172,7 +1172,6 @@ export default function PregnantWomanClient({ user, data }: { user: any, data: D
                 <h4 className="text-xs font-black text-pink-700 uppercase tracking-wider">Your Ghanaian Delivery Bag Essentials</h4>
                 <ul className="list-disc pl-5 text-xs text-slate-600 space-y-1 font-medium">
                   <li>Your Ghana Card & valid NHIS Card</li>
-                  <li>MCH Record Book (Pink Book)</li>
                   <li>Baby clothes, blankets, and diaper wraps</li>
                   <li>Maternal hygiene supplies (pads, cotton wool, Dettol, toilet roll)</li>
                 </ul>
