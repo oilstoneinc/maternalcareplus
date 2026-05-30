@@ -6,10 +6,10 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { ArrowLeft, Activity, Calendar as CalendarIcon, FileText, Plus, BookOpen, Users, FlaskConical, MessageCircle, Pencil, Check, X, Building2 } from 'lucide-react'
+import { ArrowLeft, Activity, Calendar as CalendarIcon, FileText, Plus, BookOpen, Users, FlaskConical, MessageCircle, Pencil, Check, X, Building2, ShieldCheck } from 'lucide-react'
 import HospitalCareHistoryPanel from '@/components/dashboard/HospitalCareHistoryPanel'
 import Link from 'next/link'
-import { recordAntenatalVisit, recordVitals, recordLabOrScan, assignMidwifeToPregnancy, scheduleNextVisit, updatePregnancyBloodType, updatePatientAge, updatePregnancyMedicalInfo, updatePregnancyStandingAdvice } from '@/app/actions'
+import { recordAntenatalVisit, recordVitals, recordLabOrScan, assignMidwifeToPregnancy, scheduleNextVisit, updatePregnancyBloodType, updatePatientAge, updatePregnancyMedicalInfo, updatePregnancyStandingAdvice, updateNhisDetails } from '@/app/actions'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
@@ -434,6 +434,8 @@ export default function PatientProfileClient({ data }: { data: any }) {
             </Card>
 
             <MedicalHistoryEditor pregnancy={pregnancy} onSaved={() => router.refresh()} />
+
+            <InsuranceEditor patient={patient} onSaved={() => router.refresh()} />
 
             <StandingAdviceEditor pregnancy={pregnancy} onSaved={() => router.refresh()} />
           </TabsContent>
@@ -1484,5 +1486,269 @@ function VitalForm({ pregnancyId, hospitalId, onComplete, pregnancy }: { pregnan
         {loading ? 'Saving...' : 'Save Checkup Record'}
       </Button>
     </form>
+  )
+}
+
+function InsuranceEditor({ patient, onSaved }: { patient: any; onSaved: () => void }) {
+  const [editing, setEditing] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const [form, setForm] = useState({
+    nhisNumber: patient.nhisNumber || '',
+    nhisExpiryDate: patient.nhisExpiryDate
+      ? new Date(patient.nhisExpiryDate).toISOString().split('T')[0]
+      : '',
+    insuranceProvider: patient.insuranceProvider || '',
+    insurancePolicyNumber: patient.insurancePolicyNumber || '',
+    insuranceExpiryDate: patient.insuranceExpiryDate
+      ? new Date(patient.insuranceExpiryDate).toISOString().split('T')[0]
+      : '',
+  })
+
+  useEffect(() => {
+    if (!editing) {
+      setForm({
+        nhisNumber: patient.nhisNumber || '',
+        nhisExpiryDate: patient.nhisExpiryDate
+          ? new Date(patient.nhisExpiryDate).toISOString().split('T')[0]
+          : '',
+        insuranceProvider: patient.insuranceProvider || '',
+        insurancePolicyNumber: patient.insurancePolicyNumber || '',
+        insuranceExpiryDate: patient.insuranceExpiryDate
+          ? new Date(patient.insuranceExpiryDate).toISOString().split('T')[0]
+          : '',
+      })
+    }
+  }, [patient, editing])
+
+  const handleSave = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setSaving(true)
+    setError(null)
+    try {
+      const res = await updateNhisDetails({
+        userId: patient.id,
+        nhisNumber: form.nhisNumber,
+        nhisExpiryDate: form.nhisExpiryDate || undefined,
+        insuranceProvider: form.insuranceProvider,
+        insurancePolicyNumber: form.insurancePolicyNumber,
+        insuranceExpiryDate: form.insuranceExpiryDate || undefined,
+      })
+      if (res.success) {
+        setEditing(false)
+        onSaved()
+      } else {
+        setError('Failed to update insurance credentials.')
+      }
+    } catch (err: any) {
+      console.error(err)
+      setError('An error occurred while saving insurance credentials.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const nhisExpiryDate = patient.nhisExpiryDate ? new Date(patient.nhisExpiryDate) : null
+  const isNhisExpired = nhisExpiryDate ? nhisExpiryDate < new Date() : false
+  const isNhisExpiringSoon = nhisExpiryDate
+    ? !isNhisExpired && (nhisExpiryDate.getTime() - new Date().getTime()) < (60 * 24 * 60 * 60 * 1000)
+    : false
+
+  const insuranceExpiryDate = patient.insuranceExpiryDate ? new Date(patient.insuranceExpiryDate) : null
+  const isInsuranceExpired = insuranceExpiryDate ? insuranceExpiryDate < new Date() : false
+
+  return (
+    <Card className="border-2 border-indigo-100/60 shadow-md">
+      <CardHeader className="flex flex-row items-start justify-between gap-4 pb-3">
+        <div>
+          <CardTitle className="flex items-center gap-2 text-indigo-950 text-base font-bold">
+            <ShieldCheck className="w-5 h-5 text-indigo-600 animate-pulse" />
+            National & Private Insurance Link
+          </CardTitle>
+          <CardDescription className="mt-1 text-xs">
+            Manage the patient's insurance details. Linked status determines eligibility for maternal exemption coverage.
+          </CardDescription>
+        </div>
+        {!editing && (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="font-bold border-indigo-200 text-indigo-700 hover:bg-indigo-50 shrink-0"
+            onClick={() => setEditing(true)}
+          >
+            <Pencil className="w-3.5 h-3.5 mr-1.5" />
+            Edit Insurance
+          </Button>
+        )}
+      </CardHeader>
+      <CardContent>
+        {error && (
+          <div className="p-3 mb-4 rounded-xl bg-red-50 border border-red-100 text-red-700 text-xs font-bold">
+            {error}
+          </div>
+        )}
+
+        {editing ? (
+          <form onSubmit={handleSave} className="space-y-4">
+            <div className="bg-indigo-50/40 p-4 rounded-2xl border border-indigo-100/50 space-y-3">
+              <h4 className="text-xs font-black text-indigo-900 uppercase tracking-wider flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-indigo-500" />
+                NHIS Ghana National Coverage
+              </h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <Label htmlFor="nhisNumberInput">NHIS Number</Label>
+                  <Input
+                    id="nhisNumberInput"
+                    value={form.nhisNumber}
+                    onChange={(e) => setForm({ ...form, nhisNumber: e.target.value })}
+                    placeholder="Enter 8-digit card number"
+                    className={clinicalFieldClass}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="nhisExpiryDateInput">NHIS Expiry Date</Label>
+                  <Input
+                    id="nhisExpiryDateInput"
+                    type="date"
+                    value={form.nhisExpiryDate}
+                    onChange={(e) => setForm({ ...form, nhisExpiryDate: e.target.value })}
+                    className={clinicalFieldClass}
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-sky-50/40 p-4 rounded-2xl border border-sky-100/50 space-y-3">
+              <h4 className="text-xs font-black text-sky-900 uppercase tracking-wider flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-sky-500" />
+                Private Commercial Insurance
+              </h4>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="space-y-1.5">
+                  <Label htmlFor="insuranceProviderInput">Provider Name</Label>
+                  <Input
+                    id="insuranceProviderInput"
+                    value={form.insuranceProvider}
+                    onChange={(e) => setForm({ ...form, insuranceProvider: e.target.value })}
+                    placeholder="e.g. Acacia, Glico, Metropolitan"
+                    className={clinicalFieldClass}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="insurancePolicyNumberInput">Policy / Member Number</Label>
+                  <Input
+                    id="insurancePolicyNumberInput"
+                    value={form.insurancePolicyNumber}
+                    onChange={(e) => setForm({ ...form, insurancePolicyNumber: e.target.value })}
+                    placeholder="Policy number"
+                    className={clinicalFieldClass}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="insuranceExpiryDateInput">Policy Expiry Date</Label>
+                  <Input
+                    id="insuranceExpiryDateInput"
+                    type="date"
+                    value={form.insuranceExpiryDate}
+                    onChange={(e) => setForm({ ...form, insuranceExpiryDate: e.target.value })}
+                    className={clinicalFieldClass}
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="flex gap-2 pt-2">
+              <Button
+                type="submit"
+                disabled={saving}
+                className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold"
+              >
+                {saving ? 'Saving...' : 'Save Insurance Details'}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                disabled={saving}
+                onClick={() => setEditing(false)}
+              >
+                Cancel
+              </Button>
+            </div>
+          </form>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* NHIS Display */}
+            <div className="bg-indigo-50/20 p-4 rounded-2xl border border-indigo-100 flex flex-col justify-between min-h-[120px]">
+              <div>
+                <div className="flex items-center justify-between">
+                  <h4 className="text-xs font-black text-indigo-900 uppercase tracking-wider">NHIS National Coverage</h4>
+                  {patient.nhisNumber ? (
+                    isNhisExpired ? (
+                      <Badge className="bg-rose-100 text-rose-700 border-none text-[9px] uppercase tracking-wider font-extrabold">Expired</Badge>
+                    ) : isNhisExpiringSoon ? (
+                      <Badge className="bg-amber-100 text-amber-700 border-none text-[9px] uppercase tracking-wider font-extrabold">Expiring Soon</Badge>
+                    ) : (
+                      <Badge className="bg-emerald-100 text-emerald-700 border-none text-[9px] uppercase tracking-wider font-extrabold">Active</Badge>
+                    )
+                  ) : (
+                    <Badge className="bg-slate-100 text-slate-500 border-none text-[9px] uppercase tracking-wider font-extrabold">Not Linked</Badge>
+                  )}
+                </div>
+                {patient.nhisNumber ? (
+                  <p className="font-mono font-bold text-lg text-indigo-950 mt-2 tracking-wider">{patient.nhisNumber}</p>
+                ) : (
+                  <p className="text-sm text-slate-400 italic mt-3">No NHIS card linked to this account.</p>
+                )}
+              </div>
+              {patient.nhisNumber && nhisExpiryDate && (
+                <p className="text-xs text-slate-500 mt-2 font-medium">
+                  Valid Until:{' '}
+                  <span className="font-bold text-slate-700">
+                    {nhisExpiryDate.toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })}
+                  </span>
+                </p>
+              )}
+            </div>
+
+            {/* Private Insurance Display */}
+            <div className="bg-sky-50/20 p-4 rounded-2xl border border-sky-100 flex flex-col justify-between min-h-[120px]">
+              <div>
+                <div className="flex items-center justify-between">
+                  <h4 className="text-xs font-black text-sky-900 uppercase tracking-wider">Private Coverage</h4>
+                  {patient.insuranceProvider ? (
+                    isInsuranceExpired ? (
+                      <Badge className="bg-rose-100 text-rose-700 border-none text-[9px] uppercase tracking-wider font-extrabold">Expired</Badge>
+                    ) : (
+                      <Badge className="bg-sky-100 text-sky-700 border-none text-[9px] uppercase tracking-wider font-extrabold">Active Policy</Badge>
+                    )
+                  ) : (
+                    <Badge className="bg-slate-100 text-slate-500 border-none text-[9px] uppercase tracking-wider font-extrabold">Not Linked</Badge>
+                  )}
+                </div>
+                {patient.insuranceProvider ? (
+                  <div className="mt-2">
+                    <p className="font-bold text-slate-800 text-sm leading-none">{patient.insuranceProvider}</p>
+                    <p className="font-mono text-xs text-slate-500 mt-1 font-bold">Policy: {patient.insurancePolicyNumber || 'N/A'}</p>
+                  </div>
+                ) : (
+                  <p className="text-sm text-slate-400 italic mt-3">No private insurance linked.</p>
+                )}
+              </div>
+              {patient.insuranceProvider && insuranceExpiryDate && (
+                <p className="text-xs text-slate-500 mt-2 font-medium">
+                  Valid Until:{' '}
+                  <span className="font-bold text-slate-700">
+                    {insuranceExpiryDate.toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })}
+                  </span>
+                </p>
+              )}
+            </div>
+          </div>
+        )}
+      </CardContent>
+    </Card>
   )
 }
