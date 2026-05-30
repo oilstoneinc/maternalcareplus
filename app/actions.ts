@@ -10,7 +10,7 @@ import {
 } from '@/lib/hospital-care-history'
 import { currentUser, clerkClient } from '@clerk/nextjs/server'
 import { HospitalDashboardData, DashboardData, Message } from '@/types'
-import { eq, desc, asc, and, or, sql, ilike, inArray, gte, lt } from 'drizzle-orm'
+import { eq, desc, asc, and, or, sql, ilike, inArray, gte, lt, ne } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 import { notifyPregnancyUpdate } from '@/lib/pusher-notify'
 import { notifyPatientForPregnancy } from '@/lib/patient-notifications'
@@ -3311,6 +3311,70 @@ export async function updatePatientAge(patientUserId: string, ageYears: number) 
     return { success: false, error: message }
   }
 }
+
+/** Update patient Ghana Card ID */
+export async function updatePatientGhanaCardId(patientUserId: string, ghanaCardId: string) {
+  try {
+    const { dbUser } = await requireClinicalStaff()
+    await ensureMCHSchema()
+
+    const cleanCardId = ghanaCardId.trim().toUpperCase()
+    if (!cleanCardId) {
+      return { success: false, error: 'Ghana Card ID cannot be empty.' }
+    }
+
+    // Check uniqueness
+    const existing = await db.query.users.findFirst({
+      where: and(eq(users.ghanaCardId, cleanCardId), ne(users.id, patientUserId)),
+    })
+    if (existing) {
+      return { success: false, error: 'This Ghana Card ID is already registered to another patient.' }
+    }
+
+    const patient = await db.query.users.findFirst({
+      where: eq(users.id, patientUserId),
+    })
+    if (!patient) return { success: false, error: 'Patient not found' }
+
+    const pregnancy = await db.query.pregnancies.findFirst({
+      where: and(eq(pregnancies.userId, patientUserId), eq(pregnancies.status, 'active')),
+    })
+    if (!pregnancy) {
+      return { success: false, error: 'No active pregnancy record for this patient.' }
+    }
+
+    await db
+      .update(users)
+      .set({
+        ghanaCardId: cleanCardId,
+        updatedAt: new Date(),
+      })
+      .where(eq(users.id, patientUserId))
+
+    await notifyPatientForPregnancy(
+      pregnancy.id,
+      `Your Ghana Card ID was updated to ${cleanCardId}.`,
+      'clinical_update',
+      'mch-update'
+    )
+    await recordFacilityCareEvent({
+      pregnancyId: pregnancy.id,
+      staffUserId: dbUser.id,
+      staffHospitalId: dbUser.hospitalId,
+      action: 'medical_update',
+      summary: `Patient Ghana Card ID updated to ${cleanCardId}`,
+    })
+    revalidatePregnancyPaths(pregnancy.id)
+    revalidatePath('/dashboard/hospital')
+
+    return { success: true, ghanaCardId: cleanCardId }
+  } catch (err: unknown) {
+    console.error('updatePatientGhanaCardId error:', err)
+    const message = err instanceof Error ? err.message : 'Failed to update Ghana Card ID'
+    return { success: false, error: message }
+  }
+}
+
 
 /** Assign midwife or hospital staff as primary care contact (chat + coordination) */
 export async function assignMidwifeToPregnancy(pregnancyId: string, staffId: string) {

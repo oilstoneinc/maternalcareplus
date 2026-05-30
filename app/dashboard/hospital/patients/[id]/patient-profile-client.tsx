@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button'
 import { ArrowLeft, Activity, Calendar as CalendarIcon, FileText, Plus, BookOpen, Users, FlaskConical, MessageCircle, Pencil, Check, X, Building2, ShieldCheck } from 'lucide-react'
 import HospitalCareHistoryPanel from '@/components/dashboard/HospitalCareHistoryPanel'
 import Link from 'next/link'
-import { recordAntenatalVisit, recordVitals, recordLabOrScan, assignMidwifeToPregnancy, scheduleNextVisit, updatePregnancyBloodType, updatePatientAge, updatePregnancyMedicalInfo, updatePregnancyStandingAdvice, updateNhisDetails } from '@/app/actions'
+import { recordAntenatalVisit, recordVitals, recordLabOrScan, assignMidwifeToPregnancy, scheduleNextVisit, updatePregnancyBloodType, updatePatientAge, updatePatientGhanaCardId, updatePregnancyMedicalInfo, updatePregnancyStandingAdvice, updateNhisDetails } from '@/app/actions'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
@@ -86,6 +86,11 @@ export default function PatientProfileClient({ data }: { data: any }) {
   })
   const [savingAge, setSavingAge] = useState(false)
 
+  const [editingGhanaCardId, setEditingGhanaCardId] = useState(false)
+  const [ghanaCardIdValue, setGhanaCardIdValue] = useState(patient.ghanaCardId || '')
+  const [ghanaCardIdDisplay, setGhanaCardIdDisplay] = useState(patient.ghanaCardId || '')
+  const [savingGhanaCardId, setSavingGhanaCardId] = useState(false)
+
   const patientName = `${patient.firstName} ${patient.lastName}`.trim()
 
   const formatDate = (date: any) => {
@@ -159,6 +164,39 @@ export default function PatientProfileClient({ data }: { data: any }) {
     setAgeValue(years != null ? String(years) : '')
     setEditingAge(false)
   }
+
+  const handleSaveGhanaCardId = async () => {
+    const trimmed = ghanaCardIdValue.trim().toUpperCase()
+    if (!trimmed) {
+      alert('Please enter a valid Ghana Card ID.')
+      return
+    }
+    setSavingGhanaCardId(true)
+    try {
+      const res = await updatePatientGhanaCardId(patient.id, trimmed)
+      if (res.success) {
+        setGhanaCardIdDisplay(res.ghanaCardId || trimmed)
+        setEditingGhanaCardId(false)
+        router.refresh()
+      } else {
+        alert(res.error || 'Could not update Ghana Card ID')
+      }
+    } finally {
+      setSavingGhanaCardId(false)
+    }
+  }
+
+  const handleCancelGhanaCardId = () => {
+    setGhanaCardIdValue(patient.ghanaCardId || '')
+    setEditingGhanaCardId(false)
+  }
+
+  useEffect(() => {
+    if (!editingGhanaCardId) {
+      setGhanaCardIdDisplay(patient.ghanaCardId || '')
+      setGhanaCardIdValue(patient.ghanaCardId || '')
+    }
+  }, [patient.ghanaCardId, editingGhanaCardId])
 
   useEffect(() => {
     setBloodTypeDisplay(formatBloodTypeDisplay(pregnancy) || 'Unknown')
@@ -247,7 +285,58 @@ export default function PatientProfileClient({ data }: { data: any }) {
                   </>
                 )}
                 <span className="text-slate-300">•</span>
-                <span>ID: {patient.id.substring(0, 8).toUpperCase()}</span>
+                {editingGhanaCardId ? (
+                  <div className="flex items-center gap-2">
+                    <Label htmlFor="ghana-card-id" className="sr-only">
+                      Ghana Card ID
+                    </Label>
+                    <Input
+                      id="ghana-card-id"
+                      type="text"
+                      value={ghanaCardIdValue}
+                      onChange={(e) => setGhanaCardIdValue(e.target.value.toUpperCase())}
+                      className={`w-40 h-9 text-sm font-mono font-bold ${clinicalFieldClass}`}
+                      disabled={savingGhanaCardId}
+                      placeholder="GHA-XXXXXXXXX-X"
+                    />
+                    <Button
+                      type="button"
+                      size="sm"
+                      className="h-8 bg-[#D48BA1] hover:bg-[#c47a90] font-bold px-2"
+                      disabled={savingGhanaCardId || !ghanaCardIdValue}
+                      onClick={handleSaveGhanaCardId}
+                    >
+                      {savingGhanaCardId ? '…' : <Check className="w-3.5 h-3.5" />}
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      className="h-8 px-2"
+                      disabled={savingGhanaCardId}
+                      onClick={handleCancelGhanaCardId}
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-1.5">
+                    <span>ID: {ghanaCardIdDisplay || 'Not set'}</span>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 px-1.5 text-slate-400 hover:text-[#D48BA1]"
+                      onClick={() => {
+                        setGhanaCardIdValue(patient.ghanaCardId || '')
+                        setEditingGhanaCardId(true)
+                      }}
+                      aria-label="Edit Ghana Card ID"
+                    >
+                      <Pencil className="w-3.5 h-3.5" />
+                    </Button>
+                  </div>
+                )}
               </div>
               {onboardingHospital && (
                 <>
