@@ -45,6 +45,9 @@ import {
   LogOut,
   CheckCircle2,
   Activity,
+  Info,
+  X,
+  ChevronRight,
 } from 'lucide-react'
 
 interface Pregnancy {
@@ -86,6 +89,8 @@ export default function HospitalDashboardClient({ user, data }: { user: any, dat
   const [isSigningOutStaff, setIsSigningOutStaff] = useState<string | null>(null)
   const [openChats, setOpenChats] = useState<Array<{ id: string; name: string }>>([]) 
   const [threads, setThreads] = useState<any[]>(data?.messageThreads || [])
+  const [showHelpDialog, setShowHelpDialog] = useState(false)
+  const [helpActiveTab, setHelpActiveTab] = useState<'app' | 'checklists'>('app')
 
   const handleForceSignOut = async (logId: string) => {
     if (!confirm("Are you sure you want to end this staff member's shift? They will be signed out and required to re-verify their shift code for any future clinical actions.")) {
@@ -483,6 +488,10 @@ export default function HospitalDashboardClient({ user, data }: { user: any, dat
             </div>
           </div>
           <div className="flex flex-wrap gap-3 mt-4 md:mt-0">
+            <Button onClick={() => setShowHelpDialog(true)} variant="outline" className="border-slate-200 text-slate-700 font-bold py-5 rounded-xl">
+              <Info className="w-4 h-4 mr-2" />
+              Help & Duty Guide
+            </Button>
             <Button onClick={() => setShowOnboarding(true)} className="bg-[#D48BA1] hover:bg-[#c47a90] font-bold py-5 px-6 rounded-xl shadow-md transition-all">
               <Plus className="w-5 h-5 mr-2" />
               Onboard Patient
@@ -1573,6 +1582,271 @@ export default function HospitalDashboardClient({ user, data }: { user: any, dat
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Clinician Help & Duty Guide Dialog */}
+      {showHelpDialog && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-4 animate-in fade-in duration-300">
+          <div className="bg-white rounded-3xl w-full max-w-lg overflow-hidden shadow-2xl animate-in slide-in-from-bottom-4 duration-300 flex flex-col max-h-[85vh]">
+            {/* Header */}
+            <div className="p-6 bg-teal-50 border-b border-teal-100 flex justify-between items-center shrink-0">
+              <div className="flex items-center gap-2 text-teal-900">
+                <Info className="h-5 w-5 text-teal-600" />
+                <h3 className="font-black text-lg text-slate-800">Hospital Console Help & Guide</h3>
+              </div>
+              <button 
+                onClick={() => setShowHelpDialog(false)}
+                className="p-1 rounded-full hover:bg-teal-100 text-teal-600 transition-colors"
+                title="Close"
+                aria-label="Close"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* Tabs */}
+            <div className="flex border-b border-slate-100 bg-slate-50/50 shrink-0">
+              <button 
+                onClick={() => setHelpActiveTab('app')}
+                className={`flex-1 py-3 text-xs font-bold transition-all border-b-2 text-center ${
+                  helpActiveTab === 'app' 
+                    ? 'border-teal-600 text-teal-600 bg-white' 
+                    : 'border-transparent text-slate-500 hover:text-slate-900 hover:bg-slate-50'
+                }`}
+              >
+                Clinical Workflow Guide
+              </button>
+              <button 
+                onClick={() => setHelpActiveTab('checklists')}
+                className={`flex-1 py-3 text-xs font-bold transition-all border-b-2 text-center ${
+                  helpActiveTab === 'checklists' 
+                    ? 'border-teal-600 text-teal-600 bg-white' 
+                    : 'border-transparent text-slate-500 hover:text-slate-900 hover:bg-slate-50'
+                }`}
+              >
+                Vitals & Record Checklists
+              </button>
+            </div>
+
+            {/* Scrollable Contents */}
+            <div className="p-6 space-y-6 overflow-y-auto flex-1">
+              {helpActiveTab === 'app' ? (
+                <div className="space-y-6">
+                  {/* Step-by-Step Portal Guide */}
+                  <div className="space-y-4">
+                    <h4 className="text-xs font-black text-teal-700 uppercase tracking-wider">Step-by-Step Clinical Console Guide</h4>
+                    
+                    <div className="space-y-4">
+                      {/* Step 1 */}
+                      <div className="flex gap-3 items-start">
+                        <div className="w-6 h-6 rounded-full bg-teal-100 flex items-center justify-center text-teal-700 text-[10px] font-black shrink-0 mt-0.5">
+                          1
+                        </div>
+                        <div className="space-y-0.5">
+                          <h5 className="font-bold text-xs text-slate-800">Check National Patient Registry</h5>
+                          <p className="text-[11px] text-slate-500 leading-relaxed font-semibold">
+                            Always search the **National Patient Registry** under the search input before registering a new user. Finding their pre-existing record prevents duplicates and loads historical timelines instantly.
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Step 2 */}
+                      <div className="flex gap-3 items-start">
+                        <div className="w-6 h-6 rounded-full bg-teal-100 flex items-center justify-center text-teal-700 text-[10px] font-black shrink-0 mt-0.5">
+                          2
+                        </div>
+                        <div className="space-y-0.5">
+                          <h5 className="font-bold text-xs text-slate-800">Onboard New Patients</h5>
+                          <p className="text-[11px] text-slate-500 leading-relaxed font-semibold">
+                            Click **Onboard Patient** in the header. Input full identity details, LMP (which auto-calculates the expected delivery date), and insurance credentials to unlock free maternal exemption care.
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Step 3 */}
+                      <div className="flex gap-3 items-start">
+                        <div className="w-6 h-6 rounded-full bg-teal-100 flex items-center justify-center text-teal-700 text-[10px] font-black shrink-0 mt-0.5">
+                          3
+                        </div>
+                        <div className="space-y-0.5">
+                          <h5 className="font-bold text-xs text-slate-800">Review Patient Clinical Profiles</h5>
+                          <p className="text-[11px] text-slate-500 leading-relaxed font-semibold">
+                            Select any patient from your active lists. Use the profile hub to assign primary midwives, link insurance details, record vital trends, and examine timelines from other clinics.
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Step 4 */}
+                      <div className="flex gap-3 items-start">
+                        <div className="w-6 h-6 rounded-full bg-teal-100 flex items-center justify-center text-teal-700 text-[10px] font-black shrink-0 mt-0.5">
+                          4
+                        </div>
+                        <div className="space-y-0.5">
+                          <h5 className="font-bold text-xs text-slate-800">Maintain Digital MCH Book Chapters</h5>
+                          <p className="text-[11px] text-slate-500 leading-relaxed font-semibold">
+                            Inside the patient's profile, open the digital MCH book tab. Midwives must populate checklists, obstetric metrics, infant delivery summaries, and postpartum updates.
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Step 5 */}
+                      <div className="flex gap-3 items-start">
+                        <div className="w-6 h-6 rounded-full bg-teal-100 flex items-center justify-center text-teal-700 text-[10px] font-black shrink-0 mt-0.5">
+                          5
+                        </div>
+                        <div className="space-y-0.5">
+                          <h5 className="font-bold text-xs text-slate-800">Schedule Antenatal Appointments</h5>
+                          <p className="text-[11px] text-slate-500 leading-relaxed font-semibold">
+                            Before the patient leaves the clinic, scroll to the **Schedule Next Visit** card in their profile. Enter the upcoming date and clinical notes to keep them inside the reminder flow.
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Step 6 */}
+                      <div className="flex gap-3 items-start">
+                        <div className="w-6 h-6 rounded-full bg-teal-100 flex items-center justify-center text-teal-700 text-[10px] font-black shrink-0 mt-0.5">
+                          6
+                        </div>
+                        <div className="space-y-0.5">
+                          <h5 className="font-bold text-xs text-slate-800">Verify Daily Shift Codes</h5>
+                          <p className="text-[11px] text-slate-500 leading-relaxed font-semibold">
+                            All edits and additions require an active verified daily shift code. Administrators generate these codes daily under the **Staff & Duty Logs** tab.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="h-px bg-slate-100" />
+
+                  {/* Frequently Asked Questions */}
+                  <div className="space-y-4">
+                    <h4 className="text-xs font-black text-teal-700 uppercase tracking-wider">Frequently Asked Questions</h4>
+                    
+                    <div className="space-y-2.5">
+                      <details className="group border border-slate-100 rounded-2xl p-3 bg-slate-50/30">
+                        <summary className="flex justify-between items-center font-bold text-xs text-slate-800 cursor-pointer list-none">
+                          <span>Why search the National Registry before onboarding a new patient?</span>
+                          <ChevronRight className="w-3.5 h-3.5 text-slate-400 group-open:rotate-90 transition-transform" />
+                        </summary>
+                        <p className="text-[11px] text-slate-600 mt-2 leading-relaxed font-semibold">
+                          Patients may already have been registered by a clinic elsewhere in Ghana. Finding their pre-existing file allows you to see their existing medical history instantly and prevents duplicate care histories.
+                        </p>
+                      </details>
+
+                      <details className="group border border-slate-100 rounded-2xl p-3 bg-slate-50/30">
+                        <summary className="flex justify-between items-center font-bold text-xs text-slate-800 cursor-pointer list-none">
+                          <span>How do I assign a primary midwife to a patient?</span>
+                          <ChevronRight className="w-3.5 h-3.5 text-slate-400 group-open:rotate-90 transition-transform" />
+                        </summary>
+                        <p className="text-[11px] text-slate-600 mt-2 leading-relaxed font-semibold">
+                          Open the patient's profile, navigate to the **Overview** tab, and select a staff member from the assigned midwife dropdown. This allows that midwife to chat with the patient.
+                        </p>
+                      </details>
+
+                      <details className="group border border-slate-100 rounded-2xl p-3 bg-slate-50/30">
+                        <summary className="flex justify-between items-center font-bold text-xs text-slate-800 cursor-pointer list-none">
+                          <span>What happens if a patient's insurance expires?</span>
+                          <ChevronRight className="w-3.5 h-3.5 text-slate-400 group-open:rotate-90 transition-transform" />
+                        </summary>
+                        <p className="text-[11px] text-slate-600 mt-2 leading-relaxed font-semibold">
+                          Update the insurance credentials inside the patient's overview editor. If expired, warn the patient so they can renew via *929# to retain GHS maternal care exemption benefits.
+                        </p>
+                      </details>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                /* Tab 2: Vitals & checklist standards */
+                <div className="space-y-6">
+                  <div className="space-y-3">
+                    <h4 className="text-xs font-black text-teal-700 uppercase tracking-wider">Critical Vitals Benchmarks</h4>
+                    <p className="text-[11px] text-slate-500 leading-relaxed font-semibold">
+                      Ensure these measurements are recorded at **every checkup** to prevent missing high-risk indicators:
+                    </p>
+                    <ul className="text-xs text-slate-600 space-y-2.5 font-medium">
+                      <li>
+                        <strong className="text-slate-800">1. Blood Pressure Monitoring:</strong>
+                        <span className="block text-[11px] text-slate-500 mt-0.5 leading-relaxed">
+                          BP checks are vital to catch early signposts of pre-eclampsia. Readings exceeding **140/90 mmHg** must be marked high-risk immediately.
+                        </span>
+                      </li>
+                      <li>
+                        <strong className="text-slate-800">2. Fetal Heart Rate (FHR):</strong>
+                        <span className="block text-[11px] text-slate-500 mt-0.5 leading-relaxed">
+                          Regular Doppler/fetoscope checks must be performed. Normal fetal heart rate rests between **120 and 160 bpm**. Record this on the digital check sheet.
+                        </span>
+                      </li>
+                      <li>
+                        <strong className="text-slate-800">3. Weight Check (kg):</strong>
+                        <span className="block text-[11px] text-slate-500 mt-0.5 leading-relaxed">
+                          Monitor sudden spikes (e.g. &gt;2kg in a week) which might indicate fluid retention, and record regularly to track nutrient consumption.
+                        </span>
+                      </li>
+                    </ul>
+                  </div>
+
+                  <div className="h-px bg-slate-100" />
+
+                  <div className="space-y-3">
+                    <h4 className="text-xs font-black text-teal-700 uppercase tracking-wider">Treatment Milestone Checklist</h4>
+                    <p className="text-[11px] text-slate-500 leading-relaxed font-semibold">
+                      Verify and administer key preventative therapies based on the patient's gestational week:
+                    </p>
+                    <table className="w-full text-xs border border-slate-100 rounded-lg overflow-hidden text-left">
+                      <thead>
+                        <tr className="bg-slate-50 font-bold text-slate-700">
+                          <th className="p-2 border-b">Therapy</th>
+                          <th className="p-2 border-b">Milestone</th>
+                        </tr>
+                      </thead>
+                      <tbody className="text-slate-600 font-semibold">
+                        <tr>
+                          <td className="p-2 border-b">Folic Acid & Iron supplementation</td>
+                          <td className="p-2 border-b">Daily from First Visit</td>
+                        </tr>
+                        <tr>
+                          <td className="p-2 border-b">IPTp Malaria Treatment</td>
+                          <td className="p-2 border-b">Monthly from 16 Weeks</td>
+                        </tr>
+                        <tr>
+                          <td className="p-2 border-b">TT (Tetanus Toxoid) Vaccination</td>
+                          <td className="p-2 border-b">Week 20 & 24 Milestones</td>
+                        </tr>
+                        <tr>
+                          <td className="p-2 border-b">ITN (Insecticide Treated Nets)</td>
+                          <td className="p-2 border-b">Distributed at First Visit</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+
+                  <div className="h-px bg-slate-100" />
+
+                  <div className="space-y-3">
+                    <h4 className="text-xs font-black text-rose-700 uppercase tracking-wider">GHS Referral Danger Protocol</h4>
+                    <p className="text-xs text-slate-600 leading-relaxed font-medium">
+                      If the patient reports or displays any of the following warning signs, follow the immediate GHS referral protocol:
+                    </p>
+                    <ul className="list-disc pl-5 text-xs text-slate-600 space-y-1 font-semibold">
+                      <li>Severe persistent headaches accompanied by visual blurriness</li>
+                      <li>General swelling of the hands, face, or feet</li>
+                      <li>Any volume of vaginal bleeding or sudden clear liquid discharge</li>
+                      <li>Abdominal spasms or fits / convulsions</li>
+                    </ul>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="p-4 bg-slate-50 border-t border-slate-100 flex justify-end shrink-0">
+              <Button onClick={() => setShowHelpDialog(false)} className="rounded-xl px-5 bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs">
+                Close
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
     </ShiftCodeGate>
