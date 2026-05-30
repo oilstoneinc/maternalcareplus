@@ -144,6 +144,7 @@ export default function PregnantWomanClient({ user, data }: { user: any, data: D
   const [inviteError, setInviteError] = useState<string | null>(null)
   const [inviteSuccess, setInviteSuccess] = useState(false)
   const [showHelpDialog, setShowHelpDialog] = useState(false)
+  const [helpActiveTab, setHelpActiveTab] = useState<'app' | 'health'>('app')
 
   // NHIS Card States & Handlers
   const [isEditingNhis, setIsEditingNhis] = useState(false)
@@ -1363,12 +1364,13 @@ export default function PregnantWomanClient({ user, data }: { user: any, data: D
 
       {/* Real-time Help & Education Guide Dialog */}
       {showHelpDialog && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-4">
-          <div className="bg-white rounded-3xl w-full max-w-md overflow-hidden shadow-2xl animate-in slide-in-from-bottom duration-200">
-            <div className="p-6 bg-pink-50 border-b border-pink-100 flex justify-between items-center">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-4 animate-in fade-in duration-300">
+          <div className="bg-white rounded-3xl w-full max-w-lg overflow-hidden shadow-2xl animate-in slide-in-from-bottom-4 duration-300 flex flex-col max-h-[85vh]">
+            {/* Modal Header */}
+            <div className="p-6 bg-pink-50 border-b border-pink-100 flex justify-between items-center shrink-0">
               <div className="flex items-center gap-2 text-pink-900">
                 <Info className="h-5 w-5 text-pink-600" />
-                <h3 className="font-black text-lg">Maternal Education Guide</h3>
+                <h3 className="font-black text-lg">MaternalCare+ Help & Education</h3>
               </div>
               <button 
                 onClick={() => setShowHelpDialog(false)}
@@ -1379,82 +1381,242 @@ export default function PregnantWomanClient({ user, data }: { user: any, data: D
                 <X className="h-5 w-5" />
               </button>
             </div>
-            <div className="p-6 space-y-4 max-h-[60vh] overflow-y-auto">
-              <div className="space-y-3">
-                <h4 className="text-xs font-black text-pink-700 uppercase tracking-wider">Your Trimester-Specific Guidance</h4>
-                <div className="text-xs text-slate-600 space-y-2 font-medium">
-                  {gestationalAge <= 12 ? (
-                    <>
-                      <p className="leading-relaxed">
-                        <strong className="text-pink-900">First Trimester (Weeks 1 - 12):</strong> Your body is working hard to build the placenta and support early organ development.
-                      </p>
-                      <ul className="list-disc pl-5 space-y-1">
-                        <li><strong className="text-slate-700">Nutrition:</strong> Keep taking your folic acid/iron daily. Small, frequent meals of dry bread or crackers help ease morning sickness.</li>
-                        <li><strong className="text-slate-700">Activity:</strong> Light walking and plenty of rest. Avoid over-exhaustion.</li>
-                      </ul>
-                    </>
-                  ) : gestationalAge <= 27 ? (
-                    <>
-                      <p className="leading-relaxed">
-                        <strong className="text-pink-900">Second Trimester (Weeks 13 - 27):</strong> Often called the "golden phase". You may feel more energetic, and baby is growing rapidly.
-                      </p>
-                      <ul className="list-disc pl-5 space-y-1">
-                        <li><strong className="text-slate-700">Nutrition:</strong> Focus on calcium-rich foods (milk, yogurt) and iron (kontomire/cocoyam leaves, fish, beans) to prevent gestational anemia.</li>
-                        <li><strong className="text-slate-700">Activity:</strong> Try safe prenatal exercise, stretch your legs regularly to prevent swelling, and start sleeping on your left side to improve blood flow.</li>
-                      </ul>
-                    </>
-                  ) : (
-                    <>
-                      <p className="leading-relaxed">
-                        <strong className="text-pink-900">Third Trimester (Weeks 28 - 40):</strong> Baby is packing on weight, and you're entering the home stretch.
-                      </p>
-                      <ul className="list-disc pl-5 space-y-1">
-                        <li><strong className="text-slate-700">Nutrition:</strong> Eat small, nutrient-dense meals. Keep drinking lots of water.</li>
-                        <li><strong className="text-slate-700">Activity:</strong> Practice deep breathing exercises and gentle pelvic tilts to prepare for labor. Avoid heavy lifting entirely.</li>
-                      </ul>
-                    </>
-                  )}
-                </div>
-              </div>
 
-              <div className="h-px bg-slate-100 my-4" />
-
-              <div className="space-y-3">
-                <h4 className="text-xs font-black text-pink-700 uppercase tracking-wider">Ghanaian Maternal Danger Signs</h4>
-                <p className="text-xs text-slate-500 leading-relaxed font-medium">
-                  Seek immediate medical attention at your hospital clinic if you experience any of the following warning signs:
-                </p>
-                <ul className="list-disc pl-5 text-xs text-slate-600 space-y-1.5 font-medium">
-                  <li className="text-red-600 font-bold">Vaginal bleeding or sudden fluid leakage</li>
-                  <li>Severe, persistent headache or blurred/double vision</li>
-                  <li>Sudden swelling of face, hands, or ankles/feet</li>
-                  <li>Fever, chills, or lower abdominal pain</li>
-                  <li>Baby moving less than usual (after 24 weeks)</li>
-                  <li>Fits, convulsions, or severe breathing difficulties</li>
-                </ul>
-              </div>
-
-              <div className="h-px bg-slate-100 my-4" />
-
-              <div className="space-y-3">
-                <h4 className="text-xs font-black text-pink-700 uppercase tracking-wider">Your NHIS Policy Rights</h4>
-                <p className="text-xs text-slate-600 leading-relaxed font-medium">
-                  Under the Ghana NHIS Maternal Exemption policy, all comprehensive antenatal care visits, ultrasound scans, routine laboratory checkups, and delivery services are fully covered at NHIS-accredited facilities without charge. Always carry her valid NHIS card.
-                </p>
-              </div>
-
-              <div className="h-px bg-slate-100 my-4" />
-
-              <div className="space-y-3">
-                <h4 className="text-xs font-black text-pink-700 uppercase tracking-wider">Your Ghanaian Delivery Bag Essentials</h4>
-                <ul className="list-disc pl-5 text-xs text-slate-600 space-y-1 font-medium">
-                  <li>Your Ghana Card & valid NHIS Card</li>
-                  <li>Baby clothes, blankets, and diaper wraps</li>
-                  <li>Maternal hygiene supplies (pads, cotton wool, Dettol, toilet roll)</li>
-                </ul>
-              </div>
+            {/* Modal Tab Switcher */}
+            <div className="flex border-b border-slate-100 bg-slate-50/50 shrink-0">
+              <button 
+                onClick={() => setHelpActiveTab('app')}
+                className={`flex-1 py-3 text-xs font-bold transition-all border-b-2 text-center ${
+                  helpActiveTab === 'app' 
+                    ? 'border-[#D48BA1] text-[#D48BA1] bg-white' 
+                    : 'border-transparent text-slate-500 hover:text-slate-900 hover:bg-slate-50'
+                }`}
+              >
+                How to Use MaternalCare+
+              </button>
+              <button 
+                onClick={() => setHelpActiveTab('health')}
+                className={`flex-1 py-3 text-xs font-bold transition-all border-b-2 text-center ${
+                  helpActiveTab === 'health' 
+                    ? 'border-[#D48BA1] text-[#D48BA1] bg-white' 
+                    : 'border-transparent text-slate-500 hover:text-slate-900 hover:bg-slate-50'
+                }`}
+              >
+                Maternal Health Guide
+              </button>
             </div>
-            <div className="p-4 bg-slate-50 border-t border-slate-100 flex justify-end">
+
+            {/* Modal Scrollable Contents */}
+            <div className="p-6 space-y-6 overflow-y-auto flex-1">
+              {helpActiveTab === 'app' ? (
+                /* Tab 1: How to use App step-by-step & FAQ */
+                <div className="space-y-6">
+                  {/* Step-by-Step Portal Guide */}
+                  <div className="space-y-4">
+                    <h4 className="text-xs font-black text-[#D48BA1] uppercase tracking-wider">Step-by-Step Portal Guide</h4>
+                    
+                    <div className="space-y-4">
+                      {/* Step 1 */}
+                      <div className="flex gap-3 items-start">
+                        <div className="w-6 h-6 rounded-full bg-pink-100 flex items-center justify-center text-pink-700 text-[10px] font-black shrink-0 mt-0.5">
+                          1
+                        </div>
+                        <div className="space-y-0.5">
+                          <h5 className="font-bold text-xs text-slate-800">Track Progress & Vitals</h5>
+                          <p className="text-[11px] text-slate-500 leading-relaxed font-semibold">
+                            Monitor your gestational age, countdown to estimated delivery date (EDD), and baby size milestones. The chart tab tracks your weight, blood pressure, and fetal heart rate recorded by clinical staff.
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Step 2 */}
+                      <div className="flex gap-3 items-start">
+                        <div className="w-6 h-6 rounded-full bg-pink-100 flex items-center justify-center text-pink-700 text-[10px] font-black shrink-0 mt-0.5">
+                          2
+                        </div>
+                        <div className="space-y-0.5">
+                          <h5 className="font-bold text-xs text-slate-800">Access Digital MCH Book</h5>
+                          <p className="text-[11px] text-slate-500 leading-relaxed font-semibold">
+                            Click the **MCH Book** button at the top to access GHS-aligned chapters. Track immunization, obstetric records, delivery notes, and checklists in real-time.
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Step 3 */}
+                      <div className="flex gap-3 items-start">
+                        <div className="w-6 h-6 rounded-full bg-pink-100 flex items-center justify-center text-pink-700 text-[10px] font-black shrink-0 mt-0.5">
+                          3
+                        </div>
+                        <div className="space-y-0.5">
+                          <h5 className="font-bold text-xs text-slate-800">Link Health Insurance</h5>
+                          <p className="text-[11px] text-slate-500 leading-relaxed font-semibold">
+                            Fill in your NHIS or private insurance details in the sidebar cards. Linking cards registers your maternal exemption status for free antenatal care and delivery.
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Step 4 */}
+                      <div className="flex gap-3 items-start">
+                        <div className="w-6 h-6 rounded-full bg-pink-100 flex items-center justify-center text-pink-700 text-[10px] font-black shrink-0 mt-0.5">
+                          4
+                        </div>
+                        <div className="space-y-0.5">
+                          <h5 className="font-bold text-xs text-slate-800">Invite Your Support Partner</h5>
+                          <p className="text-[11px] text-slate-500 leading-relaxed font-semibold">
+                            Onboard your partner under the **Support your Partner** card. Share the secure access code to sync dashboards and keep them informed of your health milestone updates.
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Step 5 */}
+                      <div className="flex gap-3 items-start">
+                        <div className="w-6 h-6 rounded-full bg-pink-100 flex items-center justify-center text-pink-700 text-[10px] font-black shrink-0 mt-0.5">
+                          5
+                        </div>
+                        <div className="space-y-0.5">
+                          <h5 className="font-bold text-xs text-slate-800">Message Your Assigned Midwife</h5>
+                          <p className="text-[11px] text-slate-500 leading-relaxed font-semibold">
+                            Use the **Message Care Team** button or bottom chat panel to ask quick clinical advice or request schedule revisions from your midwife.
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Step 6 */}
+                      <div className="flex gap-3 items-start">
+                        <div className="w-6 h-6 rounded-full bg-pink-100 flex items-center justify-center text-pink-700 text-[10px] font-black shrink-0 mt-0.5">
+                          6
+                        </div>
+                        <div className="space-y-0.5">
+                          <h5 className="font-bold text-xs text-slate-800">Cross-Hospital Continuity</h5>
+                          <p className="text-[11px] text-slate-500 leading-relaxed font-semibold">
+                            When visiting any accredited partner hospital in Ghana, they can securely access your records. Updates trigger instant notifications on your portal.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="h-px bg-slate-100" />
+
+                  {/* Frequently Asked Questions */}
+                  <div className="space-y-4">
+                    <h4 className="text-xs font-black text-[#D48BA1] uppercase tracking-wider">Frequently Asked Questions</h4>
+                    
+                    <div className="space-y-2.5">
+                      <details className="group border border-slate-100 rounded-2xl p-3 bg-slate-50/30">
+                        <summary className="flex justify-between items-center font-bold text-xs text-slate-800 cursor-pointer list-none">
+                          <span>How do I register on MaternalCare+?</span>
+                          <ChevronRight className="w-3.5 h-3.5 text-slate-400 group-open:rotate-90 transition-transform" />
+                        </summary>
+                        <p className="text-[11px] text-slate-600 mt-2 leading-relaxed font-semibold">
+                          Your hospital or midwife will register you during your first antenatal visit. Once setup is complete, you can sign in to view all your records instantly.
+                        </p>
+                      </details>
+
+                      <details className="group border border-slate-100 rounded-2xl p-3 bg-slate-50/30">
+                        <summary className="flex justify-between items-center font-bold text-xs text-slate-800 cursor-pointer list-none">
+                          <span>Are my medical records secure?</span>
+                          <ChevronRight className="w-3.5 h-3.5 text-slate-400 group-open:rotate-90 transition-transform" />
+                        </summary>
+                        <p className="text-[11px] text-slate-600 mt-2 leading-relaxed font-semibold">
+                          Yes. MaternalCare+ uses secure, end-to-end encrypted databases conforming to clinical health regulations. Only verified medical staff and your linked partner can view your book.
+                        </p>
+                      </details>
+
+                      <details className="group border border-slate-100 rounded-2xl p-3 bg-slate-50/30">
+                        <summary className="flex justify-between items-center font-bold text-xs text-slate-800 cursor-pointer list-none">
+                          <span>What if I see incorrect details in my book?</span>
+                          <ChevronRight className="w-3.5 h-3.5 text-slate-400 group-open:rotate-90 transition-transform" />
+                        </summary>
+                        <p className="text-[11px] text-slate-600 mt-2 leading-relaxed font-semibold">
+                          Use the chat feature or let your midwife know during your next checkup. Only certified clinical staff can append or edit clinical records.
+                        </p>
+                      </details>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                /* Tab 2: Existing health guidance */
+                <div className="space-y-6">
+                  <div className="space-y-3">
+                    <h4 className="text-xs font-black text-pink-700 uppercase tracking-wider">Your Trimester-Specific Guidance</h4>
+                    <div className="text-xs text-slate-600 space-y-2 font-medium">
+                      {gestationalAge <= 12 ? (
+                        <>
+                          <p className="leading-relaxed">
+                            <strong className="text-pink-900">First Trimester (Weeks 1 - 12):</strong> Your body is working hard to build the placenta and support early organ development.
+                          </p>
+                          <ul className="list-disc pl-5 space-y-1">
+                            <li><strong className="text-slate-700">Nutrition:</strong> Keep taking your folic acid/iron daily. Small, frequent meals of dry bread or crackers help ease morning sickness.</li>
+                            <li><strong className="text-slate-700">Activity:</strong> Light walking and plenty of rest. Avoid over-exhaustion.</li>
+                          </ul>
+                        </>
+                      ) : gestationalAge <= 27 ? (
+                        <>
+                          <p className="leading-relaxed">
+                            <strong className="text-pink-900">Second Trimester (Weeks 13 - 27):</strong> Often called the "golden phase". You may feel more energetic, and baby is growing rapidly.
+                          </p>
+                          <ul className="list-disc pl-5 space-y-1">
+                            <li><strong className="text-slate-700">Nutrition:</strong> Focus on calcium-rich foods (milk, yogurt) and iron (kontomire/cocoyam leaves, fish, beans) to prevent gestational anemia.</li>
+                            <li><strong className="text-slate-700">Activity:</strong> Try safe prenatal exercise, stretch your legs regularly to prevent swelling, and start sleeping on your left side to improve blood flow.</li>
+                          </ul>
+                        </>
+                      ) : (
+                        <>
+                          <p className="leading-relaxed">
+                            <strong className="text-pink-900">Third Trimester (Weeks 28 - 40):</strong> Baby is packing on weight, and you're entering the home stretch.
+                          </p>
+                          <ul className="list-disc pl-5 space-y-1">
+                            <li><strong className="text-slate-700">Nutrition:</strong> Eat small, nutrient-dense meals. Keep drinking lots of water.</li>
+                            <li><strong className="text-slate-700">Activity:</strong> Practice deep breathing exercises and gentle pelvic tilts to prepare for labor. Avoid heavy lifting entirely.</li>
+                          </ul>
+                        </>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="h-px bg-slate-100" />
+
+                  <div className="space-y-3">
+                    <h4 className="text-xs font-black text-pink-700 uppercase tracking-wider">Ghanaian Maternal Danger Signs</h4>
+                    <p className="text-xs text-slate-500 leading-relaxed font-medium">
+                      Seek immediate medical attention at your hospital clinic if you experience any of the following warning signs:
+                    </p>
+                    <ul className="list-disc pl-5 text-xs text-slate-600 space-y-1.5 font-medium">
+                      <li className="text-red-600 font-bold">Vaginal bleeding or sudden fluid leakage</li>
+                      <li>Severe, persistent headache or blurred/double vision</li>
+                      <li>Sudden swelling of face, hands, or ankles/feet</li>
+                      <li>Fever, chills, or lower abdominal pain</li>
+                      <li>Baby moving less than usual (after 24 weeks)</li>
+                      <li>Fits, convulsions, or severe breathing difficulties</li>
+                    </ul>
+                  </div>
+
+                  <div className="h-px bg-slate-100" />
+
+                  <div className="space-y-3">
+                    <h4 className="text-xs font-black text-pink-700 uppercase tracking-wider">Your NHIS Policy Rights</h4>
+                    <p className="text-xs text-slate-600 leading-relaxed font-medium">
+                      Under the Ghana NHIS Maternal Exemption policy, all comprehensive antenatal care visits, ultrasound scans, routine laboratory checkups, and delivery services are fully covered at NHIS-accredited facilities without charge. Always carry your valid NHIS card.
+                    </p>
+                  </div>
+
+                  <div className="h-px bg-slate-100" />
+
+                  <div className="space-y-3">
+                    <h4 className="text-xs font-black text-pink-700 uppercase tracking-wider">Your Ghanaian Delivery Bag Essentials</h4>
+                    <ul className="list-disc pl-5 text-xs text-slate-600 space-y-1 font-medium">
+                      <li>Your Ghana Card & valid NHIS Card</li>
+                      <li>Baby clothes, blankets, and diaper wraps</li>
+                      <li>Maternal hygiene supplies (pads, cotton wool, Dettol, toilet roll)</li>
+                    </ul>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-4 bg-slate-50 border-t border-slate-100 flex justify-end shrink-0">
               <Button onClick={() => setShowHelpDialog(false)} className="rounded-xl px-5 bg-pink-600 text-white font-bold text-xs hover:bg-pink-700">
                 Close
               </Button>
