@@ -2732,6 +2732,26 @@ export async function savePostnatalCare(data: any) {
   }
 }
 
+export async function updateChildName(childId: string, firstName: string, lastName: string) {
+  try {
+    const { dbUser } = await requireClinicalStaff()
+    await ensureMCHSchema()
+
+    const child = await db.query.children.findFirst({ where: eq(children.id, childId) })
+    if (!child) return { success: false, error: 'Child record not found' }
+
+    await db.update(children)
+      .set({ firstName: firstName.trim() || null, lastName: lastName.trim() || null })
+      .where(eq(children.id, childId))
+
+    revalidatePath(`/dashboard/hospital/patients/${child.pregnancyId}/mch-book`)
+    return { success: true }
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Failed to update child name'
+    return { success: false, error: message }
+  }
+}
+
 export async function recordImmunization(data: any) {
   const user = await currentUser()
   if (!user) throw new Error('Unauthorized')

@@ -19,7 +19,8 @@ import {
   saveDeliveryRecord, 
   updateMCHPregnancyDetails, 
   savePostnatalCare,
-  updateMCHChecklists
+  updateMCHChecklists,
+  updateChildName,
 } from '@/app/actions'
 import { useToast } from '@/hooks/use-toast'
 
@@ -33,6 +34,8 @@ export default function MCHBookClient({ data }: { data: any }) {
   const [activeChapter, setActiveChapter] = useState('family-id')
   const { toast } = useToast()
   const [loading, setLoading] = useState(false)
+  const [showPNCForm, setShowPNCForm] = useState(false)
+  const [showChildNameForm, setShowChildNameForm] = useState(false)
 
   const motherName = `${mother.firstName} ${mother.lastName}`.trim()
   const formatDate = (date: any) => date ? new Date(date).toLocaleDateString() : 'N/A'
@@ -116,6 +119,49 @@ export default function MCHBookClient({ data }: { data: any }) {
     setLoading(false)
     if (res.success) toast({ title: 'Success', description: 'Delivery record saved' })
     else toast({ title: 'Error', description: res.error, variant: 'destructive' })
+  }
+
+  const handleSavePNC = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    setLoading(true)
+    const fd = new FormData(e.currentTarget)
+    const res = await savePostnatalCare({
+      pregnancyId: pregnancy.id,
+      period: fd.get('period'),
+      date: fd.get('date'),
+      maternalCondition: fd.get('maternalCondition'),
+      lochia: fd.get('lochia'),
+      perineum: fd.get('perineum'),
+      familyPlanning: fd.get('familyPlanning'),
+      babyCondition: fd.get('babyCondition'),
+      breastfeeding: fd.get('breastfeeding'),
+      umbilicalCord: fd.get('umbilicalCord'),
+      notes: fd.get('notes'),
+    })
+    setLoading(false)
+    if (res.success) {
+      toast({ title: 'Saved', description: 'PNC record added.' })
+      setShowPNCForm(false)
+      ;(e.target as HTMLFormElement).reset()
+    } else {
+      toast({ title: 'Error', description: res.error, variant: 'destructive' })
+    }
+  }
+
+  const handleUpdateChildName = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    const child = children[0]
+    if (!child) return
+    setLoading(true)
+    const fd = new FormData(e.currentTarget)
+    const res = await updateChildName(child.id, String(fd.get('firstName') || ''), String(fd.get('lastName') || ''))
+    setLoading(false)
+    if (res.success) {
+      toast({ title: 'Saved', description: "Baby's name updated." })
+      setShowChildNameForm(false)
+    } else {
+      toast({ title: 'Error', description: res.error, variant: 'destructive' })
+    }
   }
 
   // Helper for checklist rendering
@@ -515,11 +561,100 @@ export default function MCHBookClient({ data }: { data: any }) {
           {/* 4. Postnatal Mother */}
           {activeChapter === 'postnatal-mother' && (
             <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-               <Card className="border-none shadow-sm">
-                <CardHeader>
-                  <CardTitle>Postnatal Records for Mother</CardTitle>
+              <Card className="border-none shadow-sm">
+                <CardHeader className="flex flex-row items-start justify-between gap-4">
+                  <div>
+                    <CardTitle>Postnatal Records for Mother</CardTitle>
+                    <CardDescription>Record each PNC visit — covers both mother and baby fields.</CardDescription>
+                  </div>
+                  <Button type="button" size="sm" className="bg-slate-900 text-white rounded-xl shrink-0" onClick={() => setShowPNCForm(v => !v)}>
+                    <Plus className="w-3.5 h-3.5 mr-1" />{showPNCForm ? 'Cancel' : 'Add PNC Visit'}
+                  </Button>
                 </CardHeader>
                 <CardContent className="space-y-4">
+                  {showPNCForm && (
+                    <form onSubmit={handleSavePNC} className="bg-slate-50 border border-slate-200 rounded-2xl p-5 space-y-4 mb-2">
+                      <p className="text-[11px] font-black text-slate-400 uppercase tracking-wider">New PNC Visit</p>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-1">
+                          <Label htmlFor="pnc-period">Visit Period</Label>
+                          <select name="period" id="pnc-period" required className="w-full h-10 rounded-xl border border-slate-200 px-3 text-sm font-medium bg-white">
+                            <option value="">Select period…</option>
+                            <option>Day 1 (24h)</option>
+                            <option>Day 3</option>
+                            <option>Week 1</option>
+                            <option>Week 6</option>
+                          </select>
+                        </div>
+                        <div className="space-y-1">
+                          <Label htmlFor="pnc-date">Visit Date</Label>
+                          <Input id="pnc-date" name="date" type="date" required className="h-10" />
+                        </div>
+                        <div className="space-y-1">
+                          <Label htmlFor="pnc-cond">Maternal Condition</Label>
+                          <select name="maternalCondition" id="pnc-cond" required className="w-full h-10 rounded-xl border border-slate-200 px-3 text-sm font-medium bg-white">
+                            <option value="">Select…</option>
+                            <option>Good</option><option>Fair</option><option>Poor</option><option>Critical</option>
+                          </select>
+                        </div>
+                        <div className="space-y-1">
+                          <Label htmlFor="pnc-lochia">Lochia</Label>
+                          <select name="lochia" id="pnc-lochia" className="w-full h-10 rounded-xl border border-slate-200 px-3 text-sm font-medium bg-white">
+                            <option value="">Select…</option>
+                            <option>Normal (Rubra)</option><option>Heavy</option><option>Foul-smelling</option><option>Absent</option>
+                          </select>
+                        </div>
+                        <div className="space-y-1">
+                          <Label htmlFor="pnc-perineum">Perineum</Label>
+                          <select name="perineum" id="pnc-perineum" className="w-full h-10 rounded-xl border border-slate-200 px-3 text-sm font-medium bg-white">
+                            <option value="">Select…</option>
+                            <option>Intact</option><option>Sutured – Healing</option><option>Sutured – Infected</option>
+                          </select>
+                        </div>
+                        <div className="space-y-1">
+                          <Label htmlFor="pnc-fp">Family Planning</Label>
+                          <select name="familyPlanning" id="pnc-fp" className="w-full h-10 rounded-xl border border-slate-200 px-3 text-sm font-medium bg-white">
+                            <option>None / Counselled</option><option>Condom</option><option>Combined Pill</option>
+                            <option>Progesterone-only Pill</option><option>Injectable</option><option>Implant</option><option>IUD</option><option>LAM</option>
+                          </select>
+                        </div>
+                      </div>
+                      <p className="text-[11px] font-black text-slate-400 uppercase tracking-wider pt-2 border-t border-slate-200">Baby Status</p>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-1">
+                          <Label htmlFor="pnc-baby">Baby Condition</Label>
+                          <select name="babyCondition" id="pnc-baby" className="w-full h-10 rounded-xl border border-slate-200 px-3 text-sm font-medium bg-white">
+                            <option value="">Select…</option>
+                            <option>Good</option><option>Fair</option><option>Poor</option>
+                          </select>
+                        </div>
+                        <div className="space-y-1">
+                          <Label htmlFor="pnc-bf">Breastfeeding</Label>
+                          <select name="breastfeeding" id="pnc-bf" className="w-full h-10 rounded-xl border border-slate-200 px-3 text-sm font-medium bg-white">
+                            <option value="">Select…</option>
+                            <option>Exclusive Breastfeeding</option><option>Partial Breastfeeding</option><option>Not Breastfeeding</option>
+                          </select>
+                        </div>
+                        <div className="space-y-1">
+                          <Label htmlFor="pnc-cord">Umbilical Cord</Label>
+                          <select name="umbilicalCord" id="pnc-cord" className="w-full h-10 rounded-xl border border-slate-200 px-3 text-sm font-medium bg-white">
+                            <option value="">Select…</option>
+                            <option>Healing</option><option>Healed / Fallen off</option><option>Infected</option>
+                          </select>
+                        </div>
+                        <div className="space-y-1">
+                          <Label htmlFor="pnc-notes">Notes</Label>
+                          <Textarea name="notes" id="pnc-notes" placeholder="Additional notes…" rows={2} />
+                        </div>
+                      </div>
+                      <div className="flex gap-2 justify-end pt-2 border-t border-slate-200">
+                        <Button type="button" variant="outline" size="sm" className="rounded-xl" onClick={() => setShowPNCForm(false)}>Cancel</Button>
+                        <Button type="submit" disabled={loading} size="sm" className="bg-slate-900 rounded-xl">
+                          <Save className="w-3.5 h-3.5 mr-1.5" />{loading ? 'Saving…' : 'Save PNC Record'}
+                        </Button>
+                      </div>
+                    </form>
+                  )}
                   {postnatalCare.map((visit: any) => (
                     <div key={visit.id} className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
                       <div className="flex justify-between items-center mb-4">
@@ -527,14 +662,21 @@ export default function MCHBookClient({ data }: { data: any }) {
                         <span className="text-sm font-bold">{formatDate(visit.visitDate)}</span>
                       </div>
                       <div className="grid grid-cols-2 gap-4 text-sm">
-                        <div><p className="text-slate-400 font-bold uppercase text-[9px]">Condition</p><p className="font-semibold">{visit.maternalCondition}</p></div>
-                        <div><p className="text-slate-400 font-bold uppercase text-[9px]">Lochia</p><p className="font-semibold">{visit.lochia || 'N/A'}</p></div>
-                        <div><p className="text-slate-400 font-bold uppercase text-[9px]">Perineum</p><p className="font-semibold">{visit.perineum || 'N/A'}</p></div>
-                        <div><p className="text-slate-400 font-bold uppercase text-[9px]">Family Planning</p><p className="font-semibold">{visit.familyPlanningMethod || 'N/A'}</p></div>
+                        <div><p className="text-slate-400 font-bold uppercase text-[9px]">Condition</p><p className="font-semibold">{visit.maternalCondition || '—'}</p></div>
+                        <div><p className="text-slate-400 font-bold uppercase text-[9px]">Lochia</p><p className="font-semibold">{visit.lochia || '—'}</p></div>
+                        <div><p className="text-slate-400 font-bold uppercase text-[9px]">Perineum</p><p className="font-semibold">{visit.perineum || '—'}</p></div>
+                        <div><p className="text-slate-400 font-bold uppercase text-[9px]">Family Planning</p><p className="font-semibold">{visit.familyPlanningMethod || '—'}</p></div>
                       </div>
                     </div>
                   ))}
-                  {postnatalCare.length === 0 && <p className="text-center py-10 text-slate-400 italic">No maternal PNC records found.</p>}
+                  {postnatalCare.length === 0 && !showPNCForm && (
+                    <div className="text-center py-10">
+                      <p className="text-slate-400 italic mb-3">No PNC records yet.</p>
+                      <Button type="button" size="sm" variant="outline" className="rounded-xl" onClick={() => setShowPNCForm(true)}>
+                        <Plus className="w-3.5 h-3.5 mr-1.5" /> Record First PNC Visit
+                      </Button>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </div>
@@ -542,40 +684,74 @@ export default function MCHBookClient({ data }: { data: any }) {
 
           {/* 5. Child ID */}
           {activeChapter === 'child-id' && (
-             <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-               <Card className="border-none shadow-sm">
+            <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+              <Card className="border-none shadow-sm">
                 <CardHeader>
                   <CardTitle>Child Identification</CardTitle>
+                  <CardDescription>Child record is created automatically when a delivery is recorded. Update the baby's name below.</CardDescription>
                 </CardHeader>
-                <CardContent>
-                   {children.map((child: any) => (
-                     <div key={child.id} className="flex flex-col md:flex-row items-center gap-8 bg-slate-50 p-8 rounded-3xl">
+                <CardContent className="space-y-4">
+                  {children.map((child: any) => (
+                    <div key={child.id} className="space-y-4">
+                      <div className="flex flex-col md:flex-row items-center gap-8 bg-slate-50 p-8 rounded-3xl">
                         <div className="w-24 h-24 bg-[#D48BA1]/20 rounded-full flex items-center justify-center flex-shrink-0">
                           <Baby className="w-12 h-12 text-[#D48BA1]" />
                         </div>
                         <div className="space-y-4 flex-1 w-full text-center md:text-left">
-                          <p className="font-black text-3xl text-slate-800">{child.firstName || child.sex} {child.lastName || ''}</p>
+                          <p className="font-black text-3xl text-slate-800">{child.firstName ? `${child.firstName} ${child.lastName || ''}`.trim() : <span className="text-slate-400 italic text-xl">Name not set</span>}</p>
                           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                             <div><p className="text-[10px] font-bold text-slate-400 uppercase">Sex</p><p className="font-bold">{child.sex}</p></div>
                             <div><p className="text-[10px] font-bold text-slate-400 uppercase">DOB</p><p className="font-bold">{formatDate(child.dateOfBirth)}</p></div>
                             <div><p className="text-[10px] font-bold text-slate-400 uppercase">Weight</p><p className="font-bold">{child.birthWeight} kg</p></div>
                             <div><p className="text-[10px] font-bold text-slate-400 uppercase">Length</p><p className="font-bold">{child.birthLength} cm</p></div>
                           </div>
+                          <Button type="button" size="sm" variant="outline" className="rounded-xl mt-2" onClick={() => setShowChildNameForm(v => !v)}>
+                            <UserCheck className="w-3.5 h-3.5 mr-1.5" />{showChildNameForm ? 'Cancel' : 'Update Baby Name'}
+                          </Button>
                         </div>
-                     </div>
-                   ))}
-                   {children.length === 0 && <p className="text-center text-slate-400 py-10 italic">No child registered yet.</p>}
+                      </div>
+                      {showChildNameForm && (
+                        <form onSubmit={handleUpdateChildName} className="bg-slate-50 border border-slate-200 rounded-2xl p-5">
+                          <p className="text-[11px] font-black text-slate-400 uppercase tracking-wider mb-4">Set Baby Name</p>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="space-y-1">
+                              <Label htmlFor="child-fname">First Name</Label>
+                              <Input id="child-fname" name="firstName" defaultValue={child.firstName || ''} placeholder="First name…" />
+                            </div>
+                            <div className="space-y-1">
+                              <Label htmlFor="child-lname">Last Name</Label>
+                              <Input id="child-lname" name="lastName" defaultValue={child.lastName || ''} placeholder="Last name…" />
+                            </div>
+                          </div>
+                          <div className="flex gap-2 justify-end mt-4 pt-3 border-t border-slate-200">
+                            <Button type="button" variant="outline" size="sm" className="rounded-xl" onClick={() => setShowChildNameForm(false)}>Cancel</Button>
+                            <Button type="submit" disabled={loading} size="sm" className="bg-slate-900 rounded-xl">
+                              <Save className="w-3.5 h-3.5 mr-1.5" />{loading ? 'Saving…' : 'Save Name'}
+                            </Button>
+                          </div>
+                        </form>
+                      )}
+                    </div>
+                  ))}
+                  {children.length === 0 && (
+                    <div className="text-center py-10">
+                      <Baby className="w-10 h-10 text-slate-300 mx-auto mb-3" />
+                      <p className="text-slate-400 italic">No child registered yet.</p>
+                      <p className="text-xs text-slate-400 mt-1">Save a Delivery Record first — a child record is created automatically.</p>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
-             </div>
+            </div>
           )}
 
           {/* 6. Postnatal Child */}
           {activeChapter === 'postnatal-child' && (
             <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-               <Card className="border-none shadow-sm">
+              <Card className="border-none shadow-sm">
                 <CardHeader>
                   <CardTitle>Postnatal Records for Child</CardTitle>
+                  <CardDescription>Baby-specific fields from PNC visits. Add new visits in the Postnatal (Mother) chapter.</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   {postnatalCare.map((visit: any) => (
@@ -585,13 +761,21 @@ export default function MCHBookClient({ data }: { data: any }) {
                         <span className="text-sm font-bold">{formatDate(visit.visitDate)}</span>
                       </div>
                       <div className="grid grid-cols-2 gap-4 text-sm">
-                        <div><p className="text-slate-400 font-bold uppercase text-[9px]">Baby Cond.</p><p className="font-semibold">{visit.babyCondition}</p></div>
-                        <div><p className="text-slate-400 font-bold uppercase text-[9px]">Breastfeeding</p><p className="font-semibold">{visit.breastfeedingStatus}</p></div>
-                        <div><p className="text-slate-400 font-bold uppercase text-[9px]">Umbilical Cord</p><p className="font-semibold">{visit.umbilicalCord || 'N/A'}</p></div>
+                        <div><p className="text-slate-400 font-bold uppercase text-[9px]">Baby Condition</p><p className="font-semibold">{visit.babyCondition || '—'}</p></div>
+                        <div><p className="text-slate-400 font-bold uppercase text-[9px]">Breastfeeding</p><p className="font-semibold">{visit.breastfeedingStatus || '—'}</p></div>
+                        <div><p className="text-slate-400 font-bold uppercase text-[9px]">Umbilical Cord</p><p className="font-semibold">{visit.umbilicalCord || '—'}</p></div>
+                        {visit.notes && <div className="col-span-2"><p className="text-slate-400 font-bold uppercase text-[9px]">Notes</p><p className="font-semibold">{visit.notes}</p></div>}
                       </div>
                     </div>
                   ))}
-                  {postnatalCare.length === 0 && <p className="text-center py-10 text-slate-400 italic">No child PNC records found.</p>}
+                  {postnatalCare.length === 0 && (
+                    <div className="text-center py-10">
+                      <p className="text-slate-400 italic mb-3">No child PNC records yet.</p>
+                      <Button type="button" size="sm" variant="outline" className="rounded-xl" onClick={() => setActiveChapter('postnatal-mother')}>
+                        Go to Postnatal (Mother) to add a visit
+                      </Button>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </div>
