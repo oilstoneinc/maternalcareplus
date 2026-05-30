@@ -72,6 +72,7 @@ export default async function HospitalOnboardingPage() {
                   name="type" 
                   required
                   className="w-full border-slate-200 focus:border-[#D48BA1] focus:ring-[#D48BA1] rounded-xl py-2.5 shadow-sm"
+                  title="Facility Type"
                 >
                   <option value="Hospital">Hospital</option>
                   <option value="Health Center">Health Center</option>
@@ -95,6 +96,7 @@ export default async function HospitalOnboardingPage() {
                   name="region" 
                   required
                   className="w-full border-slate-200 focus:border-[#D48BA1] focus:ring-[#D48BA1] rounded-xl py-2.5 shadow-sm"
+                  title="Region"
                 >
                   <option value="Greater Accra">Greater Accra</option>
                   <option value="Ashanti">Ashanti</option>

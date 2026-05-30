@@ -87,6 +87,8 @@ export default function PartnerCardClient() {
             <button
               onClick={() => setIsOpen(false)}
               className="absolute right-4 top-4 text-slate-400 hover:text-slate-600 p-2 hover:bg-slate-50 rounded-full transition-colors z-10"
+              title="Close"
+              aria-label="Close dialog"
             >
               <X className="w-5 h-5" />
             </button>

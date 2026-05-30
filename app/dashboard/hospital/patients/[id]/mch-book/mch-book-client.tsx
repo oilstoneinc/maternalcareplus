@@ -146,6 +146,7 @@ export default function MCHBookClient({ data }: { data: any }) {
                   id={`item_${categoryKey}_${idx}`} 
                   defaultChecked={currentData[`item_${idx}`] === true}
                   className="mt-1 w-5 h-5 rounded border-gray-300 text-[#D48BA1] focus:ring-[#D48BA1]"
+                  title={item}
                 />
                 <Label htmlFor={`item_${categoryKey}_${idx}`} className="text-sm font-medium leading-relaxed text-slate-700 cursor-pointer">{item}</Label>
               </div>
@@ -364,10 +365,10 @@ export default function MCHBookClient({ data }: { data: any }) {
                   <div className="overflow-x-auto rounded-xl border border-slate-100">
                     <table className="w-full min-w-[480px] table-fixed border-collapse">
                       <colgroup>
-                        <col style={{ width: '18%' }} />
-                        <col style={{ width: '22%' }} />
-                        <col style={{ width: '30%' }} />
-                        <col style={{ width: '30%' }} />
+                        <col className="w-[18%]" />
+                        <col className="w-[22%]" />
+                        <col className="w-[30%]" />
+                        <col className="w-[30%]" />
                       </colgroup>
                       <thead>
                         <tr className="bg-slate-50/80 border-b border-slate-200">
@@ -391,6 +392,7 @@ export default function MCHBookClient({ data }: { data: any }) {
                               <select
                                 className="text-sm border border-slate-200 rounded-lg px-2 py-1.5 font-semibold bg-white"
                                 defaultValue={p.alive ? 'alive' : 'deceased'}
+                                title="Pregnancy Outcome"
                                 onChange={async (e) => {
                                   const res = await updatePreviousPregnancyOutcome(
                                     p.id,
@@ -427,6 +429,7 @@ export default function MCHBookClient({ data }: { data: any }) {
                         required
                         defaultValue="alive"
                         className="h-10 rounded-md border border-slate-200 px-3 text-sm font-medium"
+                        title="Outcome"
                       >
                         <option value="alive">Baby alive</option>
                         <option value="deceased">Baby deceased</option>
@@ -448,7 +451,7 @@ export default function MCHBookClient({ data }: { data: any }) {
                       <div className="space-y-2"><Label>IPTp Doses</Label><Input name="iptpDoses" type="number" defaultValue={pregnancy.iptpDoses} /></div>
                       <div className="space-y-2"><Label>TT Doses</Label><Input name="ttDoses" type="number" defaultValue={pregnancy.ttDoses} /></div>
                       <div className="flex items-center space-x-2 pt-8">
-                        <input type="checkbox" name="itnDistributed" id="itnDistributed" defaultChecked={pregnancy.itnDistributed} className="w-4 h-4 rounded" />
+                        <input type="checkbox" name="itnDistributed" id="itnDistributed" defaultChecked={pregnancy.itnDistributed} className="w-4 h-4 rounded" title="ITN Distributed" />
                         <Label htmlFor="itnDistributed">ITN Distributed</Label>
                       </div>
                     </div>
@@ -491,8 +494,9 @@ export default function MCHBookClient({ data }: { data: any }) {
                       <div className="space-y-2"><Label>Date & Time</Label><Input name="date" type="datetime-local" required /></div>
                       <div className="space-y-2"><Label>Mode of Delivery</Label><Input name="mode" required /></div>
                       <div className="space-y-2"><Label>Blood Loss (ml)</Label><Input name="bloodLoss" type="number" required /></div>
-                      <div className="space-y-2"><Label>Baby's Sex</Label>
-                        <select name="sex" className="w-full h-10 px-3 border rounded-md"><option value="Male">Male</option><option value="Female">Female</option></select>
+                      <div className="space-y-2">
+                        <Label htmlFor="baby-sex">Baby's Sex</Label>
+                        <select id="baby-sex" name="sex" className="w-full h-10 px-3 border rounded-md" title="Baby Sex"><option value="Male">Male</option><option value="Female">Female</option></select>
                       </div>
                       <div className="space-y-2"><Label>Birth Weight (kg)</Label><Input name="weight" step="0.01" type="number" required /></div>
                       <div className="space-y-2"><Label>Length (cm)</Label><Input name="length" step="0.1" type="number" required /></div>

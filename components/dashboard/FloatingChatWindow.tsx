@@ -168,10 +168,10 @@ export default function FloatingChatWindow({
           <span className="font-bold text-sm truncate">{otherUserName}</span>
         </div>
         <div className="flex items-center gap-1.5 flex-shrink-0" onClick={e => e.stopPropagation()}>
-          <button onClick={() => setIsMinimized(false)} className="p-1 hover:bg-white/10 rounded">
+          <button onClick={() => setIsMinimized(false)} className="p-1 hover:bg-white/10 rounded" title="Maximize" aria-label="Maximize chat">
             <Maximize2 className="w-3.5 h-3.5 text-slate-300" />
           </button>
-          <button onClick={onClose} className="p-1 hover:bg-white/10 rounded">
+          <button onClick={onClose} className="p-1 hover:bg-white/10 rounded" title="Close" aria-label="Close chat">
             <X className="w-3.5 h-3.5 text-slate-300" />
           </button>
         </div>
@@ -196,10 +196,10 @@ export default function FloatingChatWindow({
           </div>
         </div>
         <div className="flex items-center gap-1 flex-shrink-0">
-          <button onClick={() => setIsMinimized(true)} className="p-1 hover:bg-white/10 rounded transition-colors">
+          <button onClick={() => setIsMinimized(true)} className="p-1 hover:bg-white/10 rounded transition-colors" title="Minimize" aria-label="Minimize chat">
             <Minimize2 className="w-3.5 h-3.5 text-slate-300" />
           </button>
-          <button onClick={onClose} className="p-1 hover:bg-white/10 rounded transition-colors">
+          <button onClick={onClose} className="p-1 hover:bg-white/10 rounded transition-colors" title="Close" aria-label="Close chat">
             <X className="w-3.5 h-3.5 text-slate-300" />
           </button>
         </div>

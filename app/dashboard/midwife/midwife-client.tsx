@@ -120,7 +120,7 @@ export default function MidwifeDashboardClient({ user, data }: MidwifeDashboardP
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
-          <button className="p-2 rounded-full border border-border bg-background hover:bg-muted transition-colors">
+          <button className="p-2 rounded-full border border-border bg-background hover:bg-muted transition-colors" title="Filter Patients" aria-label="Filter patients">
             <Filter className="h-4 w-4" />
           </button>
           <Button

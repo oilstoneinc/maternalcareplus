@@ -638,6 +638,8 @@ export default function FatherDashboardClient({ user, data }: FatherDashboardPro
               <button 
                 onClick={() => setShowEmergencyDialog(false)}
                 className="p-1 rounded-full hover:bg-red-100 text-red-600 transition-colors"
+                title="Close"
+                aria-label="Close"
               >
                 <X className="h-5 w-5" />
               </button>
@@ -722,6 +724,8 @@ export default function FatherDashboardClient({ user, data }: FatherDashboardPro
               <button 
                 onClick={() => setShowHelpDialog(false)}
                 className="p-1 rounded-full hover:bg-indigo-100 text-indigo-600 transition-colors"
+                title="Close"
+                aria-label="Close"
               >
                 <X className="h-5 w-5" />
               </button>

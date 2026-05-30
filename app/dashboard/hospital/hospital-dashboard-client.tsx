@@ -1470,6 +1470,7 @@ export default function HospitalDashboardClient({ user, data }: { user: any, dat
               <Label htmlFor="staff-role">Role</Label>
               <select
                 id="staff-role"
+                title="Role"
                 className="w-full h-10 rounded-md border border-slate-200 px-3 text-sm font-medium"
                 value={staffForm.role}
                 onChange={(e) =>
@@ -1655,6 +1656,7 @@ function PregnancyQuickActions({
             onChange={(e) => setVisitDate(e.target.value)}
             className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#D48BA1]"
             min={new Date().toISOString().split('T')[0]}
+            title="Schedule Date"
           />
           <input
             type="text"
@@ -1685,6 +1687,7 @@ function PregnancyQuickActions({
               value={staffId}
               onChange={(e) => setStaffId(e.target.value)}
               className="flex-1 text-sm border border-slate-200 rounded-lg p-2 bg-white"
+              title="Select Staff Member"
             >
               <option value="">Select staff...</option>
               {careStaff.map((s) => (

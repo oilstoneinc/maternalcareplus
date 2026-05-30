@@ -344,6 +344,7 @@ export default function PatientProfileClient({ data }: { data: any }) {
                     onChange={(e) => setBloodTypeValue(e.target.value)}
                     className={`w-full h-10 rounded-md px-3 text-sm font-bold ${clinicalFieldClass}`}
                     disabled={savingBloodType}
+                    title="Select Blood Type"
                   >
                     <option value="">Select blood type</option>
                     {BLOOD_TYPE_OPTIONS.map((bt) => (
@@ -420,6 +421,7 @@ export default function PatientProfileClient({ data }: { data: any }) {
                         }}
                         className="text-sm border border-slate-200 rounded-lg p-2.5 bg-white font-medium text-slate-700 shadow-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none"
                         value={pregnancy.midwifeId || ''}
+                        title="Select Staff to Assign"
                       >
                         <option value="" disabled>Select Staff to Assign...</option>
                         {availableMidwives.map((m: any) => (
@@ -886,38 +888,38 @@ function LabScanForm({ pregnancyId, onComplete }: { pregnancyId: string; onCompl
     <form onSubmit={handleSubmit} className="space-y-5">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
-          <label className="block text-sm font-semibold text-slate-700 mb-1.5">Type</label>
-          <select value={form.testType} onChange={e => setForm({ ...form, testType: e.target.value as 'lab' | 'scan' })} className="w-full border border-slate-200 rounded-xl p-2.5 text-sm bg-white focus:ring-2 focus:ring-[#D48BA1] focus:border-[#D48BA1] outline-none">
+          <label htmlFor="testType" className="block text-sm font-semibold text-slate-700 mb-1.5">Type</label>
+          <select id="testType" title="Select Test Type" value={form.testType} onChange={e => setForm({ ...form, testType: e.target.value as 'lab' | 'scan' })} className="w-full border border-slate-200 rounded-xl p-2.5 text-sm bg-white focus:ring-2 focus:ring-[#D48BA1] focus:border-[#D48BA1] outline-none">
             <option value="lab">Laboratory test</option>
             <option value="scan">Ultrasound / scan</option>
           </select>
         </div>
         <div>
-          <label className="block text-sm font-semibold text-slate-700 mb-1.5">Name</label>
-          <input required placeholder="e.g. Hemoglobin, Anatomy scan" value={form.testName} onChange={e => setForm({ ...form, testName: e.target.value })} className="w-full border border-slate-200 rounded-xl p-2.5 text-sm focus:ring-2 focus:ring-[#D48BA1] focus:border-[#D48BA1] outline-none" />
+          <label htmlFor="testName" className="block text-sm font-semibold text-slate-700 mb-1.5">Name</label>
+          <input id="testName" required placeholder="e.g. Hemoglobin, Anatomy scan" value={form.testName} onChange={e => setForm({ ...form, testName: e.target.value })} className="w-full border border-slate-200 rounded-xl p-2.5 text-sm focus:ring-2 focus:ring-[#D48BA1] focus:border-[#D48BA1] outline-none" />
         </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
-          <label className="block text-sm font-semibold text-slate-700 mb-1.5">Result value</label>
-          <input value={form.resultValue} onChange={e => setForm({ ...form, resultValue: e.target.value })} className="w-full border border-slate-200 rounded-xl p-2.5 text-sm focus:ring-2 focus:ring-[#D48BA1] outline-none" placeholder="Leave empty if pending" />
+          <label htmlFor="resultValue" className="block text-sm font-semibold text-slate-700 mb-1.5">Result value</label>
+          <input id="resultValue" value={form.resultValue} onChange={e => setForm({ ...form, resultValue: e.target.value })} className="w-full border border-slate-200 rounded-xl p-2.5 text-sm focus:ring-2 focus:ring-[#D48BA1] outline-none" placeholder="Leave empty if pending" />
         </div>
         <div>
-          <label className="block text-sm font-semibold text-slate-700 mb-1.5">Reference range</label>
-          <input value={form.normalRange} onChange={e => setForm({ ...form, normalRange: e.target.value })} className="w-full border border-slate-200 rounded-xl p-2.5 text-sm focus:ring-2 focus:ring-[#D48BA1] outline-none" placeholder="e.g. 11–16 g/dL" />
+          <label htmlFor="normalRange" className="block text-sm font-semibold text-slate-700 mb-1.5">Reference range</label>
+          <input id="normalRange" value={form.normalRange} onChange={e => setForm({ ...form, normalRange: e.target.value })} className="w-full border border-slate-200 rounded-xl p-2.5 text-sm focus:ring-2 focus:ring-[#D48BA1] outline-none" placeholder="e.g. 11–16 g/dL" />
         </div>
       </div>
 
       <div>
-        <label className="block text-sm font-semibold text-slate-700 mb-1.5">Clinical interpretation</label>
-        <textarea value={form.interpretation} onChange={e => setForm({ ...form, interpretation: e.target.value })} className="w-full border border-slate-200 rounded-xl p-2.5 text-sm min-h-[80px] focus:ring-2 focus:ring-[#D48BA1] outline-none" placeholder="e.g. Mild anaemia — continue iron supplementation" />
+        <label htmlFor="interpretation" className="block text-sm font-semibold text-slate-700 mb-1.5">Clinical interpretation</label>
+        <textarea id="interpretation" value={form.interpretation} onChange={e => setForm({ ...form, interpretation: e.target.value })} className="w-full border border-slate-200 rounded-xl p-2.5 text-sm min-h-[80px] focus:ring-2 focus:ring-[#D48BA1] outline-none" placeholder="e.g. Mild anaemia — continue iron supplementation" />
       </div>
 
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <label className="block text-sm font-semibold text-slate-700 mb-1.5">Status</label>
-          <select value={form.status} onChange={e => setForm({ ...form, status: e.target.value as typeof form.status })} className="w-full border border-slate-200 rounded-xl p-2.5 text-sm bg-white focus:ring-2 focus:ring-[#D48BA1] outline-none">
+          <label htmlFor="status" className="block text-sm font-semibold text-slate-700 mb-1.5">Status</label>
+          <select id="status" title="Select Status" value={form.status} onChange={e => setForm({ ...form, status: e.target.value as typeof form.status })} className="w-full border border-slate-200 rounded-xl p-2.5 text-sm bg-white focus:ring-2 focus:ring-[#D48BA1] outline-none">
             <option value="pending">Pending</option>
             <option value="completed">Completed</option>
             <option value="abnormal">Abnormal</option>
@@ -925,8 +927,8 @@ function LabScanForm({ pregnancyId, onComplete }: { pregnancyId: string; onCompl
           </select>
         </div>
         <div>
-          <label className="block text-sm font-semibold text-slate-700 mb-1.5">Result date</label>
-          <input type="date" value={form.resultDate} onChange={e => setForm({ ...form, resultDate: e.target.value })} className="w-full border border-slate-200 rounded-xl p-2.5 text-sm focus:ring-2 focus:ring-[#D48BA1] outline-none" />
+          <label htmlFor="resultDate" className="block text-sm font-semibold text-slate-700 mb-1.5">Result date</label>
+          <input id="resultDate" type="date" title="Result Date" value={form.resultDate} onChange={e => setForm({ ...form, resultDate: e.target.value })} className="w-full border border-slate-200 rounded-xl p-2.5 text-sm focus:ring-2 focus:ring-[#D48BA1] outline-none" />
         </div>
       </div>
 
@@ -1001,6 +1003,7 @@ function LabScanForm({ pregnancyId, onComplete }: { pregnancyId: string; onCompl
           className="hidden"
           onChange={handleFileSelect}
           disabled={uploading}
+          title="Upload Attachment"
         />
       </div>
 

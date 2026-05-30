@@ -176,7 +176,7 @@ export default function ChildHealthClient({ data }: { data: any }) {
                   <form onSubmit={handleAddImmunization} className="space-y-4">
                     <div className="space-y-2">
                       <Label htmlFor="vaccineName">Vaccine Name</Label>
-                      <select name="vaccineName" className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                      <select name="vaccineName" className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" title="Select Vaccine">
                         <option value="BCG">BCG (Tuberculosis)</option>
                         <option value="OPV 0">OPV 0 (Oral Polio)</option>
                         <option value="Penta 1">Penta 1 (DPT-HepB-Hib)</option>

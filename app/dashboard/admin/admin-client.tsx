@@ -509,16 +509,17 @@ export default function AdminDashboardClient({ user, data }: AdminDashboardProps
                                       className="text-[10px] border rounded p-1 bg-white"
                                       value={selectedHospital}
                                       onChange={(e) => setSelectedHospital(e.target.value)}
+                                      title="Select Hospital"
                                     >
                                       <option value="">Select Hospital...</option>
                                       {allHospitals.map((h: any) => (
                                         <option key={h.id} value={h.id}>{h.name}</option>
                                       ))}
                                     </select>
-                                    <button onClick={() => handleAssign(u.id)} className="p-1 bg-green-600 text-white rounded hover:bg-green-700">
+                                    <button onClick={() => handleAssign(u.id)} className="p-1 bg-green-600 text-white rounded hover:bg-green-700" title="Confirm Assignment" aria-label="Confirm Assignment">
                                       <CheckCircle2 className="h-3 w-3" />
                                     </button>
-                                    <button onClick={() => setAssigningUser(null)} className="p-1 bg-slate-200 rounded">
+                                    <button onClick={() => setAssigningUser(null)} className="p-1 bg-slate-200 rounded" title="Cancel Assignment" aria-label="Cancel Assignment">
                                       <Trash2 className="h-3 w-3" />
                                     </button>
                                  </div>
@@ -672,6 +673,7 @@ export default function AdminDashboardClient({ user, data }: AdminDashboardProps
                         value={selectedMonth}
                         onChange={(e) => setSelectedMonth(Number(e.target.value))}
                         className="text-xs border rounded-xl py-1.5 px-3 bg-white font-bold text-slate-700 shadow-sm focus:ring-2 focus:ring-indigo-500/20"
+                        title="Select Month"
                       >
                         {["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"].map((m, idx) => (
                           <option key={idx} value={idx + 1}>{m}</option>
@@ -681,6 +683,7 @@ export default function AdminDashboardClient({ user, data }: AdminDashboardProps
                         value={selectedYear}
                         onChange={(e) => setSelectedYear(Number(e.target.value))}
                         className="text-xs border rounded-xl py-1.5 px-3 bg-white font-bold text-slate-700 shadow-sm focus:ring-2 focus:ring-indigo-500/20"
+                        title="Select Year"
                       >
                         {[2024, 2025, 2026, 2027].map((y) => (
                           <option key={y} value={y}>{y}</option>
@@ -1151,8 +1154,18 @@ export default function AdminDashboardClient({ user, data }: AdminDashboardProps
                    Found {allUsers.filter((u: any) => !u.hospitalId && u.role === 'hospital_staff').length} staff member(s) not yet linked to an institution. Use the "Assign" tool to fix this.
                 </p>
                 <div className="h-1 w-full bg-indigo-200 rounded-full overflow-hidden">
-                   <div className="h-full bg-indigo-600" style={{ width: `${(allUsers.filter((u: any) => u.hospitalId).length / allUsers.length) * 100}%` }} />
-                </div>
+                    <div 
+                      className="h-full bg-indigo-600" 
+                      ref={(el) => {
+                        if (el) {
+                          const total = allUsers.length;
+                          const linked = allUsers.filter((u: any) => u.hospitalId).length;
+                          const pct = total > 0 ? (linked / total) * 100 : 0;
+                          el.style.width = `${pct}%`;
+                        }
+                      }}
+                    />
+                 </div>
              </CardContent>
           </Card>
         </div>

@@ -462,11 +462,11 @@ export default function DigitalMCHBookClient({
                       <div className="hidden md:block overflow-x-auto rounded-xl border border-slate-100">
                         <table className="w-full min-w-[640px] table-fixed border-collapse">
                           <colgroup>
-                            <col style={{ width: '12%' }} />
-                            <col style={{ width: '16%' }} />
-                            <col style={{ width: '22%' }} />
-                            <col style={{ width: '34%' }} />
-                            <col style={{ width: '16%' }} />
+                            <col className="w-[12%]" />
+                            <col className="w-[16%]" />
+                            <col className="w-[22%]" />
+                            <col className="w-[34%]" />
+                            <col className="w-[16%]" />
                           </colgroup>
                           <thead>
                             <tr className="bg-slate-50/80 border-b border-slate-200">

@@ -775,21 +775,25 @@ export default function PregnantWomanClient({ user, data }: { user: any, data: D
                   <form onSubmit={handleSaveNhis} className="space-y-3">
                     <div className="space-y-2">
                       <div className="space-y-1">
-                        <label className="text-[9px] font-black text-indigo-900 uppercase tracking-wider">NHIS Card Number</label>
+                        <label htmlFor="nhisNumberInput" className="text-[9px] font-black text-indigo-900 uppercase tracking-wider">NHIS Card Number</label>
                         <input
+                          id="nhisNumberInput"
                           type="text"
                           required
                           placeholder="Enter 8-digit NHIS number"
+                          title="NHIS Card Number"
                           value={nhisNumberInput}
                           onChange={(e) => setNhisNumberInput(e.target.value)}
                           className="w-full px-2.5 py-1.5 text-xs rounded-lg border border-indigo-100 bg-white focus:outline-none focus:ring-1 focus:ring-indigo-500 font-semibold text-slate-800"
                         />
                       </div>
                       <div className="space-y-1">
-                        <label className="text-[9px] font-black text-indigo-900 uppercase tracking-wider">Expiry Date</label>
+                        <label htmlFor="nhisExpiryInput" className="text-[9px] font-black text-indigo-900 uppercase tracking-wider">Expiry Date</label>
                         <input
+                          id="nhisExpiryInput"
                           type="date"
                           required
+                          title="NHIS Expiry Date"
                           value={nhisExpiryInput}
                           onChange={(e) => setNhisExpiryInput(e.target.value)}
                           className="w-full px-2.5 py-1.5 text-xs rounded-lg border border-indigo-100 bg-white focus:outline-none focus:ring-1 focus:ring-indigo-500 font-semibold text-slate-800"
@@ -902,32 +906,38 @@ export default function PregnantWomanClient({ user, data }: { user: any, data: D
                   <form onSubmit={handleSaveInsurance} className="space-y-3">
                     <div className="space-y-2">
                       <div className="space-y-1">
-                        <label className="text-[9px] font-black text-sky-900 uppercase tracking-wider">Insurance Provider</label>
+                        <label htmlFor="insuranceProviderInput" className="text-[9px] font-black text-sky-900 uppercase tracking-wider">Insurance Provider</label>
                         <input
+                          id="insuranceProviderInput"
                           type="text"
                           required
                           placeholder="e.g. Acacia, Glico, Metropolitan"
+                          title="Insurance Provider Name"
                           value={insuranceProviderInput}
                           onChange={(e) => setInsuranceProviderInput(e.target.value)}
                           className="w-full px-2.5 py-1.5 text-xs rounded-lg border border-sky-100 bg-white focus:outline-none focus:ring-1 focus:ring-sky-500 font-semibold text-slate-800"
                         />
                       </div>
                       <div className="space-y-1">
-                        <label className="text-[9px] font-black text-sky-900 uppercase tracking-wider">Policy Number</label>
+                        <label htmlFor="insurancePolicyNumberInput" className="text-[9px] font-black text-sky-900 uppercase tracking-wider">Policy Number</label>
                         <input
+                          id="insurancePolicyNumberInput"
                           type="text"
                           required
                           placeholder="Enter policy number"
+                          title="Insurance Policy Number"
                           value={insurancePolicyNumberInput}
                           onChange={(e) => setInsurancePolicyNumberInput(e.target.value)}
                           className="w-full px-2.5 py-1.5 text-xs rounded-lg border border-sky-100 bg-white focus:outline-none focus:ring-1 focus:ring-sky-500 font-mono font-semibold text-slate-800"
                         />
                       </div>
                       <div className="space-y-1">
-                        <label className="text-[9px] font-black text-sky-900 uppercase tracking-wider">Expiry Date</label>
+                        <label htmlFor="insuranceExpiryInput" className="text-[9px] font-black text-sky-900 uppercase tracking-wider">Expiry Date</label>
                         <input
+                          id="insuranceExpiryInput"
                           type="date"
                           required
+                          title="Insurance Policy Expiry Date"
                           value={insuranceExpiryInput}
                           onChange={(e) => setInsuranceExpiryInput(e.target.value)}
                           className="w-full px-2.5 py-1.5 text-xs rounded-lg border border-sky-100 bg-white focus:outline-none focus:ring-1 focus:ring-sky-500 font-semibold text-slate-800"
@@ -1363,6 +1373,8 @@ export default function PregnantWomanClient({ user, data }: { user: any, data: D
               <button 
                 onClick={() => setShowHelpDialog(false)}
                 className="p-1 rounded-full hover:bg-pink-100 text-pink-600 transition-colors"
+                title="Close"
+                aria-label="Close"
               >
                 <X className="h-5 w-5" />
               </button>
