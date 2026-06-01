@@ -21,12 +21,13 @@ import {
   savePostnatalCare,
   updateMCHChecklists,
   updateChildName,
+  recordChildGrowth,
 } from '@/app/actions'
 import { useToast } from '@/hooks/use-toast'
 
 export default function MCHBookClient({ data }: { data: any }) {
   const { 
-    pregnancy, mother, previousPregnancies, ancVisits, labs, delivery, postnatalCare, children 
+    pregnancy, mother, previousPregnancies, ancVisits, labs, delivery, postnatalCare, children, growth = []
   } = data
   
   const mchData = pregnancy.mchData || {}
@@ -36,6 +37,7 @@ export default function MCHBookClient({ data }: { data: any }) {
   const [loading, setLoading] = useState(false)
   const [showPNCForm, setShowPNCForm] = useState(false)
   const [showChildNameForm, setShowChildNameForm] = useState(false)
+  const [showGrowthForm, setShowGrowthForm] = useState(false)
 
   const motherName = `${mother.firstName} ${mother.lastName}`.trim()
   const formatDate = (date: any) => date ? new Date(date).toLocaleDateString() : 'N/A'
@@ -159,6 +161,32 @@ export default function MCHBookClient({ data }: { data: any }) {
     if (res.success) {
       toast({ title: 'Saved', description: "Baby's name updated." })
       setShowChildNameForm(false)
+    } else {
+      toast({ title: 'Error', description: res.error, variant: 'destructive' })
+    }
+  }
+
+  const handleAddGrowth = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    const child = children[0]
+    if (!child) return
+    setLoading(true)
+    const fd = new FormData(e.currentTarget)
+    const res = await recordChildGrowth({
+      childId: child.id,
+      pregnancyId: pregnancy.id,
+      recordDate: fd.get('recordDate'),
+      ageInMonths: fd.get('ageInMonths'),
+      weight: fd.get('weight'),
+      height: fd.get('height'),
+      headCircumference: fd.get('headCircumference'),
+      notes: fd.get('notes'),
+    })
+    setLoading(false)
+    if (res.success) {
+      toast({ title: 'Saved', description: 'Growth record saved.' })
+      setShowGrowthForm(false)
+      ;(e.target as HTMLFormElement).reset()
     } else {
       toast({ title: 'Error', description: res.error, variant: 'destructive' })
     }
@@ -807,24 +835,112 @@ export default function MCHBookClient({ data }: { data: any }) {
 
           {/* 8. Child Growth & Dev */}
           {activeChapter === 'child-growth' && (
-             <Card className="border-none shadow-sm animate-in fade-in slide-in-from-bottom-4 duration-500">
-               <CardHeader>
-                 <CardTitle>Records of Child Growth & Development</CardTitle>
-                 <CardDescription>Track weight, length, and head circumference</CardDescription>
-               </CardHeader>
-               <CardContent>
-                 <div className="bg-blue-50/50 rounded-2xl p-8 text-center border border-blue-100">
-                   <Activity className="w-12 h-12 text-blue-300 mx-auto mb-4" />
-                   <h3 className="font-bold text-slate-800 text-lg mb-2">Growth Chart Module</h3>
-                   <p className="text-slate-500 text-sm max-w-sm mx-auto mb-6">Growth tracking is managed in the dedicated Child Health portal.</p>
-                   {children.length > 0 && (
-                     <Link href={`/dashboard/hospital/patients/${pregnancy.id}/mch-book/child`}>
-                       <Button className="bg-blue-600 hover:bg-blue-700 text-white rounded-full px-8">Open Growth Tracker</Button>
-                     </Link>
-                   )}
-                 </div>
-               </CardContent>
-             </Card>
+            <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+              <Card className="border-none shadow-sm">
+                <CardHeader className="flex flex-row items-start justify-between gap-4">
+                  <div>
+                    <CardTitle>Records of Child Growth &amp; Development</CardTitle>
+                    <CardDescription>Record weight, height and head circumference at each visit</CardDescription>
+                  </div>
+                  {children.length > 0 && (
+                    <Button type="button" size="sm" className="bg-slate-900 text-white rounded-xl shrink-0" onClick={() => setShowGrowthForm(v => !v)}>
+                      <Plus className="w-3.5 h-3.5 mr-1" />{showGrowthForm ? 'Cancel' : 'Add Measurement'}
+                    </Button>
+                  )}
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {children.length === 0 && (
+                    <div className="text-center py-10">
+                      <Activity className="w-10 h-10 text-slate-300 mx-auto mb-3" />
+                      <p className="text-slate-400 italic">No child record yet.</p>
+                      <p className="text-xs text-slate-400 mt-1">Record a Delivery first — a child record is created automatically.</p>
+                    </div>
+                  )}
+                  {children.length > 0 && showGrowthForm && (
+                    <form onSubmit={handleAddGrowth} className="bg-slate-50 border border-slate-200 rounded-2xl p-5 space-y-4">
+                      <p className="text-[11px] font-black text-slate-400 uppercase tracking-wider">New Growth Measurement</p>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-1">
+                          <Label htmlFor="gr-date">Date of Measurement</Label>
+                          <Input id="gr-date" name="recordDate" type="date" required className="h-10" />
+                        </div>
+                        <div className="space-y-1">
+                          <Label htmlFor="gr-age">Age (months)</Label>
+                          <Input id="gr-age" name="ageInMonths" type="number" min="0" max="60" required placeholder="e.g. 6" className="h-10" />
+                        </div>
+                        <div className="space-y-1">
+                          <Label htmlFor="gr-weight">Weight (kg)</Label>
+                          <Input id="gr-weight" name="weight" type="number" step="0.01" min="0" placeholder="e.g. 7.5" className="h-10" />
+                        </div>
+                        <div className="space-y-1">
+                          <Label htmlFor="gr-height">Height / Length (cm)</Label>
+                          <Input id="gr-height" name="height" type="number" step="0.1" min="0" placeholder="e.g. 67.0" className="h-10" />
+                        </div>
+                        <div className="space-y-1">
+                          <Label htmlFor="gr-hc">Head Circumference (cm)</Label>
+                          <Input id="gr-hc" name="headCircumference" type="number" step="0.1" min="0" placeholder="e.g. 42.0" className="h-10" />
+                        </div>
+                        <div className="space-y-1">
+                          <Label htmlFor="gr-notes">Notes</Label>
+                          <Input id="gr-notes" name="notes" placeholder="Optional notes…" className="h-10" />
+                        </div>
+                      </div>
+                      <div className="flex gap-2 justify-end pt-2 border-t border-slate-200">
+                        <Button type="button" variant="outline" size="sm" className="rounded-xl" onClick={() => setShowGrowthForm(false)}>Cancel</Button>
+                        <Button type="submit" disabled={loading} size="sm" className="bg-slate-900 rounded-xl">
+                          <Save className="w-3.5 h-3.5 mr-1.5" />{loading ? 'Saving…' : 'Save Measurement'}
+                        </Button>
+                      </div>
+                    </form>
+                  )}
+                  {growth.length > 0 && (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-xs border border-slate-100 rounded-xl overflow-hidden">
+                        <thead>
+                          <tr className="bg-slate-50 text-slate-600 font-bold">
+                            <th className="p-2.5 text-left border-b">Date</th>
+                            <th className="p-2.5 text-left border-b">Age (mo)</th>
+                            <th className="p-2.5 text-left border-b">Weight (kg)</th>
+                            <th className="p-2.5 text-left border-b">Height (cm)</th>
+                            <th className="p-2.5 text-left border-b">HC (cm)</th>
+                            <th className="p-2.5 text-left border-b">Notes</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {growth.map((g: any) => (
+                            <tr key={g.id} className="border-b last:border-0 hover:bg-slate-50 font-medium text-slate-700">
+                              <td className="p-2.5">{formatDate(g.recordDate)}</td>
+                              <td className="p-2.5">{g.ageInMonths ?? '—'}</td>
+                              <td className="p-2.5">{g.weight ?? '—'}</td>
+                              <td className="p-2.5">{g.height ?? '—'}</td>
+                              <td className="p-2.5">{g.headCircumference ?? '—'}</td>
+                              <td className="p-2.5 text-slate-400">{g.notes || '—'}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                  {children.length > 0 && growth.length === 0 && !showGrowthForm && (
+                    <div className="text-center py-8">
+                      <p className="text-slate-400 italic mb-3">No growth measurements recorded yet.</p>
+                      <Button type="button" size="sm" variant="outline" className="rounded-xl" onClick={() => setShowGrowthForm(true)}>
+                        <Plus className="w-3.5 h-3.5 mr-1.5" /> Record First Measurement
+                      </Button>
+                    </div>
+                  )}
+                  {children.length > 0 && (
+                    <div className="pt-2 border-t border-slate-100">
+                      <Link href={`/dashboard/hospital/patients/${pregnancy.id}/mch-book/child`}>
+                        <Button variant="outline" size="sm" className="rounded-xl text-blue-600 border-blue-200 hover:bg-blue-50">
+                          <Activity className="w-3.5 h-3.5 mr-1.5" /> Open Full Child Health Portal (Immunizations &amp; Growth)
+                        </Button>
+                      </Link>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
           )}
 
           {/* 9. Nutrition Counselling */}
