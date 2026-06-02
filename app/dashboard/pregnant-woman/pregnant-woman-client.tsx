@@ -32,7 +32,8 @@ import {
   Info,
   X,
   ShieldCheck,
-  PenLine
+  PenLine,
+  History
 } from 'lucide-react'
 import HospitalCareHistoryPanel from '@/components/dashboard/HospitalCareHistoryPanel'
 import {
@@ -488,47 +489,71 @@ export default function PregnantWomanClient({ user, data }: { user: any, data: D
         )}
 
         {/* Hero Progress Section */}
-        <Card className="border-none shadow-xl bg-white/80 backdrop-blur-md overflow-hidden ring-1 ring-black/5">
-          <div className="absolute top-0 right-0 p-8 opacity-10">
-            <Baby className="w-48 h-48 text-secondary" />
-          </div>
-          <CardContent className="p-8">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-              <div className="flex flex-col justify-center">
-                <span className="text-sm font-medium text-secondary mb-1 uppercase tracking-wider">Current Progress</span>
-                <div className="flex items-baseline gap-2">
-                  <h2 className="text-5xl font-bold text-gray-900">Week {gestationalAge}</h2>
-                  <span className="text-muted-foreground font-medium">/ 40</span>
-                </div>
-                <Progress value={progress} className="h-3 mt-4 bg-pink-50" />
-                <p className="text-sm text-gray-500 mt-2">Approximately {Math.floor(gestationalAge / 4)} months along</p>
-              </div>
-
-              <div className="flex flex-col justify-center border-l-0 md:border-l border-muted pl-0 md:pl-8 mt-6 md:mt-0">
-                <span className="text-sm font-medium text-primary mb-1 uppercase tracking-wider">Countdown to EDD</span>
-                <div className="flex items-baseline gap-2">
-                  <h2 className="text-4xl font-bold text-gray-900">{daysToEdd > 0 ? daysToEdd : 0}</h2>
-                  <span className="text-gray-500 font-medium">Days left</span>
-                </div>
-                <p className="text-sm text-muted-foreground mt-2">Estimated Date: {edd ? edd.toLocaleDateString() : 'Pending calculation'}</p>
-              </div>
-
-              <div className="flex flex-col justify-center border-l-0 lg:border-l border-muted pl-0 lg:pl-8 lg:col-span-2 mt-6 lg:mt-0">
-                <div className="bg-primary/5 rounded-2xl p-6 flex items-center gap-4 ring-1 ring-primary/10">
-                  <div className="bg-primary p-3 rounded-xl shadow-lg shadow-primary/20">
-                    <Heart className="w-6 h-6 text-white" />
-                  </div>
-                  <div>
-                    <h4 className="font-bold text-primary">Your Baby's Growth</h4>
-                    <p className="text-sm text-primary/80">
-                      At week {gestationalAge}, your baby is about the size of a {babySizeByWeek(gestationalAge)}!
-                    </p>
-                  </div>
-                </div>
-              </div>
+        {data?.pregnancy ? (
+          <Card className="border-none shadow-xl bg-white/80 backdrop-blur-md overflow-hidden ring-1 ring-black/5">
+            <div className="absolute top-0 right-0 p-8 opacity-10">
+              <Baby className="w-48 h-48 text-secondary" />
             </div>
-          </CardContent>
-        </Card>
+            <CardContent className="p-8">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+                <div className="flex flex-col justify-center">
+                  <span className="text-sm font-medium text-secondary mb-1 uppercase tracking-wider">Current Progress</span>
+                  <div className="flex items-baseline gap-2">
+                    <h2 className="text-5xl font-bold text-gray-900">Week {gestationalAge}</h2>
+                    <span className="text-muted-foreground font-medium">/ 40</span>
+                  </div>
+                  <Progress value={progress} className="h-3 mt-4 bg-pink-50" />
+                  <p className="text-sm text-gray-500 mt-2">Approximately {Math.floor(gestationalAge / 4)} months along</p>
+                </div>
+
+                <div className="flex flex-col justify-center border-l-0 md:border-l border-muted pl-0 md:pl-8 mt-6 md:mt-0">
+                  <span className="text-sm font-medium text-primary mb-1 uppercase tracking-wider">Countdown to EDD</span>
+                  <div className="flex items-baseline gap-2">
+                    <h2 className="text-4xl font-bold text-gray-900">{daysToEdd > 0 ? daysToEdd : 0}</h2>
+                    <span className="text-gray-500 font-medium">Days left</span>
+                  </div>
+                  <p className="text-sm text-muted-foreground mt-2">Estimated Date: {edd ? edd.toLocaleDateString() : 'Pending calculation'}</p>
+                </div>
+
+                <div className="flex flex-col justify-center border-l-0 lg:border-l border-muted pl-0 lg:pl-8 lg:col-span-2 mt-6 lg:mt-0">
+                  <div className="bg-primary/5 rounded-2xl p-6 flex items-center gap-4 ring-1 ring-primary/10">
+                    <div className="bg-primary p-3 rounded-xl shadow-lg shadow-primary/20">
+                      <Heart className="w-6 h-6 text-white" />
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-primary">Your Baby's Growth</h4>
+                      <p className="text-sm text-primary/80">
+                        At week {gestationalAge}, your baby is about the size of a {babySizeByWeek(gestationalAge)}!
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        ) : (
+          <Card className="border-none shadow-xl bg-gradient-to-br from-indigo-50/20 via-white to-white overflow-hidden ring-1 ring-black/5">
+            <CardContent className="p-8">
+              <div className="max-w-2xl">
+                <span className="text-sm font-bold text-[#D48BA1] mb-1 uppercase tracking-wider block">MCH Journey Completed</span>
+                <h2 className="text-3xl font-black text-gray-900 tracking-tight mb-3">Congratulations on your baby's delivery!</h2>
+                <p className="text-slate-600 text-sm leading-relaxed mb-6">
+                  Your delivery record and child identification are registered. All historical antenatal visits, checkups, vitals, postnatal care, and child immunization progress are securely stored in your Digital MCH Books.
+                </p>
+                {data?.pastPregnancies && data.pastPregnancies.length > 0 && (
+                  <div className="flex flex-wrap gap-2">
+                    <Button asChild className="bg-slate-900 hover:bg-slate-800 text-white rounded-xl">
+                      <Link href={`/dashboard/pregnant-woman/digital-mch-book?pregnancyId=${data.pastPregnancies[0].id}`}>
+                        <BookOpen className="w-4 h-4 mr-2" />
+                        Open Latest MCH Book
+                      </Link>
+                    </Button>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           
@@ -654,6 +679,48 @@ export default function PregnantWomanClient({ user, data }: { user: any, data: D
                 </Tabs>
               </CardContent>
             </Card>
+
+            {/* Pregnancy History Journeys */}
+            {data?.pastPregnancies && data.pastPregnancies.length > 0 && (
+              <div className="space-y-4">
+                <div className="flex items-center gap-2 px-1">
+                  <History className="w-5 h-5 text-[#D48BA1]" />
+                  <h3 className="text-xl font-bold text-foreground">Your Pregnancy Journeys (History)</h3>
+                </div>
+                <div className="grid grid-cols-1 gap-4">
+                  {data.pastPregnancies.map((p: any) => (
+                    <Card key={p.id} className="border-none shadow-sm hover:shadow-md transition-shadow">
+                      <CardContent className="p-5 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                        <div>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-bold text-slate-800 text-sm">Pregnancy Journey (Gravidity: {p.gravidity})</span>
+                            <Badge className="bg-slate-100 text-slate-700 text-[10px] uppercase font-bold">
+                              {p.status}
+                            </Badge>
+                          </div>
+                          <div className="text-xs text-slate-500 mt-2 space-y-1">
+                            <p>Expected Date (EDD): {p.edd ? new Date(p.edd).toLocaleDateString() : 'N/A'}</p>
+                            {p.hospital && <p>Registered at: {p.hospital.name} ({p.hospital.city})</p>}
+                            {p.delivery && (
+                              <p className="text-emerald-705 font-bold text-[#D48BA1] flex items-center gap-1.5 mt-1.5">
+                                <Baby className="w-3.5 h-3.5" />
+                                Delivered on {new Date(p.delivery.date).toLocaleDateString()} · Outcome: {p.delivery.outcome}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                        <Button asChild className="bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs px-4 h-9 w-full sm:w-auto shrink-0">
+                          <Link href={`/dashboard/pregnant-woman/digital-mch-book?pregnancyId=${p.id}`}>
+                            <BookOpen className="w-3.5 h-3.5 mr-1.5" />
+                            View Journey Records
+                          </Link>
+                        </Button>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Cross-hospital care panel */}
             {(data?.careHistory?.length ?? 0) > 0 && (

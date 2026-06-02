@@ -61,6 +61,7 @@ export default function PatientProfileClient({ data }: { data: any }) {
     careHistory = [],
     careFacilitySummary = [],
     currentStaffId = '',
+    pastPregnancies = [],
   } = data
   const router = useRouter()
   const [activeTab, setActiveTab] = useState('overview')
@@ -477,12 +478,13 @@ export default function PatientProfileClient({ data }: { data: any }) {
 
         {/* Tabs Content */}
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-2 sm:grid-cols-5 bg-white rounded-xl p-1 shadow-sm">
+          <TabsList className="grid w-full grid-cols-2 sm:grid-cols-6 bg-white rounded-xl p-1 shadow-sm">
             <TabsTrigger value="overview" className="rounded-lg">Overview</TabsTrigger>
             <TabsTrigger value="care-history" className="rounded-lg">Care history</TabsTrigger>
             <TabsTrigger value="vitals" className="rounded-lg">Vitals & Checkups</TabsTrigger>
             <TabsTrigger value="appointments" className="rounded-lg">Appointments</TabsTrigger>
             <TabsTrigger value="labs" className="rounded-lg">Lab Results</TabsTrigger>
+            <TabsTrigger value="pregnancy-history" className="rounded-lg">Pregnancy History</TabsTrigger>
           </TabsList>
 
           <TabsContent value="overview" className="mt-6 space-y-6">
@@ -747,6 +749,60 @@ export default function PatientProfileClient({ data }: { data: any }) {
                         )}
                       </div>
                     )})}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="pregnancy-history" className="mt-6 space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>All Pregnancy Records</CardTitle>
+                <CardDescription>
+                  Historical records of all pregnancies for {patientName}.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {pastPregnancies.length === 0 ? (
+                  <div className="text-center py-8 text-slate-500 italic">
+                    No other pregnancy records found for this patient.
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {pastPregnancies.map((p: any) => (
+                      <div key={p.id} className="p-4 rounded-xl border border-slate-200 bg-slate-50/50 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold text-slate-900">Pregnancy (Gravidity: {p.gravidity}, Parity: {p.parity})</span>
+                            <Badge className={p.status === 'active' ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-700'}>
+                              {p.status.toUpperCase()}
+                            </Badge>
+                          </div>
+                          <div className="text-xs text-slate-500 mt-1 space-y-0.5">
+                            <p>LMP: {formatDate(p.lmp)} | EDD: {formatDate(p.edd)}</p>
+                            {p.hospital && <p>Registered at: {p.hospital.name} ({p.hospital.city})</p>}
+                            {p.delivery && (
+                              <p className="text-indigo-650 font-semibold">
+                                Delivery: {formatDate(p.delivery.date)} | Outcome: {p.delivery.outcome}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 w-full sm:w-auto shrink-0">
+                          <Link href={`/dashboard/hospital/patients/${p.id}`} className="flex-1 sm:flex-initial">
+                            <Button variant="outline" size="sm" className="w-full rounded-xl">
+                              View Profile
+                            </Button>
+                          </Link>
+                          <Link href={`/dashboard/hospital/patients/${p.id}/mch-book`} className="flex-1 sm:flex-initial">
+                            <Button size="sm" className="w-full bg-slate-900 hover:bg-slate-800 text-white rounded-xl">
+                              MCH Book
+                            </Button>
+                          </Link>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 )}
               </CardContent>

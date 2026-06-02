@@ -6,6 +6,7 @@ export interface DashboardData {
   vitals: any[]
   careContact?: any
   notifications?: any[]
+  pastPregnancies?: any[]   // All completed pregnancies with delivery/child summaries
   clinicRecommendations?: {
     title: string
     content: string

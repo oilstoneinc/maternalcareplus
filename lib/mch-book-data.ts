@@ -142,7 +142,7 @@ export async function getMCHBookDataByPregnancyId(pregnancyId: string): Promise<
   }
 }
 
-export async function getMCHBookDataForPregnantWoman(clerkId: string) {
+export async function getMCHBookDataForPregnantWoman(clerkId: string, pregnancyId?: string) {
   await ensureMCHSchema()
 
   const dbUser = await db.query.users.findFirst({
@@ -151,10 +151,24 @@ export async function getMCHBookDataForPregnantWoman(clerkId: string) {
 
   if (!dbUser) return { dbUser: null, book: null as MCHBookData | null }
 
-  const pregnancy = await db.query.pregnancies.findFirst({
-    where: and(eq(pregnancies.userId, dbUser.id), eq(pregnancies.status, 'active')),
-    orderBy: [desc(pregnancies.createdAt)],
-  })
+  let pregnancy: any = null
+  if (pregnancyId) {
+    pregnancy = await db.query.pregnancies.findFirst({
+      where: and(eq(pregnancies.userId, dbUser.id), eq(pregnancies.id, pregnancyId)),
+    })
+  } else {
+    pregnancy = await db.query.pregnancies.findFirst({
+      where: and(eq(pregnancies.userId, dbUser.id), eq(pregnancies.status, 'active')),
+      orderBy: [desc(pregnancies.createdAt)],
+    })
+
+    if (!pregnancy) {
+      pregnancy = await db.query.pregnancies.findFirst({
+        where: eq(pregnancies.userId, dbUser.id),
+        orderBy: [desc(pregnancies.createdAt)],
+      })
+    }
+  }
 
   if (!pregnancy) return { dbUser, book: null as MCHBookData | null }
 

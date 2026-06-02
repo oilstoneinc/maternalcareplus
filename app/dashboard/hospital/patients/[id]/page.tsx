@@ -3,8 +3,8 @@ import { redirect } from 'next/navigation'
 import { requireRole } from '@/lib/clerk'
 import { db } from '@/lib/db'
 import { ensureMCHSchema } from '@/lib/db/ensure-mch-schema'
-import { users, pregnancies, appointments, vitalSigns, labTests, hospitals } from '@/lib/db/schema'
-import { eq, and, or, desc } from 'drizzle-orm'
+import { users, pregnancies, appointments, vitalSigns, labTests, hospitals, deliveries, children } from '@/lib/db/schema'
+import { eq, and, or, desc, ne } from 'drizzle-orm'
 import PatientProfileClient from './patient-profile-client'
 import { getHospitalCareHistory, getCareHistoryFacilitySummary } from '@/lib/hospital-care-history'
 import { logHospitalRegistryAccess } from '@/app/actions'
@@ -90,6 +90,24 @@ export default async function PatientProfilePage({ params }: { params: Promise<{
     const careHistory = await getHospitalCareHistory(pregnancyId, 50)
     const careFacilitySummary = await getCareHistoryFacilitySummary(pregnancyId)
 
+    // Fetch all other pregnancies for this patient (history across pregnancies)
+    let pastPregnancies: any[] = []
+    try {
+      const otherPregs = await db.query.pregnancies.findMany({
+        where: and(eq(pregnancies.userId, patient.id), ne(pregnancies.id, pregnancyId)),
+        orderBy: [desc(pregnancies.createdAt)],
+      })
+      for (const p of otherPregs) {
+        const pH = await db.query.hospitals.findFirst({ where: eq(hospitals.id, p.hospitalId) }).catch(() => null)
+        const pD = await db.query.deliveries.findFirst({ where: eq(deliveries.pregnancyId, p.id) }).catch(() => null)
+        const pC = await db.query.children.findFirst({ where: eq(children.pregnancyId, p.id) }).catch(() => null)
+        const pA = await db.query.appointments.findMany({ where: and(eq(appointments.pregnancyId, p.id), eq(appointments.status, 'completed')) }).catch(() => [])
+        pastPregnancies.push({ ...p, hospital: pH || null, delivery: pD || null, child: pC || null, ancVisitCount: pA.length })
+      }
+    } catch (e) {
+      console.error('Error fetching patient past pregnancies:', e)
+    }
+
     const safeData = JSON.parse(JSON.stringify({
       pregnancy,
       patient,
@@ -104,6 +122,7 @@ export default async function PatientProfilePage({ params }: { params: Promise<{
       careHistory,
       careFacilitySummary,
       currentStaffId: dbUser.id,
+      pastPregnancies,
     }))
 
     return <PatientProfileClient data={safeData} />

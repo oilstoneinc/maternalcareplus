@@ -175,7 +175,24 @@ export async function getPatientDashboardData(): Promise<DashboardData | null> {
     }
 
     if (!pregnancy) {
-      return { user: dbUser, pregnancy: null, appointments: [], labs: [], vitals: [] }
+      // No active pregnancy — fetch completed ones so history is visible
+      let pastPregnancies: any[] = []
+      try {
+        const completed = await db.query.pregnancies.findMany({
+          where: eq(pregnancies.userId, dbUser.id),
+          orderBy: [desc(pregnancies.createdAt)],
+        })
+        for (const p of completed) {
+          const pHospital = await db.query.hospitals.findFirst({ where: eq(hospitals.id, p.hospitalId) }).catch(() => null)
+          const pDelivery = await db.query.deliveries.findFirst({ where: eq(deliveries.pregnancyId, p.id) }).catch(() => null)
+          const pChild = await db.query.children.findFirst({ where: eq(children.pregnancyId, p.id) }).catch(() => null)
+          const pAncCount = await db.query.appointments.findMany({ where: and(eq(appointments.pregnancyId, p.id), eq(appointments.status, 'completed')) }).catch(() => [])
+          pastPregnancies.push({ ...p, hospital: pHospital || null, delivery: pDelivery || null, child: pChild || null, ancVisitCount: pAncCount.length })
+        }
+      } catch (e) {
+        console.error('Error fetching past pregnancies:', e)
+      }
+      return JSON.parse(JSON.stringify({ user: dbUser, pregnancy: null, appointments: [], labs: [], vitals: [], pastPregnancies }))
     }
 
     // Fetch hospital separately to avoid Drizzle relation dependencies
@@ -322,6 +339,23 @@ export async function getPatientDashboardData(): Promise<DashboardData | null> {
       console.error('Error fetching linked partner:', e)
     }
 
+    let pastPregnancies: any[] = []
+    try {
+      const allPregs = await db.query.pregnancies.findMany({
+        where: and(eq(pregnancies.userId, dbUser.id), ne(pregnancies.id, pregnancy.id)),
+        orderBy: [desc(pregnancies.createdAt)],
+      })
+      for (const p of allPregs) {
+        const pH = await db.query.hospitals.findFirst({ where: eq(hospitals.id, p.hospitalId) }).catch(() => null)
+        const pD = await db.query.deliveries.findFirst({ where: eq(deliveries.pregnancyId, p.id) }).catch(() => null)
+        const pC = await db.query.children.findFirst({ where: eq(children.pregnancyId, p.id) }).catch(() => null)
+        const pA = await db.query.appointments.findMany({ where: and(eq(appointments.pregnancyId, p.id), eq(appointments.status, 'completed')) }).catch(() => [])
+        pastPregnancies.push({ ...p, hospital: pH || null, delivery: pD || null, child: pC || null, ancVisitCount: pA.length })
+      }
+    } catch (e) {
+      console.error('Error fetching past pregnancies:', e)
+    }
+
     return {
       user: dbUser,
       pregnancy: {
@@ -337,6 +371,7 @@ export async function getPatientDashboardData(): Promise<DashboardData | null> {
       careHistory,
       careFacilitySummary,
       linkedPartner,
+      pastPregnancies,
     }
   } catch (err) {
     console.error('CRITICAL ERROR in getPatientDashboardData:', err)

@@ -6,13 +6,20 @@ import DigitalMCHBookClient from './digital-mch-book-client'
 
 export const dynamic = 'force-dynamic'
 
-export default async function DigitalMCHBookPage() {
+export default async function DigitalMCHBookPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ pregnancyId?: string }>
+}) {
   try {
     await requireRole('pregnant_woman')
     const user = await currentUser()
     if (!user) redirect('/sign-in')
 
-    const { dbUser, book } = await getMCHBookDataForPregnantWoman(user.id)
+    const resolvedSearchParams = searchParams ? await searchParams : {}
+    const pregnancyId = resolvedSearchParams.pregnancyId
+
+    const { dbUser, book } = await getMCHBookDataForPregnantWoman(user.id, pregnancyId)
 
     if (!dbUser) {
       return (
