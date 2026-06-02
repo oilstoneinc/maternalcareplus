@@ -61,6 +61,7 @@ export default function MCHBookClient({ data }: { data: any }) {
 
   // Handlers
   const handleChecklistSave = async (category: string, values: any) => {
+    if (loading) return
     setLoading(true)
     const res = await updateMCHChecklists(pregnancy.id, { [category]: values })
     setLoading(false)
@@ -70,6 +71,7 @@ export default function MCHBookClient({ data }: { data: any }) {
 
   const handleUpdatePregnancyDetails = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
+    if (loading) return
     setLoading(true)
     const formData = new FormData(e.currentTarget)
     const res = await updateMCHPregnancyDetails({
@@ -85,6 +87,7 @@ export default function MCHBookClient({ data }: { data: any }) {
 
   const handleAddPrevPregnancy = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
+    if (loading) return
     setLoading(true)
     const formData = new FormData(e.currentTarget)
     const res = await savePreviousPregnancy({
@@ -106,6 +109,7 @@ export default function MCHBookClient({ data }: { data: any }) {
 
   const handleRecordDelivery = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
+    if (loading) return
     setLoading(true)
     const formData = new FormData(e.currentTarget)
     const res = await saveDeliveryRecord({
@@ -125,6 +129,7 @@ export default function MCHBookClient({ data }: { data: any }) {
 
   const handleSavePNC = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
+    if (loading) return
     setLoading(true)
     const fd = new FormData(e.currentTarget)
     const res = await savePostnatalCare({
@@ -154,6 +159,7 @@ export default function MCHBookClient({ data }: { data: any }) {
     e.preventDefault()
     const child = children[0]
     if (!child) return
+    if (loading) return
     setLoading(true)
     const fd = new FormData(e.currentTarget)
     const res = await updateChildName(child.id, String(fd.get('firstName') || ''), String(fd.get('lastName') || ''))
@@ -170,6 +176,7 @@ export default function MCHBookClient({ data }: { data: any }) {
     e.preventDefault()
     const child = children[0]
     if (!child) return
+    if (loading) return
     setLoading(true)
     const fd = new FormData(e.currentTarget)
     const res = await recordChildGrowth({

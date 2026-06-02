@@ -35,6 +35,7 @@ export default function ChildHealthClient({ data }: { data: any }) {
 
   const handleAddImmunization = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
+    if (loading) return
     setLoading(true)
     const formData = new FormData(e.currentTarget)
     const res = await recordImmunization({
@@ -57,6 +58,7 @@ export default function ChildHealthClient({ data }: { data: any }) {
 
   const handleAddGrowth = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
+    if (loading) return
     setLoading(true)
     const formData = new FormData(e.currentTarget)
     const res = await recordChildGrowth({

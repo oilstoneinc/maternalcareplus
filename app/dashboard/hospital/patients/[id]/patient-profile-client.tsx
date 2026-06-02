@@ -115,6 +115,7 @@ export default function PatientProfileClient({ data }: { data: any }) {
   const assignedMidwife = availableMidwives?.find((m: any) => m.id === pregnancy.midwifeId)
 
   const handleSaveBloodType = async () => {
+    if (savingBloodType) return
     if (!bloodTypeValue) {
       alert('Please select a blood type.')
       return
@@ -140,6 +141,7 @@ export default function PatientProfileClient({ data }: { data: any }) {
   }
 
   const handleSaveAge = async () => {
+    if (savingAge) return
     const parsed = parseInt(ageValue, 10)
     if (Number.isNaN(parsed)) {
       alert('Please enter a valid age in years.')
@@ -167,6 +169,7 @@ export default function PatientProfileClient({ data }: { data: any }) {
   }
 
   const handleSaveGhanaCardId = async () => {
+    if (savingGhanaCardId) return
     const trimmed = ghanaCardIdValue.trim().toUpperCase()
     if (!trimmed) {
       alert('Please enter a valid Ghana Card ID.')
@@ -857,6 +860,7 @@ function ScheduleVisitForm({ pregnancyId, onComplete }: { pregnancyId: string; o
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (loading) return
     if (!date) return
     setLoading(true)
     try {
@@ -910,6 +914,7 @@ function QuickVitalsForm({ pregnancyId, onComplete }: { pregnancyId: string; onC
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (loading) return
     setLoading(true)
     try {
       const res = await recordVitals(form)
@@ -1017,6 +1022,7 @@ function LabScanForm({ pregnancyId, onComplete }: { pregnancyId: string; onCompl
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (loading) return
     setLoading(true)
     try {
       const res = await recordLabOrScan(form)
@@ -1175,6 +1181,7 @@ function StandingAdviceEditor({
   const [saving, setSaving] = useState(false)
 
   const handleSave = async () => {
+    if (saving) return
     setSaving(true)
     try {
       const res = await updatePregnancyStandingAdvice(pregnancy.id, advice)
@@ -1240,6 +1247,7 @@ function MedicalHistoryEditor({
   }, [pregnancy.medicalHistory, pregnancy.allergies, pregnancy.medications, editing])
 
   const handleSave = async () => {
+    if (saving) return
     setSaving(true)
     try {
       const res = await updatePregnancyMedicalInfo(pregnancy.id, form)
@@ -1672,6 +1680,7 @@ function InsuranceEditor({ patient, onSaved }: { patient: any; onSaved: () => vo
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (saving) return
     setSaving(true)
     setError(null)
     try {
