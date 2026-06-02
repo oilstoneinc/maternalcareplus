@@ -733,22 +733,57 @@ export async function getFatherDashboardData() {
 
   let pregnancy: (typeof pregnancies.$inferSelect) | null = null
   let motherUser: (typeof users.$inferSelect) | null = null
+  let pastPregnancies: any[] = []
+
   if (dbUser.role === 'father' || dbUser.role === 'admin') {
-    const access = await db.query.partnerAccess.findFirst({
-      where: and(
-        eq(partnerAccess.partnerId, dbUser.id),
-        eq(partnerAccess.isActive, true)
-      ),
+    const accesses = await db.query.partnerAccess.findMany({
+      where: eq(partnerAccess.partnerId, dbUser.id),
     })
-    if (access?.pregnancyId) {
+
+    const activeAccess = accesses.find(a => a.isActive)
+    if (activeAccess?.pregnancyId) {
       pregnancy = await db.query.pregnancies.findFirst({
-        where: eq(pregnancies.id, access.pregnancyId),
+        where: eq(pregnancies.id, activeAccess.pregnancyId),
       }) || null
       if (pregnancy?.userId) {
         motherUser = await db.query.users.findFirst({
           where: eq(users.id, pregnancy.userId),
         }) || null
       }
+    }
+
+    const pastPregnancyIds = accesses
+      .filter(a => !a.isActive)
+      .map(a => a.pregnancyId)
+      .filter(Boolean)
+
+    if (pastPregnancyIds.length > 0) {
+      const list = await db.query.pregnancies.findMany({
+        where: inArray(pregnancies.id, pastPregnancyIds),
+        orderBy: [desc(pregnancies.createdAt)],
+      })
+
+      const hospitalIds = list.map((p) => p.hospitalId).filter(Boolean)
+      const hospitalsList = hospitalIds.length > 0 ? await db.query.hospitals.findMany({
+        where: inArray(hospitals.id, hospitalIds),
+      }) : []
+      const hospitalMap = new Map(hospitalsList.map((h) => [h.id, h]))
+
+      const deliveriesList = await db.query.deliveries.findMany({
+        where: inArray(deliveries.pregnancyId, pastPregnancyIds),
+      })
+      const deliveryMap = new Map(deliveriesList.map((d) => [d.pregnancyId, d]))
+
+      pastPregnancies = list.map((p) => ({
+        ...p,
+        hospital: p.hospitalId ? hospitalMap.get(p.hospitalId) : null,
+        delivery: deliveryMap.get(p.id)
+          ? {
+              date: deliveryMap.get(p.id)!.deliveryDate,
+              outcome: deliveryMap.get(p.id)!.neonatalComplications || 'Healthy birth',
+            }
+          : null,
+      }))
     }
   }
 
@@ -929,6 +964,7 @@ export async function getFatherDashboardData() {
       clinicRecommendations,
       readOnly: dbUser.role === 'father',
       pendingVerification,
+      pastPregnancies,
       vitals: {
         weightHistory,
         bpHistory,
@@ -1399,12 +1435,20 @@ export async function onboardPatient(formData: any) {
         }
       }
 
-      // Check if pregnancy record already exists for this patient
+      // Check if an ACTIVE pregnancy record already exists for this patient
       const existingPregnancy = await db.query.pregnancies.findFirst({
-        where: eq(pregnancies.userId, newUser.id)
+        where: and(
+          eq(pregnancies.userId, newUser.id),
+          or(
+            eq(pregnancies.status, 'active'),
+            eq(pregnancies.status, 'complicated')
+          )
+        ),
+        orderBy: [desc(pregnancies.createdAt)],
       })
 
       if (!existingPregnancy) {
+        // No active pregnancy → create a brand-new one (covers first-time AND returning mothers)
         const [createdPregnancy] = await db.insert(pregnancies).values({
           userId: newUser.id,
           hospitalId: formData.hospitalId || hospitalId,
@@ -1417,9 +1461,33 @@ export async function onboardPatient(formData: any) {
           ...(parsedRhesusFactor && { rhesusFactor: parsedRhesusFactor }),
         }).returning()
         activePregnancyId = createdPregnancy.id
-        console.log(`[onboardPatient] Instantiated new pregnancy record for user ${newUser.id} (blood type: ${parsedBloodType || 'not provided'})`)
+        console.log(`[onboardPatient] Created NEW pregnancy record ${createdPregnancy.id} for user ${newUser.id}`)
+
+        // Auto-re-link the previous partner to the new pregnancy if one existed
+        const previousAccess = await db.query.partnerAccess.findFirst({
+          where: eq(partnerAccess.pregnantWomanId, newUser.id),
+          orderBy: [desc(partnerAccess.createdAt)],
+        })
+        if (previousAccess) {
+          // Deactivate old access records for this mother
+          await db.update(partnerAccess)
+            .set({ isActive: false, updatedAt: new Date() })
+            .where(eq(partnerAccess.pregnantWomanId, newUser.id))
+          // Create new access for the new pregnancy
+          await db.insert(partnerAccess).values({
+            pregnantWomanId: newUser.id,
+            partnerId: previousAccess.partnerId,
+            pregnancyId: createdPregnancy.id,
+            canViewAppointments: true,
+            canViewLabResults: true,
+            canViewProgress: true,
+            canReceiveNotifications: true,
+            isActive: true,
+          })
+          console.log(`[onboardPatient] Auto-linked partner ${previousAccess.partnerId} to new pregnancy ${createdPregnancy.id}`)
+        }
       } else {
-        // Update existing pregnancy record
+        // Active pregnancy already exists → update it (re-registration mid-pregnancy)
         await db.update(pregnancies)
           .set({
             hospitalId: formData.hospitalId || hospitalId,
@@ -1432,7 +1500,7 @@ export async function onboardPatient(formData: any) {
           })
           .where(eq(pregnancies.id, existingPregnancy.id))
         activePregnancyId = existingPregnancy.id
-        console.log(`[onboardPatient] Updated existing pregnancy record ${existingPregnancy.id} for user ${newUser.id} (blood type: ${parsedBloodType || 'not provided'})`)
+        console.log(`[onboardPatient] Updated active pregnancy ${existingPregnancy.id} for user ${newUser.id}`)
       }
     }
 
@@ -4195,4 +4263,133 @@ export async function updateNhisDetails({
   revalidatePath('/dashboard/hospital')
 
   return { success: true }
+}
+
+/**
+ * Hospital staff action: Start a new pregnancy journey for a returning patient
+ * whose previous pregnancy has been completed or terminated.
+ * Creates a brand-new pregnancy record and automatically re-links the partner
+ * (if one was previously connected) to the new pregnancy.
+ */
+export async function startNewPregnancyForPatient({
+  patientUserId,
+  lmp,
+  gravidity,
+  parity,
+  bloodType,
+}: {
+  patientUserId: string
+  lmp: string
+  gravidity: number
+  parity: number
+  bloodType?: string
+}): Promise<{ success: boolean; pregnancyId?: string; error?: string }> {
+  try {
+    const user = await currentUser()
+    if (!user) return { success: false, error: 'Unauthorized' }
+
+    const staff = await db.query.users.findFirst({
+      where: eq(users.clerkId, user.id),
+    })
+    if (!staff || !['hospital_staff', 'midwife', 'admin'].includes(staff.role)) {
+      return { success: false, error: 'Only hospital staff can start a new pregnancy journey.' }
+    }
+    if (!staff.hospitalId) {
+      return { success: false, error: 'Staff member is not assigned to a hospital.' }
+    }
+
+    // Verify the patient exists
+    const patient = await db.query.users.findFirst({
+      where: eq(users.id, patientUserId),
+    })
+    if (!patient) return { success: false, error: 'Patient not found.' }
+
+    // Confirm there is no currently ACTIVE pregnancy (prevent duplicates)
+    const activePregnancy = await db.query.pregnancies.findFirst({
+      where: and(
+        eq(pregnancies.userId, patientUserId),
+        or(
+          eq(pregnancies.status, 'active'),
+          eq(pregnancies.status, 'complicated')
+        )
+      ),
+    })
+    if (activePregnancy) {
+      return {
+        success: false,
+        error: 'This patient already has an active pregnancy. Please complete or close it before starting a new one.',
+      }
+    }
+
+    // Parse blood type
+    let parsedBloodType: string | null = null
+    let parsedRhesusFactor: 'Positive' | 'Negative' | null = null
+    if (bloodType?.trim()) {
+      const btMatch = bloodType.trim().match(/^(A|B|AB|O)(\+|-)$/)
+      if (btMatch) {
+        parsedBloodType = btMatch[1]
+        parsedRhesusFactor = btMatch[2] === '+' ? 'Positive' : 'Negative'
+      }
+    }
+
+    const lmpDate = new Date(lmp)
+    const eddDate = new Date(lmpDate)
+    eddDate.setDate(eddDate.getDate() + 280)
+
+    // Create the new pregnancy record
+    const [newPregnancy] = await db.insert(pregnancies).values({
+      userId: patientUserId,
+      hospitalId: staff.hospitalId,
+      gravidity,
+      parity,
+      lmp: lmpDate,
+      edd: eddDate,
+      status: 'active',
+      ...(parsedBloodType && { bloodType: parsedBloodType }),
+      ...(parsedRhesusFactor && { rhesusFactor: parsedRhesusFactor }),
+    }).returning()
+
+    console.log(`[startNewPregnancyForPatient] New pregnancy ${newPregnancy.id} started for patient ${patientUserId} by staff ${staff.id}`)
+
+    // Auto-re-link previous partner to the new pregnancy
+    const previousAccess = await db.query.partnerAccess.findFirst({
+      where: eq(partnerAccess.pregnantWomanId, patientUserId),
+      orderBy: [desc(partnerAccess.createdAt)],
+    })
+    if (previousAccess) {
+      await db.update(partnerAccess)
+        .set({ isActive: false, updatedAt: new Date() })
+        .where(eq(partnerAccess.pregnantWomanId, patientUserId))
+      await db.insert(partnerAccess).values({
+        pregnantWomanId: patientUserId,
+        partnerId: previousAccess.partnerId,
+        pregnancyId: newPregnancy.id,
+        canViewAppointments: true,
+        canViewLabResults: true,
+        canViewProgress: true,
+        canReceiveNotifications: true,
+        isActive: true,
+      })
+      console.log(`[startNewPregnancyForPatient] Partner ${previousAccess.partnerId} auto-re-linked to new pregnancy ${newPregnancy.id}`)
+    }
+
+    // Log the clinical event
+    await recordFacilityCareEvent({
+      pregnancyId: newPregnancy.id,
+      staffUserId: staff.id,
+      staffHospitalId: staff.hospitalId,
+      action: 'new_pregnancy_started',
+      summary: `New pregnancy journey (G${gravidity}P${parity}) started. LMP: ${lmpDate.toLocaleDateString()}. EDD: ${eddDate.toLocaleDateString()}.`,
+    })
+
+    revalidatePath(`/dashboard/hospital/patients/${newPregnancy.id}`)
+    revalidatePath('/dashboard/hospital')
+    revalidatePath('/dashboard/pregnant-woman')
+    revalidatePath('/dashboard/father')
+
+    return { success: true, pregnancyId: newPregnancy.id }
+  } catch (err: any) {
+    console.error('[startNewPregnancyForPatient] Error:', err)
+    return { success: false, error: err?.message || 'Failed to start new pregnancy.' }
+  }
 }

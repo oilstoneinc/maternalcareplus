@@ -25,7 +25,8 @@ import {
   Beaker,
   BookOpen,
   Activity,
-  X
+  X,
+  History
 } from 'lucide-react'
 import Link from 'next/link'
 import { useState } from 'react'
@@ -605,6 +606,48 @@ export default function FatherDashboardClient({ user, data }: FatherDashboardPro
           </div>
         </div>
       </Card>
+
+      {/* Pregnancy History Journeys */}
+      {data?.pastPregnancies && data.pastPregnancies.length > 0 && (
+        <div className="space-y-4">
+          <div className="flex items-center gap-2 px-1">
+            <History className="w-5 h-5 text-indigo-600" />
+            <h3 className="text-xl font-bold text-foreground">Pregnancy Journeys (History)</h3>
+          </div>
+          <div className="grid grid-cols-1 gap-4">
+            {data.pastPregnancies.map((p: any) => (
+              <Card key={p.id} className="border-none shadow-sm hover:shadow-md transition-shadow">
+                <CardContent className="p-5 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                  <div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-bold text-slate-800 text-sm">Pregnancy Journey (Gravidity: {p.gravidity})</span>
+                      <Badge className="bg-slate-100 text-slate-700 text-[10px] uppercase font-bold">
+                        {p.status}
+                      </Badge>
+                    </div>
+                    <div className="text-xs text-slate-500 mt-2 space-y-1">
+                      <p>Expected Date (EDD): {p.edd ? new Date(p.edd).toLocaleDateString() : 'N/A'}</p>
+                      {p.hospital && <p>Registered at: {p.hospital.name} ({p.hospital.city})</p>}
+                      {p.delivery && (
+                        <p className="text-emerald-705 font-bold text-indigo-600 flex items-center gap-1.5 mt-1.5">
+                          <Baby className="w-3.5 h-3.5" />
+                          Delivered on {new Date(p.delivery.date).toLocaleDateString()} · Outcome: {p.delivery.outcome}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  <Button asChild className="bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs px-4 h-9 w-full sm:w-auto shrink-0">
+                    <Link href={`/dashboard/father/mch-book?pregnancyId=${p.id}`}>
+                      <BookOpen className="w-3.5 h-3.5 mr-1.5" />
+                      View Journey Records
+                    </Link>
+                  </Button>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Emergency Quick Access */}
       <div className="flex gap-4">

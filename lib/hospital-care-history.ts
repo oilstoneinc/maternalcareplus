@@ -14,6 +14,7 @@ export type CareEncounterAction =
   | 'appointment_scheduled'
   | 'blood_type_update'
   | 'timeline_update'
+  | 'new_pregnancy_started'
 
 const ACTION_LABELS: Record<CareEncounterAction, string> = {
   registry_access: 'Record reviewed',
@@ -25,6 +26,7 @@ const ACTION_LABELS: Record<CareEncounterAction, string> = {
   appointment_scheduled: 'Visit scheduled',
   blood_type_update: 'Blood type updated',
   timeline_update: 'Pregnancy dates updated',
+  new_pregnancy_started: 'New pregnancy journey started',
 }
 
 let hospitalCareSchemaEnsured = false

@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button'
 import { ArrowLeft, Activity, Calendar as CalendarIcon, FileText, Plus, BookOpen, Users, FlaskConical, MessageCircle, Pencil, Check, X, Building2, ShieldCheck } from 'lucide-react'
 import HospitalCareHistoryPanel from '@/components/dashboard/HospitalCareHistoryPanel'
 import Link from 'next/link'
-import { recordAntenatalVisit, recordVitals, recordLabOrScan, assignMidwifeToPregnancy, scheduleNextVisit, updatePregnancyBloodType, updatePatientAge, updatePatientGhanaCardId, updatePregnancyMedicalInfo, updatePregnancyStandingAdvice, updateNhisDetails } from '@/app/actions'
+import { recordAntenatalVisit, recordVitals, recordLabOrScan, assignMidwifeToPregnancy, scheduleNextVisit, updatePregnancyBloodType, updatePatientAge, updatePatientGhanaCardId, updatePregnancyMedicalInfo, updatePregnancyStandingAdvice, updateNhisDetails, startNewPregnancyForPatient } from '@/app/actions'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
@@ -66,6 +66,7 @@ export default function PatientProfileClient({ data }: { data: any }) {
   const router = useRouter()
   const [activeTab, setActiveTab] = useState('overview')
   const [chatOpen, setChatOpen] = useState(false)
+  const [showNewPregnancyDialog, setShowNewPregnancyDialog] = useState(false)
   const [showVitalForm, setShowVitalForm] = useState(false)
   const [showQuickVitals, setShowQuickVitals] = useState(false)
   const [showLabForm, setShowLabForm] = useState(false)
@@ -479,6 +480,25 @@ export default function PatientProfileClient({ data }: { data: any }) {
           </Card>
         </div>
 
+        {/* Start New Pregnancy banner — shown when the current pregnancy is completed */}
+        {(pregnancy.status === 'completed' || pregnancy.status === 'terminated') && (
+          <div className="rounded-2xl border border-indigo-200 bg-indigo-50/60 px-6 py-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div>
+              <p className="font-bold text-indigo-900 text-sm">Pregnancy journey is completed</p>
+              <p className="text-xs text-indigo-700 mt-0.5">
+                If this patient has returned for a new pregnancy, start a new journey to record new antenatal visits and link her partner.
+              </p>
+            </div>
+            <Button
+              onClick={() => setShowNewPregnancyDialog(true)}
+              className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shrink-0 shadow-sm"
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Start New Pregnancy Journey
+            </Button>
+          </div>
+        )}
+
         {/* Tabs Content */}
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList className="grid w-full grid-cols-2 sm:grid-cols-6 bg-white rounded-xl p-1 shadow-sm">
@@ -822,7 +842,167 @@ export default function PatientProfileClient({ data }: { data: any }) {
       open={chatOpen}
       onClose={() => setChatOpen(false)}
     />
+
+    {showNewPregnancyDialog && (
+      <StartNewPregnancyDialog
+        patientUserId={patient.id}
+        patientName={patientName}
+        onClose={() => setShowNewPregnancyDialog(false)}
+        onSuccess={(newPregnancyId) => {
+          setShowNewPregnancyDialog(false)
+          router.push(`/dashboard/hospital/patients/${newPregnancyId}`)
+        }}
+      />
+    )}
     </>
+  )
+}
+
+function StartNewPregnancyDialog({
+  patientUserId,
+  patientName,
+  onClose,
+  onSuccess,
+}: {
+  patientUserId: string
+  patientName: string
+  onClose: () => void
+  onSuccess: (newPregnancyId: string) => void
+}) {
+  const [saving, setSaving] = useState(false)
+  const [form, setForm] = useState({
+    lmp: '',
+    gravidity: '',
+    parity: '',
+    bloodType: '',
+  })
+  const [error, setError] = useState<string | null>(null)
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (saving) return
+    if (!form.lmp) { setError('Last Menstrual Period (LMP) is required.'); return }
+    const grav = parseInt(form.gravidity)
+    const par = parseInt(form.parity)
+    if (isNaN(grav) || grav < 1) { setError('Gravidity must be at least 1.'); return }
+    if (isNaN(par) || par < 0) { setError('Parity must be 0 or more.'); return }
+    setError(null)
+    setSaving(true)
+    const res = await startNewPregnancyForPatient({
+      patientUserId,
+      lmp: form.lmp,
+      gravidity: grav,
+      parity: par,
+      bloodType: form.bloodType || undefined,
+    })
+    setSaving(false)
+    if (res.success && res.pregnancyId) {
+      onSuccess(res.pregnancyId)
+    } else {
+      setError(res.error || 'Failed to start new pregnancy.')
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
+        <div className="p-6 border-b border-slate-100 flex items-start justify-between">
+          <div>
+            <h2 className="font-bold text-lg text-slate-900">Start New Pregnancy Journey</h2>
+            <p className="text-sm text-slate-500 mt-0.5">For {patientName}</p>
+          </div>
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-700 transition-colors mt-0.5">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+        <form onSubmit={handleSubmit} className="p-6 space-y-5">
+          <div className="space-y-1.5">
+            <Label htmlFor="new-lmp">Last Menstrual Period (LMP) *</Label>
+            <Input
+              id="new-lmp"
+              type="date"
+              required
+              value={form.lmp}
+              onChange={(e) => setForm({ ...form, lmp: e.target.value })}
+              className={clinicalFieldClass}
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="new-gravidity">Gravidity (G) *</Label>
+              <Input
+                id="new-gravidity"
+                type="number"
+                min="1"
+                required
+                placeholder="e.g. 2"
+                value={form.gravidity}
+                onChange={(e) => setForm({ ...form, gravidity: e.target.value })}
+                className={clinicalFieldClass}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="new-parity">Parity (P) *</Label>
+              <Input
+                id="new-parity"
+                type="number"
+                min="0"
+                required
+                placeholder="e.g. 1"
+                value={form.parity}
+                onChange={(e) => setForm({ ...form, parity: e.target.value })}
+                className={clinicalFieldClass}
+              />
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="new-blood-type">Blood Type (optional)</Label>
+            <select
+              id="new-blood-type"
+              title="Blood Type"
+              value={form.bloodType}
+              onChange={(e) => setForm({ ...form, bloodType: e.target.value })}
+              className="w-full border border-slate-300 rounded-xl p-2.5 text-sm bg-white focus:ring-2 focus:ring-[#D48BA1] focus:border-[#D48BA1] outline-none shadow-sm"
+            >
+              <option value="">Unknown / not tested</option>
+              {BLOOD_TYPE_OPTIONS.map((bt) => <option key={bt} value={bt}>{bt}</option>)}
+            </select>
+          </div>
+
+          {error && (
+            <p className="text-sm font-semibold text-red-600 bg-red-50 border border-red-200 rounded-xl px-4 py-3">{error}</p>
+          )}
+
+          <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
+            <p className="text-xs text-amber-800 font-semibold">📋 What happens next?</p>
+            <ul className="text-xs text-amber-700 mt-1 space-y-0.5 list-disc list-inside">
+              <li>A new Digital MCH Book will be created for this pregnancy.</li>
+              <li>The patient&apos;s previous journey is safely preserved and still viewable.</li>
+              <li>If she had a partner (father) linked before, he will be automatically re-connected to this new journey.</li>
+            </ul>
+          </div>
+
+          <div className="flex gap-3 pt-1">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={onClose}
+              disabled={saving}
+              className="flex-1 rounded-xl"
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              disabled={saving}
+              className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl"
+            >
+              {saving ? 'Starting Journey…' : 'Start New Journey'}
+            </Button>
+          </div>
+        </form>
+      </div>
+    </div>
   )
 }
 
