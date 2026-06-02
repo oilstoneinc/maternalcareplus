@@ -14,7 +14,7 @@ import {
   vitalSigns,
   hospitals,
 } from '@/lib/db/schema'
-import { eq, and, desc, asc } from 'drizzle-orm'
+import { eq, and, desc, asc, ne } from 'drizzle-orm'
 async function safeQuery<T>(label: string, fn: () => Promise<T>, fallback: T): Promise<T> {
   try {
     return await fn()
@@ -58,6 +58,59 @@ export async function getMCHBookDataByPregnancyId(pregnancyId: string): Promise<
     db.query.hospitals.findFirst({ where: eq(hospitals.id, pregnancy.hospitalId) }),
     null
   )
+
+  if (mother) {
+    try {
+      const pastPregs = await db.query.pregnancies.findMany({
+        where: and(
+          eq(pregnancies.userId, mother.id),
+          ne(pregnancies.id, pregnancyId)
+        )
+      })
+
+      for (const p of pastPregs) {
+        const delivery = await db.query.deliveries.findFirst({
+          where: eq(deliveries.pregnancyId, p.id)
+        })
+
+        if (delivery) {
+          const yearVal = new Date(delivery.deliveryDate).getFullYear()
+          const durationVal = p.gestationalAge || 40
+
+          const existing = await db.query.previousPregnancies.findFirst({
+            where: and(
+              eq(previousPregnancies.userId, mother.id),
+              eq(previousPregnancies.year, yearVal),
+              eq(previousPregnancies.modeOfDelivery, delivery.modeOfDelivery || '')
+            )
+          })
+
+          if (!existing) {
+            const childRecord = await db.query.children.findFirst({
+              where: eq(children.pregnancyId, p.id)
+            })
+
+            const sexVal = childRecord?.sex || 'Unknown'
+            const weightVal = childRecord?.birthWeight ? childRecord.birthWeight.toString() : '3.00'
+            const complicationsVal = delivery.maternalComplications || delivery.neonatalComplications || 'None'
+
+            await db.insert(previousPregnancies).values({
+              userId: mother.id,
+              year: yearVal,
+              pregnancyDuration: durationVal,
+              modeOfDelivery: delivery.modeOfDelivery || 'SVD',
+              birthWeight: weightVal,
+              sex: sexVal,
+              alive: true,
+              complications: complicationsVal
+            })
+          }
+        }
+      }
+    } catch (err) {
+      console.error('Error auto-filling previous pregnancies history:', err)
+    }
+  }
 
   const prevPregnancies = mother
     ? await safeQuery('previousPregnancies', () =>
