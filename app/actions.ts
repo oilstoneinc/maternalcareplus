@@ -777,12 +777,7 @@ export async function getFatherDashboardData() {
       pastPregnancies = list.map((p) => ({
         ...p,
         hospital: p.hospitalId ? hospitalMap.get(p.hospitalId) : null,
-        delivery: deliveryMap.get(p.id)
-          ? {
-              date: deliveryMap.get(p.id)!.deliveryDate,
-              outcome: deliveryMap.get(p.id)!.neonatalComplications || 'Healthy birth',
-            }
-          : null,
+        delivery: deliveryMap.get(p.id) || null,
       }))
     }
   }

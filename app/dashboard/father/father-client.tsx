@@ -631,7 +631,7 @@ export default function FatherDashboardClient({ user, data }: FatherDashboardPro
                       {p.delivery && (
                         <p className="text-emerald-705 font-bold text-indigo-600 flex items-center gap-1.5 mt-1.5">
                           <Baby className="w-3.5 h-3.5" />
-                          Delivered on {new Date(p.delivery.date).toLocaleDateString()} · Outcome: {p.delivery.outcome}
+                          Delivered on {new Date(p.delivery.deliveryDate).toLocaleDateString()} · Mode: {p.delivery.modeOfDelivery}
                         </p>
                       )}
                     </div>

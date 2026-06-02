@@ -42,9 +42,6 @@ export default async function DigitalMCHBookPage({
       return (
         <div className="min-h-screen flex items-center justify-center bg-[#FDFCFB] p-8 text-center">
           <div className="max-w-md space-y-4">
-            <div className="w-20 h-20 bg-pink-50 rounded-full flex items-center justify-center mx-auto mb-6">
-              <span className="text-4xl text-pink-400 font-bold">✨</span>
-            </div>
             <h1 className="text-3xl font-black text-slate-800 tracking-tight">Your Journey Starts Soon</h1>
             <p className="text-slate-500">
               Your digital MCH Record Book will appear here once your hospital registers your pregnancy.
